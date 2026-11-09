@@ -34,6 +34,16 @@ const ORB_POSITIONS: Array[Vector3] = [
 	Vector3(0, 2.2, 10), Vector3(-2, 1.2, -2), Vector3(2, 1.2, -2)
 ]
 const EVENTS := ["DUCK_PARADE", "PINK_SKY", "GOLDEN_ORB_RUSH", "CONFETTI_STORM", "LOW_GRAVITY", "BONK_MODE", "NPC_MODE", "DUCK_EXE", "METEOR_SHOWER", "ICE_WORLD", "FREEZE_FRAME", "DOUBLE_XP"]
+const ARCADE_WEAPONS := {
+	"aether": {"name":"AETHER", "damage":34.0, "cooldown_ms":240, "range":65.0},
+	"minicore": {"name":"MINICORE", "damage":10.0, "cooldown_ms":90, "range":46.0},
+	"hand_cannon": {"name":"NOVA HAND CANNON", "damage":48.0, "cooldown_ms":680, "range":58.0},
+	"pulse_carbine": {"name":"PULSE CARBINE", "damage":20.0, "cooldown_ms":180, "range":62.0},
+	"star_piercer": {"name":"STAR PIERCER", "damage":70.0, "cooldown_ms":1050, "range":92.0},
+	"duck_launcher": {"name":"DUCK LAUNCHER", "damage":24.0, "cooldown_ms":620, "range":42.0},
+	"banana_boomerang": {"name":"BANANA BOOMERANG", "damage":16.0, "cooldown_ms":420, "range":38.0},
+	"confetti_cannon": {"name":"CONFETTI CANNON", "damage":8.0, "cooldown_ms":110, "range":34.0}
+}
 
 var is_dedicated_server := false
 var is_authenticated := false
@@ -191,9 +201,13 @@ func request_invite_friend(friend_user_id: String) -> void:
 	if is_authenticated and not is_dedicated_server and not friend_user_id.is_empty():
 		rpc_id(1, "_server_invite_friend", friend_user_id)
 
-func request_blaster_fire(direction: Vector3) -> void:
-	if is_authenticated and not is_dedicated_server and direction.length() > 0.9:
-		rpc_id(1, "_server_blaster_fire", direction.normalized())
+func request_select_weapon(weapon_id: String) -> void:
+	if is_authenticated and not is_dedicated_server and ARCADE_WEAPONS.has(weapon_id):
+		rpc_id(1, "_server_select_weapon", weapon_id)
+
+func request_blaster_fire(weapon_id: String, direction: Vector3) -> void:
+	if is_authenticated and not is_dedicated_server and ARCADE_WEAPONS.has(weapon_id) and direction.length() > 0.9:
+		rpc_id(1, "_server_blaster_fire", weapon_id, direction.normalized())
 
 func _process(delta: float) -> void:
 	if is_dedicated_server:
@@ -283,8 +297,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			"respawn_left": float(_server_players[peer_id].respawn_left) if _server_players.has(peer_id) else 0.0,
 			"kills": int(_server_players[peer_id].kills) if _server_players.has(peer_id) else 0,
 			"deaths": int(_server_players[peer_id].deaths) if _server_players.has(peer_id) else 0,
-			"blaster_mastery_xp": int(_server_players[peer_id].blaster_mastery_xp) if _server_players.has(peer_id) else 0,
-			"grenade_mastery_xp": int(_server_players[peer_id].grenade_mastery_xp) if _server_players.has(peer_id) else 0,
+			"equipped_weapon_id": str(_server_players[peer_id].equipped_weapon_id) if _server_players.has(peer_id) else "aether",
 			"blaster_mastery_xp": int(_server_players[peer_id].blaster_mastery_xp) if _server_players.has(peer_id) else 0,
 			"grenade_mastery_xp": int(_server_players[peer_id].grenade_mastery_xp) if _server_players.has(peer_id) else 0,
 			"damage_dealt": float(_server_players[peer_id].damage_dealt) if _server_players.has(peer_id) else 0.0,
@@ -353,8 +366,7 @@ func _server_authenticate(ticket: String) -> void:
 		player.deaths = int(restored.get("deaths", 0))
 		player.blaster_mastery_xp = int(restored.get("blaster_mastery_xp", 0))
 		player.grenade_mastery_xp = int(restored.get("grenade_mastery_xp", 0))
-		player.blaster_mastery_xp = int(restored.get("blaster_mastery_xp", 0))
-		player.grenade_mastery_xp = int(restored.get("grenade_mastery_xp", 0))
+		player.equipped_weapon_id = str(restored.get("equipped_weapon_id", "aether"))
 		player.damage_dealt = float(restored.get("damage_dealt", 0.0))
 		player.shots_fired = int(restored.get("shots_fired", 0))
 		player.shots_hit = int(restored.get("shots_hit", 0))
@@ -460,22 +472,37 @@ func _server_submit_input(move: Vector2, yaw: float, jump: bool, sprint: bool, s
 	player.slide_requested = player.slide_requested or slide
 	player.dash_requested = player.dash_requested or dash
 
+@rpc("any_peer", "call_remote", "reliable")
+func _server_select_weapon(weapon_id: String) -> void:
+	if not multiplayer.is_server() or not ARCADE_WEAPONS.has(weapon_id):
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _peer_users.has(peer_id) or not _server_players.has(peer_id):
+		return
+	var player = _server_players[peer_id]
+	if player.is_dead:
+		return
+	player.equipped_weapon_id = weapon_id
+
 @rpc("any_peer", "call_remote", "unreliable")
-func _server_blaster_fire(direction: Vector3) -> void:
+func _server_blaster_fire(weapon_id: String, direction: Vector3) -> void:
+	if not ARCADE_WEAPONS.has(weapon_id):
+		return
 	if not multiplayer.is_server() or not is_finite(direction.x) or not is_finite(direction.y) or not is_finite(direction.z) or direction.length() < 0.9 or direction.length() > 1.1:
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
 	if not _peer_users.has(peer_id) or not _server_players.has(peer_id):
 		return
 	var now := Time.get_ticks_msec()
-	if now - int(_last_blaster_ms.get(peer_id, 0)) < 220:
+	var weapon: Dictionary = ARCADE_WEAPONS[weapon_id]
+	if now - int(_last_blaster_ms.get(peer_id, 0)) < int(weapon.cooldown_ms):
 		return
 	var user_id := str(_peer_users[peer_id])
 	var room_code := str(_user_rooms.get(user_id, ""))
 	if room_code.is_empty() or not _rooms.has(room_code) or bool(_rooms[room_code].get("round_finished", false)):
 		return
 	var shooter = _server_players[peer_id]
-	if shooter.is_dead or str(shooter.event_id) == "FREEZE_FRAME":
+	if shooter.is_dead or str(shooter.event_id) == "FREEZE_FRAME" or str(shooter.equipped_weapon_id) != weapon_id:
 		return
 	var safe_direction := direction.normalized()
 	if absf(safe_direction.y) > 0.94:
@@ -485,9 +512,10 @@ func _server_blaster_fire(direction: Vector3) -> void:
 		return
 	_last_blaster_ms[peer_id] = now
 	shooter.shots_fired += 1
-	_award_weapon_mastery(shooter, "blaster", 1)
+	if weapon_id == "aether":
+		_award_weapon_mastery(shooter, "blaster", 1)
 	var origin: Vector3 = shooter.global_position + Vector3.UP * 1.45
-	var endpoint := origin + safe_direction * 65.0
+	var endpoint := origin + safe_direction * float(weapon.range)
 	var query := PhysicsRayQueryParameters3D.create(origin, endpoint)
 	query.exclude = [shooter.get_rid()]
 	query.collide_with_areas = false
@@ -500,20 +528,23 @@ func _server_blaster_fire(direction: Vector3) -> void:
 				if _server_players[target_peer] == target:
 					if str(shooter.team_id) != "" and str(shooter.team_id) == str(target.get("team_id")):
 						break
-					var was_killed: bool = target.apply_damage(34.0)
+					var weapon_damage := float(weapon.damage)
+					var was_killed: bool = target.apply_damage(weapon_damage)
 					shooter.shots_hit += 1
-					_award_weapon_mastery(shooter, "blaster", 8)
-					shooter.damage_dealt += 34.0
-					target.damage_received += 34.0
+					if weapon_id == "aether":
+						_award_weapon_mastery(shooter, "blaster", 8)
+					shooter.damage_dealt += weapon_damage
+					target.damage_received += weapon_damage
 					if was_killed:
 						shooter.kills += 1
-						_award_weapon_mastery(shooter, "blaster", 35)
+						if weapon_id == "aether":
+							_award_weapon_mastery(shooter, "blaster", 35)
 						shooter.kill_streak += 1
 						shooter.best_kill_streak = maxi(shooter.best_kill_streak, shooter.kill_streak)
 						target.deaths += 1
 						target.kill_streak = 0
 						_award_killstreak(room_code, peer_id)
-						_broadcast_kill_feed(room_code, peer_id, int(target_peer), "AETHER")
+						_broadcast_kill_feed(room_code, peer_id, int(target_peer), str(weapon.name))
 					shooter.score += 10 + (50 if was_killed else 0)
 					break
 	var room: Dictionary = _rooms[room_code]
