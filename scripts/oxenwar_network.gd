@@ -39,6 +39,7 @@ var _access_token := ""
 var _last_send_ms := 0
 var _snapshot_accumulator := 0.0
 var _server_players: Dictionary = {} # peer id -> CharacterBody3D
+var _last_input_ms: Dictionary = {}
 var _client_peer_ids: Dictionary = {}
 var _peer_users: Dictionary = {} # peer id -> Supabase user id
 var _user_peers: Dictionary = {} # Supabase user id -> peer id
@@ -198,6 +199,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			_server_players[peer_id].queue_free()
 		_server_players.erase(peer_id)
 	_peer_users.erase(peer_id)
+	_last_input_ms.erase(peer_id)
 	_user_peers.erase(user_id)
 	_tokens.erase(user_id)
 	_broadcast_room_state(room_code)
@@ -322,6 +324,12 @@ func _server_submit_input(move: Vector2, yaw: float, jump: bool, sprint: bool, s
 	var peer_id := multiplayer.get_remote_sender_id()
 	if not _peer_users.has(peer_id) or not _server_players.has(peer_id):
 		return
+	var now := Time.get_ticks_msec()
+	if now - int(_last_input_ms.get(peer_id, 0)) < 15:
+		return
+	if not is_finite(move.x) or not is_finite(move.y) or not is_finite(yaw):
+		return
+	_last_input_ms[peer_id] = now
 	var player = _server_players[peer_id]
 	player.input_vector = move.limit_length(1.0)
 	player.look_yaw = wrapf(yaw, -PI, PI)
