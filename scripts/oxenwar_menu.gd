@@ -8,7 +8,6 @@ var profile: Dictionary = {}
 var authenticated := false
 var is_admin := false
 var active_tab := "play"
-var email_input: LineEdit
 var password_input: LineEdit
 var display_input: LineEdit
 var username_input: LineEdit
@@ -133,14 +132,12 @@ func _build_auth(parent: VBoxContainer) -> void:
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	heading.add_theme_color_override("font_color", MUTED)
 	form.add_child(heading)
-	email_input = _field(_t("email"), "name@example.com")
-	form.add_child(email_input)
-	password_input = _field(_t("password"), "••••••••", true)
-	form.add_child(password_input)
-	display_input = _field(_t("display_name"), "Player")
-	form.add_child(display_input)
 	username_input = _field(_t("username") + " (3–20)", "Player_01")
 	form.add_child(username_input)
+	password_input = _field(_t("password") + " (8+)", "••••••••", true)
+	form.add_child(password_input)
+	display_input = _field(_t("display_name") + " (register)", "Player")
+	form.add_child(display_input)
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 10)
 	form.add_child(actions)
@@ -215,11 +212,11 @@ func _on_language_selected(index: int) -> void:
 	_build()
 
 func _on_login() -> void:
-	if email_input.text.strip_edges().is_empty() or password_input.text.is_empty():
-		message_label.text = _t("error") + ": " + _t("email") + " / " + _t("password")
+	if username_input.text.strip_edges().is_empty() or password_input.text.is_empty():
+		message_label.text = _t("error") + ": " + _t("username") + " / " + _t("password")
 		return
 	message_label.text = "..."
-	var result: Dictionary = await backend.sign_in(email_input.text, password_input.text)
+	var result: Dictionary = await backend.sign_in(username_input.text, password_input.text)
 	if not result.get("ok", false):
 		message_label.text = _t("error") + ": " + str(result.get("message", ""))
 		return
@@ -228,7 +225,7 @@ func _on_login() -> void:
 	_build()
 
 func _on_register() -> void:
-	if email_input.text.strip_edges().is_empty() or password_input.text.length() < 8:
+	if password_input.text.length() < 8:
 		message_label.text = _t("error") + ": password must be at least 8 characters."
 		return
 	var chosen_name := display_input.text.strip_edges()
@@ -239,12 +236,9 @@ func _on_register() -> void:
 		message_label.text = _t("error") + ": enter a display name and a player name using 3–20 letters, numbers or underscores."
 		return
 	message_label.text = "..."
-	var result: Dictionary = await backend.sign_up(email_input.text, password_input.text, chosen_name, chosen_username, locale)
+	var result: Dictionary = await backend.sign_up(password_input.text, chosen_name, chosen_username, locale)
 	if not result.get("ok", false):
 		message_label.text = _t("error") + ": " + str(result.get("message", ""))
-		return
-	if result.get("needs_email_confirmation", false):
-		message_label.text = _t("confirm_email")
 		return
 	await _load_account()
 	if str(profile.get("username", "")) != chosen_username:
