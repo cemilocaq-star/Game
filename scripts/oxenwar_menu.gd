@@ -31,7 +31,7 @@ func _ready() -> void:
 	pass
 
 func _t(key: String) -> String:
-	return I18N.tr(key, locale)
+	return I18N.text_for(key, locale)
 
 func _build() -> void:
 	for child in get_children():

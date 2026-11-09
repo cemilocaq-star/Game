@@ -48,6 +48,6 @@ const TEXTS := {
 	}
 }
 
-static func tr(key: String, locale: String) -> String:
+static func text_for(key: String, locale: String) -> String:
 	var language: Dictionary = TEXTS.get(locale, TEXTS["en"])
 	return str(language.get(key, TEXTS["en"].get(key, key)))
