@@ -52,8 +52,10 @@ static func build_weapon(weapon_id: String, tint: Color) -> Node3D:
 	match weapon_id:
 		"aether":
 			_box(root, "AetherCore", Vector3(0.19, 0.18, 0.62), Vector3(0.0, 0.0, -0.10), dark)
-			_box(root, "AetherTopRail", Vector3(0.09, 0.05, 0.48), Vector3(0.0, 0.13, -0.08), trim)
+			_box(root, "BarrelShroud", Vector3(0.22, 0.20, 0.34), Vector3(0.0, 0.005, -0.245), shell)
+			_box(root, "UpperPowerRail", Vector3(0.09, 0.05, 0.48), Vector3(0.0, 0.13, -0.08), trim)
 			_tube(root, "AetherEmitter", 0.095, 0.16, Vector3(0.0, 0.0, -0.43), tint, true)
+			_tube(root, "MuzzleRing", 0.108, 0.045, Vector3(0.0, 0.0, -0.475), trim)
 			_orb(root, "AetherCell", 0.09, Vector3(0.11, -0.02, 0.05), tint, true)
 		"minicore":
 			_box(root, "MiniCoreHousing", Vector3(0.29, 0.23, 0.44), Vector3(0.0, 0.0, -0.10), shell)
