@@ -1,6 +1,8 @@
 extends Node3D
 ## Lightweight visual proxy for another connected player.
 
+const CharacterVisuals = preload("res://scripts/character_visuals.gd")
+
 var target_position := Vector3.ZERO
 var target_yaw := 0.0
 var _sliding := false
@@ -12,6 +14,7 @@ var _name_tag: Label3D
 var _emote_id := ""
 var _emote_clock := 0.0
 var _swimwear_root: Node3D
+var _character_detail_root: Node3D
 
 func _ready() -> void:
 	_visual = MeshInstance3D.new()
@@ -22,6 +25,7 @@ func _ready() -> void:
 	_visual.position.y = 0.9
 	add_child(_visual)
 	_build_remote_swimwear()
+	_rebuild_remote_detail()
 	_name_tag = Label3D.new()
 	_name_tag.position = Vector3(0, 2.15, 0)
 	_name_tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -38,9 +42,10 @@ func set_player_identity(player_name: String, color: Color, outfit_id: String = 
 	if is_instance_valid(_visual):
 		_base_color = Color("#A92332") if outfit_id == "outfit_iron_vanguard" else (Color("#B52D3D") if outfit_id == "outfit_web_sentinel" else color)
 		var material := StandardMaterial3D.new()
-		material.albedo_color = color
+		material.albedo_color = _base_color
 		material.roughness = 0.65
 		_visual.material_override = material
+		_rebuild_remote_detail()
 
 func _build_remote_swimwear() -> void:
 	_swimwear_root = Node3D.new()
@@ -73,6 +78,13 @@ func _build_remote_swimwear() -> void:
 		lens.material_override = _remote_material(Color("#172638"))
 		glasses.add_child(lens)
 
+func _rebuild_remote_detail() -> void:
+	if is_instance_valid(_character_detail_root):
+		_character_detail_root.queue_free()
+	if is_instance_valid(_visual):
+		_character_detail_root = CharacterVisuals.build(_visual, _outfit_id, _base_color)
+		_character_detail_root.visible = not (is_instance_valid(_swimwear_root) and _swimwear_root.visible)
+
 func _remote_material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
@@ -84,6 +96,8 @@ func apply_network_state(position_value: Vector3, yaw_value: float, sliding: boo
 	target_yaw = yaw_value
 	if is_instance_valid(_swimwear_root):
 		_swimwear_root.visible = swimming
+	if is_instance_valid(_character_detail_root):
+		_character_detail_root.visible = not swimming
 	if emote_id != _emote_id:
 		_emote_id = emote_id if emote_id in ["griddy", "goofy"] else ""
 		_emote_clock = 0.0
