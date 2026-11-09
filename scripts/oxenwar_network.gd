@@ -153,7 +153,9 @@ func request_quick_match(mode: String = "ffa") -> void:
 		rpc_id(1, "_server_quick_match", _sanitize_mode(mode))
 
 func _sanitize_mode(mode: String) -> String:
-	return "team_deathmatch" if mode == "team_deathmatch" else "ffa"
+	if mode == "team_deathmatch" or mode == "king_of_the_hill":
+		return mode
+	return "ffa"
 
 func request_emote(emote_id: String) -> void:
 	if is_authenticated and not is_dedicated_server and emote_id in ["griddy", "goofy"]:
@@ -770,6 +772,9 @@ func _new_room(code: String, owner_uid: String, public_room: bool, mode: String 
 		"round_id": str(Time.get_unix_time_from_system()) + "-" + code,
 		"started_at_ms": Time.get_ticks_msec(),
 		"round_finished": false,
+		"hill_control": 0.0,
+		"hill_points_red": 0.0,
+		"hill_points_blue": 0.0,
 		"persisted": {}
 	}
 
@@ -778,7 +783,7 @@ func _assign_user_to_room(user_id: String, peer_id: int, code: String) -> void:
 		return
 	var room: Dictionary = _rooms[code]
 	room.members[user_id] = peer_id
-	if _sanitize_mode(str(room.get("mode", "ffa"))) == "team_deathmatch":
+	if _sanitize_mode(str(room.get("mode", "ffa"))) in ["team_deathmatch", "king_of_the_hill"]:
 		var red_count := 0
 		var blue_count := 0
 		for member_uid in room.members.keys():
@@ -902,6 +907,29 @@ func _server_process_rooms(delta: float) -> void:
 					var spawn_offset := Vector3(float(respawn_peer % 4) * 1.6 - 2.4, 0.0, float(int(respawn_peer / 4) % 4) * 1.6)
 					var team_spawn_x := -10.0 if str(respawn_player.team_id) == "red" else (10.0 if str(respawn_player.team_id) == "blue" else 0.0)
 					respawn_player.respawn_at(Vector3(team_spawn_x, 1.5, 6) + spawn_offset)
+		if str(room.get("mode", "ffa")) == "king_of_the_hill":
+			var red_inside := 0
+			var blue_inside := 0
+			var hill_center := Vector3(0, 1.5, 0)
+			for hill_uid in room.members.keys():
+				var hill_peer := int(room.members[hill_uid])
+				if hill_peer <= 0 or not _server_players.has(hill_peer):
+					continue
+				var hill_player = _server_players[hill_peer]
+				if hill_player.is_dead or hill_player.global_position.distance_to(hill_center) > 5.0:
+					continue
+				if str(hill_player.team_id) == "red":
+					red_inside += 1
+				elif str(hill_player.team_id) == "blue":
+					blue_inside += 1
+			if red_inside > 0 and blue_inside == 0:
+				room.hill_control = minf(100.0, float(room.hill_control) + delta * 20.0)
+			elif blue_inside > 0 and red_inside == 0:
+				room.hill_control = maxf(-100.0, float(room.hill_control) - delta * 20.0)
+			if float(room.hill_control) >= 100.0 and red_inside > 0 and blue_inside == 0:
+				room.hill_points_red = float(room.hill_points_red) + delta
+			elif float(room.hill_control) <= -100.0 and blue_inside > 0 and red_inside == 0:
+				room.hill_points_blue = float(room.hill_points_blue) + delta
 		for orb_index in range(ORB_POSITIONS.size()):
 			if not bool(room.orb_available[orb_index]) and now >= int(room.orb_respawn[orb_index]):
 				room.orb_available[orb_index] = true
@@ -951,10 +979,13 @@ func _server_process_rooms(delta: float) -> void:
 					best_kills = int(candidate.kills)
 					best_score = int(candidate.score)
 					ffa_winner_peer = member_peer
+			if str(room.mode) == "king_of_the_hill":
+				red_kills = int(round(float(room.hill_points_red)))
+				blue_kills = int(round(float(room.hill_points_blue)))
 			for member_uid in room.members.keys():
 				var member_peer := int(room.members[member_uid])
 				var outcome := "draw"
-				if str(room.mode) == "team_deathmatch":
+				if str(room.mode) in ["team_deathmatch", "king_of_the_hill"]:
 					if red_kills > blue_kills:
 						outcome = "win" if _server_players.has(member_peer) and str(_server_players[member_peer].team_id) == "red" else "loss"
 					elif blue_kills > red_kills:
@@ -1080,7 +1111,7 @@ func _broadcast_snapshot(code: String) -> void:
 		var peer_id := int(room.members[user_id])
 		if peer_id > 0:
 			rpc_id(peer_id, "_client_receive_snapshot", states, str(room.event_id),
-				float(room.event_left), float(room.round_left), room.orb_available, str(room.code))
+				float(room.event_left), float(room.round_left), room.orb_available, str(room.code), str(room.mode), float(room.hill_control), float(room.hill_points_red), float(room.hill_points_blue))
 
 func _broadcast_room_state(code: String) -> void:
 	if not _rooms.has(code):
@@ -1135,7 +1166,7 @@ func _client_room_invite(owner_name: String, room_code: String) -> void:
 		invite_received.emit(owner_name, room_code)
 
 @rpc("authority", "call_remote", "unreliable_ordered")
-func _client_receive_snapshot(states: Dictionary, event_id: String, event_left: float, round_left: float, orb_available: Dictionary, room_code: String) -> void:
+func _client_receive_snapshot(states: Dictionary, event_id: String, event_left: float, round_left: float, orb_available: Dictionary, room_code: String, mode: String, hill_control: float, hill_points_red: float, hill_points_blue: float) -> void:
 	if multiplayer.is_server():
 		return
 	for key in states.keys():
@@ -1155,7 +1186,8 @@ func _client_receive_snapshot(states: Dictionary, event_id: String, event_left: 
 			_client_peer_ids.erase(peer_id)
 	room_state_changed.emit({
 		"code": room_code, "event_id": event_id, "event_left": event_left,
-		"round_left": round_left, "orb_available": orb_available
+		"round_left": round_left, "orb_available": orb_available, "mode": mode,
+		"hill_control": hill_control, "hill_points_red": hill_points_red, "hill_points_blue": hill_points_blue
 	})
 
 @rpc("authority", "call_remote", "reliable")
