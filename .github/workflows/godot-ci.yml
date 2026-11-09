@@ -111,6 +111,9 @@ jobs:
           java -version
           sdkmanager --list_installed
 
+      - name: Download and verify CC0 event audio
+        run: python3 tools/fetch_open_audio_assets.py
+
       - name: Run structural project validation
         run: python3 tests/validate_project.py
 
