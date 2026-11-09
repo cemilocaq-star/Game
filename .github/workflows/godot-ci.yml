@@ -123,7 +123,7 @@ jobs:
       - name: Start dedicated server smoke test
         shell: bash
         run: |
-          output="$(godot --headless --path . -- --server --smoke-test 2>&1)"
+          output="$(godot --headless --path . --quit-after 5 -- --server --smoke-test 2>&1)"
           printf '%s\n' "$output"
           grep -q "OxenWar authoritative server listening on UDP 2456" <<< "$output"
           grep -q "OxenWar dedicated server smoke test passed" <<< "$output"
