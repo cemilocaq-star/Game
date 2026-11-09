@@ -4,14 +4,16 @@ OxenWar is a free-to-play Godot 4.4.1 parkour arena project. Its visual directio
 
 ## Current features
 
-- Existing local parkour arena, movement, dash, slide, collectibles, rounds, events, XP progression and graphics presets.
-- Supabase email/password account registration and sign-in.
-- Unique player usernames and display names.
-- Friend search, outgoing/incoming friend requests, accept/reject and friend list.
-- Friend online status based on a 30-second heartbeat and a 90-second online window.
-- Free starter cosmetics: avatar colors, outfit variants and accessories.
-- Azerbaijani, English, Turkish and Russian menu localization.
-- Admin role is read-only from the client and must be assigned through trusted database administration; a player cannot grant themselves admin access.
+- Godot 4.4.1 parkour arena, server-owned movement physics, dash, slide, collectibles, rounds and gameplay events.
+- Supabase email/password accounts; the dedicated server verifies each access token against Supabase Auth before spawning a player.
+- Friend search, friend requests, friend list and online presence.
+- Private friend rooms with six-character join codes; private-room joins are checked against the Supabase friendship table.
+- Public quick-match rooms, lobby roster and 8-player room capacity.
+- 30-second reconnect reservation for a disconnected player.
+- Server-owned score, XP awards, collectible inventory and event timers.
+- Match results are persisted through a JWT-protected Supabase Edge Function, gated by a separate server-only secret.
+- Free starter cosmetics and Azerbaijani, English, Turkish and Russian menu localization.
+- Admin role is read-only from the client and must be assigned through trusted database administration.
 
 ## Supabase project
 
@@ -19,17 +21,21 @@ Project ref: `lznnfwhlsquiitkhjzlc`
 Region: `eu-central-1` (Frankfurt)  
 API URL: `https://lznnfwhlsquiitkhjzlc.supabase.co`
 
-The client uses the project's **publishable** key. This key is designed for client applications; access is restricted by database Row Level Security. Never add a Supabase secret/service-role key to the game or repository.
+The game client contains only the project's publishable key. Never add a Supabase secret/service-role key to the game or repository. RLS protects the stats and collection tables; players can read only their own rows. Writes are restricted to the server-only result function.
 
-Database schema source is in `supabase/migrations/`. The tables use RLS. New Auth users receive a profile, player role, presence row and the free starter cosmetic inventory.
+Database schema source is in `supabase/migrations/`. The server sync Edge Function is in `supabase/functions/oxenwar-server-sync/index.ts` and is deployed with JWT verification enabled.
 
 ## Run locally
 
 1. Install Godot 4.4.1 Standard (not .NET).
 2. Open `project.godot`.
 3. Run `main.tscn`.
-4. Register with an email and password. If email confirmation is enabled in Supabase Auth, confirm the email before signing in.
-5. Choose a language, find friends by username and equip free cosmetics.
+4. Register/sign in with Supabase.
+5. Run a dedicated server in another terminal: `godot --headless --path . -- --server`.
+6. In the game, enter the server's LAN address or public hostname and press **CONNECT**.
+7. Use **CREATE ROOM** to make a private friend room, **JOIN** with its code, or **QUICK MATCH** to enter a public room.
+
+For a private room, share its six-character code with an existing OxenWar friend. The server checks the friendship relationship before allowing entry. Public quick-match rooms are available to all authenticated players.
 
 ## Controls
 
@@ -41,28 +47,27 @@ Database schema source is in `supabase/migrations/`. The tables use RLS. New Aut
 - Q: dash
 - Escape: release/capture mouse
 
+Online clients send input only. The server runs CharacterBody3D movement and collision against its own arena, and sends authoritative snapshots back to clients.
+
 ## Builds
 
-GitHub Actions validates the structure, imports/parses the project with Godot headless, and attempts Windows x86_64 EXE and Android arm64 debug APK exports. Artifacts are only considered built when the workflow succeeds and the files are uploaded.
+GitHub Actions validates the structure, imports/parses the project with Godot headless, starts a dedicated-server smoke test, and attempts Windows x86_64 EXE and Android arm64 debug APK exports. Artifacts are only considered built when the workflow succeeds and the files are uploaded.
 
 - Windows: `build/OxenWar.exe`
 - Android: `build/OxenWar.apk`
 
-## Important limitations — read before calling this multiplayer
+## Important limitations
 
-- The current parkour gameplay loop is still local single-player. Supabase currently provides online accounts, social graph, cosmetics and friend presence; it does **not** yet synchronize player movement, matches, rooms or combat between devices.
-- Friend presence is heartbeat-based polling, not a continuous realtime indicator.
-- Friend-request records are in the Realtime publication, but the game menu currently refreshes them when the Friends page is opened.
-- Online admin role lookup is server-backed, but no player has been promoted to admin yet. Do not use the old client-side name/password gate as online security.
-- Real device testing, Godot parse/build verification and live signup/friend-flow tests must be completed before a public release.
+- The server code and Supabase database/Edge Function are deployed in the repository/project, but **no public game server instance has been launched yet**. The Fly.io configuration is a template until the owner deploys it.
+- The Edge Function returns 403 until the same `OXENWAR_SERVER_SECRET` is set in Supabase Edge Function secrets and the game-server host environment. Do not put this secret in the client or GitHub.
+- Rooms and active matches are held in server memory. Reconnect reservations last 30 seconds; a server process restart ends active rooms.
+- Match results are written at match completion, room leave, or reconnect-reservation expiry. An unexpected host shutdown before one of those points can lose the in-progress match.
+- Friend invitations are currently shared by room code; direct invite notifications are supported by the server RPC but are not yet wired into the friends UI.
+- Godot CI parsing/export and live multi-device tests must pass before calling the complete game runtime production-ready.
 
 ## Security
 
 - Never commit a secret/service-role key.
 - Keep RLS enabled on every exposed table.
-- Do not trust client-side admin flags, player names, scores or movement for competitive multiplayer. Authoritative game logic requires a trusted game server.
-
-
-## Multiplayer server
-
-OxenWar now includes an ENet/UDP dedicated-server entry point and a basic shared-session movement relay. See [server/README.md](server/README.md) for local startup and deployment-template instructions. This is not yet authoritative physics or production matchmaking.
+- Supabase Auth validates the player's JWT; the server never trusts a client-provided user ID or display name.
+- The server owns movement, collision, scores, XP, event timing and collectible awards. Never re-enable client-side online movement or score awards.
