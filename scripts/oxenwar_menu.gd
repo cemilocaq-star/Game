@@ -15,6 +15,7 @@ var username_input: LineEdit
 var message_label: Label
 var content: VBoxContainer
 var cosmetics: Dictionary = {}
+var registration_notice := ""
 
 const BG := Color("#07111F")
 const PANEL := Color("#101F32")
@@ -116,6 +117,8 @@ func _build() -> void:
 	add_child(heartbeat)
 	_send_presence_heartbeat()
 	_render_tab()
+	if not registration_notice.is_empty():
+		content.add_child(_label(registration_notice))
 
 func _build_auth(parent: VBoxContainer) -> void:
 	var center := CenterContainer.new()
@@ -220,6 +223,7 @@ func _on_login() -> void:
 	if not result.get("ok", false):
 		message_label.text = _t("error") + ": " + str(result.get("message", ""))
 		return
+	registration_notice = ""
 	await _load_account()
 	_build()
 
@@ -229,8 +233,10 @@ func _on_register() -> void:
 		return
 	var chosen_name := display_input.text.strip_edges()
 	var chosen_username := username_input.text.strip_edges()
-	if chosen_name.is_empty() or chosen_username.length() < 3 or chosen_username.length() > 20:
-		message_label.text = _t("error") + ": enter a display name and a 3–20 character player name."
+	var username_regex := RegEx.new()
+	username_regex.compile("^[A-Za-z0-9_]{3,20}$")
+	if chosen_name.is_empty() or username_regex.search(chosen_username) == null:
+		message_label.text = _t("error") + ": enter a display name and a player name using 3–20 letters, numbers or underscores."
 		return
 	message_label.text = "..."
 	var result: Dictionary = await backend.sign_up(email_input.text, password_input.text, chosen_name, chosen_username)
@@ -240,15 +246,9 @@ func _on_register() -> void:
 	if result.get("needs_email_confirmation", false):
 		message_label.text = _t("confirm_email")
 		return
-	var update_result: Dictionary = await backend.update_profile({
-		"username": chosen_username,
-		"display_name": chosen_name,
-		"locale": locale
-	})
-	if not update_result.get("ok", false):
-		message_label.text = _t("register_ok") + " " + str(update_result.get("message", ""))
-		return
 	await _load_account()
+	if str(profile.get("username", "")) != chosen_username:
+		registration_notice = "That player name was already taken; your account received the available name " + str(profile.get("username", "Player")) + "."
 	_build()
 
 func _load_account() -> void:
