@@ -59,6 +59,16 @@ func record_score(value: int) -> void:
 		best_score = value
 	_save_progress()
 
+## Online totals are supplied by the authenticated game server, not local save data.
+func sync_server_total_xp(value: int) -> void:
+	total_xp = maxi(0, value)
+	level = 1
+	xp = total_xp
+	while xp >= xp_for_next_level():
+		xp -= xp_for_next_level()
+		level += 1
+	xp_changed.emit(xp, xp_for_next_level(), level)
+
 func _load_progress() -> void:
 	var config := ConfigFile.new()
 	if config.load(SAVE_PATH) != OK:
