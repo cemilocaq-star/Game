@@ -135,3 +135,9 @@ A third multiplayer mode, King of the Hill, assigns players to balanced red/blue
 
 ## Expanded arcade arsenal and weapon presentation
 The roster has 23 server-registered fictional archetypes plus the separate grenade throwable. Fifteen additions expand the range from crystal and orbit effects to bubbles, pixels, frost, solar energy, slime, moon discs and deliberately silly duck/chicken props. The client arsenal is a scrollable card grid; selecting a card changes the selected server weapon and rebuilds a distinct procedural first-person silhouette. These meshes are lightweight Godot primitives, not imported production weapon assets. Equip transition, existing firing recoil, colored beams and original synthesized shot audio are presentation effects only. The server continues to validate equipped IDs and combat values.
+
+
+### Weapon inspect and sound pass
+- Press **H** to inspect the equipped arcade weapon, or open the Arsenal and use **INSPECT [H]**. The inspect motion briefly presents the prop at an angle, then restores its first-person position; a subtle idle sway continues between actions.
+- Each of the 23 weapons now has a separately synthesized original sound profile built from its own frequency/sweep/overtone mix. These are generated locally at runtime and are not recordings or imitations of real-world weapons.
+- The new pass is presentation-only: server-side damage, range, cooldown and selection validation remain unchanged. There is no magazine/ammunition/reload economy in this phase.
