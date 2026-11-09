@@ -165,6 +165,16 @@ func get_player_stats() -> Dictionary:
 	var rows: Array = result.get("data", [])
 	return {"ok": true, "data": rows[0] if not rows.is_empty() else {}}
 
+func get_weapon_mastery() -> Dictionary:
+	if not await _ensure_session():
+		return {"ok": false, "message": "Please sign in again."}
+	var result := await _request(HTTPClient.METHOD_GET,
+		"/rest/v1/player_weapon_mastery?select=blaster_xp,grenade_xp,updated_at&user_id=eq.%s&limit=1" % user_id, null, true)
+	if not result.get("ok", false):
+		return result
+	var rows: Array = result.get("data", [])
+	return {"ok": true, "data": rows[0] if not rows.is_empty() else {"blaster_xp": 0, "grenade_xp": 0}}
+
 func get_role() -> String:
 	var result := await _request(HTTPClient.METHOD_GET,
 		"/rest/v1/player_roles?select=role&user_id=eq.%s&limit=1" % user_id, null, true)
