@@ -10,6 +10,8 @@ const DASH_TIME := 0.16
 const DASH_COOLDOWN := 1.0
 const GRAVITY := 18.0
 const MAX_STAMINA := 100.0
+const MAX_HEALTH := 100.0
+const RESPAWN_SECONDS := 4.0
 const JUMP_BUFFER_TIME := 0.14
 const COYOTE_TIME := 0.12
 const SLIDE_DURATION := 0.7
@@ -23,6 +25,9 @@ var sliding := false
 var slide_requested := false
 var dash_requested := false
 var stamina := MAX_STAMINA
+var health := MAX_HEALTH
+var is_dead := false
+var respawn_left := 0.0
 var score := 0
 var xp := 0
 var match_xp := 0
@@ -49,6 +54,10 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	rotation.y = look_yaw
+	if is_dead:
+		input_vector = Vector2.ZERO
+		velocity = Vector3.ZERO
+		return
 	if event_id == "FREEZE_FRAME":
 		velocity = Vector3.ZERO
 		move_and_slide()
@@ -116,6 +125,35 @@ func _physics_process(delta: float) -> void:
 		else:
 			stamina = minf(MAX_STAMINA, stamina + 20.0 * delta)
 	move_and_slide()
+
+func apply_damage(amount: float) -> bool:
+	if is_dead or amount <= 0.0:
+		return false
+	health = maxf(0.0, health - amount)
+	if health <= 0.0:
+		is_dead = true
+		respawn_left = RESPAWN_SECONDS
+		input_vector = Vector2.ZERO
+		velocity = Vector3.ZERO
+		sprinting = false
+		dash_requested = false
+		slide_requested = false
+		_set_sliding(false)
+		return true
+	return false
+
+func respawn_at(spawn_position: Vector3) -> void:
+	global_position = spawn_position
+	velocity = Vector3.ZERO
+	health = MAX_HEALTH
+	is_dead = false
+	respawn_left = 0.0
+	stamina = MAX_STAMINA
+	input_vector = Vector2.ZERO
+	jump_requested = false
+	dash_requested = false
+	slide_requested = false
+	_set_sliding(false)
 
 func _set_sliding(enabled: bool) -> void:
 	if _was_sliding == enabled or not is_instance_valid(_collider) or not is_instance_valid(_capsule):
