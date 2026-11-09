@@ -57,6 +57,8 @@ var active_emote := ""
 var _emote_clock := 0.0
 var _emote_music: AudioStreamPlayer
 var _emote_base_rotation := Vector3.ZERO
+var _swimwear_root: Node3D
+var is_swimming := false
 
 func _ready() -> void:
 	_build_visuals()
@@ -97,6 +99,7 @@ func _build_visuals() -> void:
 		_add_selected_accessory()
 	_body_mesh.position.y = 0.9
 	add_child(_body_mesh)
+	_build_swimwear()
 	if cosmetic_outfit == "outfit_iron_vanguard" or cosmetic_outfit == "outfit_web_sentinel":
 		_add_hero_skin_details()
 
@@ -205,6 +208,51 @@ func _add_selected_accessory() -> void:
 			ear.material_override = _material(cosmetic_color)
 			accessory_root.add_child(ear)
 
+
+func _build_swimwear() -> void:
+	_swimwear_root = Node3D.new()
+	_swimwear_root.name = "BeachSwimwear"
+	_swimwear_root.visible = false
+	_body_mesh.add_child(_swimwear_root)
+	var shirt := MeshInstance3D.new()
+	shirt.name = "BeachShirt"
+	var shirt_mesh := BoxMesh.new()
+	shirt_mesh.size = Vector3(0.66, 0.56, 0.44)
+	shirt.mesh = shirt_mesh
+	shirt.position.y = 0.18
+	shirt.material_override = _material(Color("#16A6C8"))
+	_swimwear_root.add_child(shirt)
+	var shorts := MeshInstance3D.new()
+	shorts.name = "SwimShorts"
+	var shorts_mesh := BoxMesh.new()
+	shorts_mesh.size = Vector3(0.68, 0.34, 0.46)
+	shorts.mesh = shorts_mesh
+	shorts.position.y = -0.30
+	shorts.material_override = _material(Color("#FFB347"))
+	_swimwear_root.add_child(shorts)
+	var glasses := Node3D.new()
+	glasses.name = "Sunglasses"
+	glasses.position = Vector3(0.0, 0.62, -0.34)
+	_swimwear_root.add_child(glasses)
+	for side in [-1.0, 1.0]:
+		var lens := MeshInstance3D.new()
+		var lens_mesh := BoxMesh.new()
+		lens_mesh.size = Vector3(0.22, 0.12, 0.055)
+		lens.mesh = lens_mesh
+		lens.position.x = side * 0.13
+		lens.material_override = _material(Color("#172638"))
+		glasses.add_child(lens)
+	var bridge := MeshInstance3D.new()
+	var bridge_mesh := BoxMesh.new()
+	bridge_mesh.size = Vector3(0.10, 0.035, 0.05)
+	bridge.mesh = bridge_mesh
+	bridge.material_override = _material(Color("#F4D36B"))
+	glasses.add_child(bridge)
+
+func set_swimming(enabled: bool) -> void:
+	is_swimming = enabled
+	if is_instance_valid(_swimwear_root):
+		_swimwear_root.visible = enabled
 
 func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("emote_griddy"):
