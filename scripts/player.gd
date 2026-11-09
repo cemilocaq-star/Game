@@ -2,6 +2,7 @@ extends CharacterBody3D
 class_name ArcadePlayer
 
 const CharacterVisuals = preload("res://scripts/character_visuals.gd")
+const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
 
 signal collected(points: int)
 
@@ -62,6 +63,8 @@ var _emote_music: AudioStreamPlayer
 var _emote_base_rotation := Vector3.ZERO
 var _swimwear_root: Node3D
 var _character_detail_root: Node3D
+var _motion_rig: Node3D
+var _motion_clock := 0.0
 var is_swimming := false
 
 func _ready() -> void:
@@ -105,6 +108,7 @@ func _build_visuals() -> void:
 	add_child(_body_mesh)
 	_build_swimwear()
 	_character_detail_root = CharacterVisuals.build(_body_mesh, cosmetic_outfit, cosmetic_color)
+	_motion_rig = CharacterMotionRig.build(_body_mesh, suit_color)
 	if cosmetic_outfit == "outfit_iron_vanguard" or cosmetic_outfit == "outfit_web_sentinel":
 		_add_hero_skin_details()
 
@@ -266,9 +270,15 @@ func _process(delta: float) -> void:
 		play_emote("griddy")
 	elif Input.is_action_just_pressed("emote_goofy"):
 		play_emote("goofy")
+	_motion_clock += delta
 	if active_emote != "":
 		_emote_clock += delta
 		_update_emote_visual()
+	elif is_instance_valid(_body_mesh):
+		var movement_speed := Vector2(velocity.x, velocity.z).length()
+		var moving := movement_speed > 0.35 and is_on_floor() and not _is_sliding
+		_body_mesh.position.y = 0.9 + (absf(sin(_motion_clock * 10.0)) * 0.035 if moving else sin(_motion_clock * 1.8) * 0.012)
+	CharacterMotionRig.animate(_motion_rig, _motion_clock, Vector2(velocity.x, velocity.z).length(), is_on_floor(), _is_sliding, active_emote, delta)
 	_blaster_cooldown = maxf(0.0, _blaster_cooldown - delta)
 	_blaster_recoil = move_toward(_blaster_recoil, 0.0, delta * 1.35)
 	if is_instance_valid(_blaster_model):
