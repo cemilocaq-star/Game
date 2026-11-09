@@ -17,7 +17,7 @@ Collect golden orbs for points. Orbs now rotate and bob, and respawn after colle
 
 ## Local opening and export
 
-Install Godot 4.4.1 Standard (not .NET), open `project.godot`, then run `main.tscn`. The export presets are in `export_presets.cfg`: Windows x86_64 (`build/ProjectUnknown.exe`) and Android arm64 (`build/ProjectUnknown.apk`). Export locally from the Godot editor after installing the matching export templates; Android export also requires the Android SDK and JDK configured in Godot. No GitHub Actions workflow is included.
+Install Godot 4.4.1 Standard (not .NET), open `project.godot`, then run `main.tscn`. The export presets are in `export_presets.cfg`: Windows x86_64 (`build/ProjectUnknown.exe`) and Android arm64 (`build/ProjectUnknown.apk`). Export locally from the Godot editor after installing the matching export templates; Android export also requires the Android SDK and JDK configured in Godot. GitHub Actions automatically validates the project and attempts Windows x86_64 EXE and Android arm64 debug APK exports on pushes and pull requests to `main`, and can also be started manually from the Actions tab. Successful builds are uploaded as workflow artifacts.
 
 See `docs/MIGRATION_AUDIT_AZ.md` for exact status and known gaps.
 
@@ -33,7 +33,7 @@ Progression is saved locally in `user://progression.cfg`; graphics preference is
 
 ## Admin development tools and map variants
 
-Press **F8** while running the project from the Godot editor to open the editor-only Admin Power Panel. It includes fly mode (WASD + Space/Ctrl), a god-mode state flag for future damage systems, a first-person Thor-style hammer prop, a decorative lightning strike, UFO/duck meme effects, a bounce/reset utility, four local arena variants (Lost Mall, Neon City, Space Islands, Candy World), and manual event triggers. Random event rotation now also includes decorative Meteor Shower, Ice World and Double XP. The admin panel is intentionally unavailable in exported builds: this prototype has no account authentication or authoritative multiplayer server, so a client-side secret or hidden button would not be real admin security. Proper multiplayer admin powers must be authorized and executed by the server.
+When the local player name is `FixerPly`, press **F8** (or use the ADMIN touch button) to open the Admin Power Panel. It includes fly mode (WASD + Space/Ctrl), a god-mode state flag for future damage systems, a first-person Thor-style hammer prop, a decorative lightning strike, UFO/duck meme effects, a bounce/reset utility, four local arena variants (Lost Mall, Neon City, Space Islands, Candy World), and manual event triggers. Random event rotation now also includes decorative Meteor Shower, Ice World and Double XP. The current FixerPly check is a local offline prototype identity gate, not secure online authentication. Proper multiplayer admin powers must be authorized and executed by the server.
 
 
 ### FixerPly admin identity
