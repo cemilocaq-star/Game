@@ -245,6 +245,9 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			"xp": int(_server_players[peer_id].xp) if _server_players.has(peer_id) else 0,
 			"match_xp": int(_server_players[peer_id].match_xp) if _server_players.has(peer_id) else 0,
 			"collections": _server_players[peer_id].collection_counts.duplicate(true) if _server_players.has(peer_id) else {},
+			"health": float(_server_players[peer_id].health) if _server_players.has(peer_id) else 100.0,
+			"dead": bool(_server_players[peer_id].is_dead) if _server_players.has(peer_id) else false,
+			"respawn_left": float(_server_players[peer_id].respawn_left) if _server_players.has(peer_id) else 0.0,
 			"session_token": str(_session_tokens.get(user_id, "")),
 			"already_persisted": bool(room.get("persisted", {}).has(user_id))
 		}
@@ -299,6 +302,9 @@ func _server_authenticate(ticket: String) -> void:
 		player.xp = int(restored.get("xp", player.xp))
 		player.match_xp = int(restored.get("match_xp", 0))
 		player.collection_counts = restored.get("collections", {})
+		player.health = clampf(float(restored.get("health", 100.0)), 0.0, 100.0)
+		player.is_dead = bool(restored.get("dead", false))
+		player.respawn_left = maxf(0.0, float(restored.get("respawn_left", 0.0)))
 		var room: Dictionary = _rooms[restored_room]
 		room.members[user_id] = peer_id
 		player.apply_event(str(room.event_id))
@@ -674,7 +680,7 @@ func _server_process_rooms(delta: float) -> void:
 			if respawn_player.is_dead:
 				respawn_player.respawn_left = maxf(0.0, respawn_player.respawn_left - delta)
 				if respawn_player.respawn_left <= 0.0:
-					var spawn_offset := Vector3(float(respawn_peer % 4) * 1.6 - 2.4, 0.0, float((respawn_peer / 4) % 4) * 1.6)
+					var spawn_offset := Vector3(float(respawn_peer % 4) * 1.6 - 2.4, 0.0, float(int(respawn_peer / 4) % 4) * 1.6)
 					respawn_player.respawn_at(Vector3(0, 1.5, 6) + spawn_offset)
 		for orb_index in range(ORB_POSITIONS.size()):
 			if not bool(room.orb_available[orb_index]) and now >= int(room.orb_respawn[orb_index]):
