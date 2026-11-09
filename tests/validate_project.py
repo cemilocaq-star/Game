@@ -98,6 +98,11 @@ checks = [
     ("_rank_for_xp", read("scripts/oxenwar_menu.gd"), "XP-derived competitive rank"),
     ('"minimum":12000', read("scripts/oxenwar_menu.gd"), "Master rank XP threshold"),
     ("_render_rank_progress", read("scripts/oxenwar_menu.gd"), "rank progression UI"),
+    ("match_xp", read("scripts/oxenwar_network.gd"), "server-authoritative per-match XP snapshot"),
+    ("_rank_for_total_xp", read("scripts/main.gd"), "post-match rank transition calculation"),
+    ("_add_match_xp_card", read("scripts/main.gd"), "match XP reward and rank badge UI"),
+    ("RANK UP!", read("scripts/main.gd"), "rank-up celebration state"),
+    ("round_match_xp += 100", read("scripts/main.gd"), "offline secret XP included in match reward"),
     ("rank_diamond", read("scripts/oxenwar_i18n.gd"), "localized rank labels"),
 
     ("p_playtime_seconds", read("supabase/functions/oxenwar-server-sync/index.ts"), "validated playtime persistence"),
