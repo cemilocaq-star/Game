@@ -24,7 +24,7 @@ func _ready() -> void:
 	_name_tag.pixel_size = 0.006
 	add_child(_name_tag)
 
-func set_identity(player_name: String, color: Color) -> void:
+func set_player_identity(player_name: String, color: Color) -> void:
 	display_name = player_name.substr(0, 24)
 	if is_instance_valid(_name_tag):
 		_name_tag.text = display_name
