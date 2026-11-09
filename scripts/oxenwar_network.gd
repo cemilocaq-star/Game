@@ -179,6 +179,13 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	var user_id := str(_peer_users.get(peer_id, ""))
 	if user_id.is_empty():
 		return
+	if _user_peers.has(user_id) and int(_user_peers[user_id]) != peer_id:
+		if _server_players.has(peer_id):
+			_server_players[peer_id].queue_free()
+			_server_players.erase(peer_id)
+		_peer_users.erase(peer_id)
+		_last_input_ms.erase(peer_id)
+		return
 	var room_code := str(_user_rooms.get(user_id, ""))
 	if not room_code.is_empty() and _rooms.has(room_code):
 		var room: Dictionary = _rooms[room_code]
@@ -230,20 +237,23 @@ func _server_authenticate(token: String) -> void:
 	_tokens[user_id] = token
 	var player := _create_server_player(peer_id, profile, identity.get("stats", {}))
 	var restored: Dictionary = _sessions.get(user_id, {})
-	if not restored.is_empty() and int(restored.get("expires", 0)) >= Time.get_ticks_msec():
+	var restored_room := str(restored.get("room_code", ""))
+	var can_restore := not restored.is_empty() and int(restored.get("expires", 0)) >= Time.get_ticks_msec() and _rooms.has(restored_room)
+	if can_restore:
 		player.global_position = restored.get("position", Vector3(0, 1.5, 6))
 		player.score = int(restored.get("score", 0))
 		player.xp = int(restored.get("xp", player.xp))
 		player.match_xp = int(restored.get("match_xp", 0))
 		player.collection_counts = restored.get("collections", {})
-		var old_room := str(restored.get("room_code", ""))
-		if _rooms.has(old_room):
-			var room: Dictionary = _rooms[old_room]
-			room.members[user_id] = peer_id
-			_rooms[old_room] = room
-			_user_rooms[user_id] = old_room
-			_last_room_code = old_room
-			_broadcast_room_state(old_room)
+		var room: Dictionary = _rooms[restored_room]
+		room.members[user_id] = peer_id
+		_rooms[restored_room] = room
+		_user_rooms[user_id] = restored_room
+		_last_room_code = restored_room
+		_broadcast_room_state(restored_room)
+	elif not restored.is_empty():
+		await _persist_session_result(user_id, restored)
+		_server_remove_from_room(user_id)
 	_sessions.erase(user_id)
 	rpc_id(peer_id, "_client_auth_result", true, "Authenticated", user_id, str(profile.get("display_name", "Player")), str(profile.get("avatar_color_id", "color_cyan")))
 	if not _user_rooms.has(user_id):
