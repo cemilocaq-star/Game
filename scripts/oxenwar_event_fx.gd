@@ -27,9 +27,15 @@ func set_event(event_id: String) -> void:
 			_build_reward_aura(event_id == "GOLDEN_ORB_RUSH")
 		"METEOR_SHOWER":
 			_build_stars()
+		"PINK_SKY":
+			_build_pink_sky()
+		"BONK_MODE":
+			_build_bonk_mode()
+		"NPC_MODE":
+			_build_npc_mode()
 		"DUCK_PARADE", "DUCK_EXE":
 			_build_duck_sparkles()
-	if event_id in ["ICE_WORLD", "FREEZE_FRAME", "CONFETTI_STORM", "LOW_GRAVITY", "GOLDEN_ORB_RUSH", "DOUBLE_XP", "METEOR_SHOWER", "DUCK_PARADE", "DUCK_EXE", "BONK_MODE"]:
+	if event_id in ["ICE_WORLD", "FREEZE_FRAME", "CONFETTI_STORM", "LOW_GRAVITY", "GOLDEN_ORB_RUSH", "DOUBLE_XP", "METEOR_SHOWER", "DUCK_PARADE", "DUCK_EXE", "BONK_MODE", "PINK_SKY", "NPC_MODE"]:
 		_start_synth_music(event_id)
 
 func _clear_effects() -> void:
@@ -118,20 +124,84 @@ func _build_low_gravity() -> void:
 func _build_reward_aura(golden: bool) -> void:
 	var color := Color(1.0, 0.68, 0.12) if golden else Color(0.36, 1.0, 0.68)
 	_add_particles("reward_sparks", color, 90)
-	for i in range(6):
+	var orb_positions: Array[Vector3] = [
+		Vector3(-12, 1.0, -8), Vector3(-7, 2.0, -5), Vector3(0, 2.0, -10),
+		Vector3(7, 2.0, -5), Vector3(12, 1.0, -8), Vector3(-10, 1.0, 5),
+		Vector3(-4, 1.8, 1), Vector3(4, 1.8, 1), Vector3(10, 1.0, 5),
+		Vector3(0, 2.2, 10), Vector3(-2, 1.2, -2), Vector3(2, 1.2, -2)
+	]
+	for i in range(orb_positions.size()):
 		var ring := MeshInstance3D.new()
 		var torus := TorusMesh.new()
 		torus.inner_radius = 0.35
 		torus.outer_radius = 0.39
 		ring.mesh = torus
-		ring.position = Vector3(cos(float(i) * TAU / 6.0) * 10.0, 1.1 + float(i % 2), sin(float(i) * TAU / 6.0) * 7.0)
+		ring.position = orb_positions[i] + Vector3(0, 0.22, 0)
+		ring.scale = Vector3.ONE * 0.85
 		ring.material_override = _emissive_material(color)
 		_effect_root.add_child(ring)
 		var tween := create_tween().set_loops()
-		tween.tween_property(ring, "rotation:y", TAU, 2.2 + float(i) * 0.18)
+		tween.tween_property(ring, "rotation:y", TAU, 2.2 + float(i) * 0.08)
+		tween.parallel().tween_property(ring, "scale", Vector3.ONE * 1.15, 0.6)
+		tween.tween_property(ring, "scale", Vector3.ONE * 0.85, 0.6)
 
 func _build_stars() -> void:
 	_add_particles("meteor_trails", Color(1.0, 0.48, 0.16, 0.9), 70)
+
+func _build_pink_sky() -> void:
+	_add_particles("pink_sky_glitter", Color(1.0, 0.35, 0.76, 0.8), 100)
+	var glow := OmniLight3D.new()
+	glow.name = "PinkSkyGlow"
+	glow.light_color = Color(1.0, 0.18, 0.55)
+	glow.light_energy = 1.4
+	glow.omni_range = 28.0
+	glow.position = Vector3(0, 8, 0)
+	_effect_root.add_child(glow)
+	var tween := create_tween().set_loops()
+	tween.tween_property(glow, "light_energy", 2.4, 1.4)
+	tween.tween_property(glow, "light_energy", 1.0, 1.4)
+	for i in range(4):
+		var ring := MeshInstance3D.new()
+		var torus := TorusMesh.new()
+		torus.inner_radius = 0.48
+		torus.outer_radius = 0.52
+		ring.mesh = torus
+		ring.position = Vector3(0, 10.0 + float(i) * 0.35, 0)
+		ring.scale = Vector3(11.0 + float(i) * 1.8, 1.0, 8.0 + float(i) * 1.3)
+		ring.material_override = _emissive_material(Color(1.0, 0.25, 0.72, 0.7))
+		_effect_root.add_child(ring)
+		var spin := create_tween().set_loops()
+		spin.tween_property(ring, "rotation:y", TAU, 8.0 + float(i) * 2.0)
+
+func _build_bonk_mode() -> void:
+	_add_particles("bonk_sparks", Color(1.0, 0.55, 0.12, 0.9), 100)
+	for i in range(5):
+		var ring := MeshInstance3D.new()
+		var torus := TorusMesh.new()
+		torus.inner_radius = 0.42
+		torus.outer_radius = 0.48
+		ring.mesh = torus
+		ring.position = Vector3(cos(float(i) * TAU / 5.0) * 7.0, 0.4 + float(i % 2), sin(float(i) * TAU / 5.0) * 6.0)
+		ring.material_override = _emissive_material(Color(1.0, 0.48, 0.08))
+		_effect_root.add_child(ring)
+		var bounce := create_tween().set_loops()
+		bounce.tween_property(ring, "position:y", ring.position.y + 0.8, 0.35)
+		bounce.tween_property(ring, "position:y", ring.position.y, 0.35)
+
+func _build_npc_mode() -> void:
+	_add_particles("quest_sparkles", Color(0.35, 1.0, 0.54, 0.85), 90)
+	for i in range(5):
+		var marker := MeshInstance3D.new()
+		var marker_mesh := SphereMesh.new()
+		marker_mesh.radius = 0.22
+		marker_mesh.height = 0.44
+		marker.mesh = marker_mesh
+		marker.position = Vector3(cos(float(i) * TAU / 5.0) * 9.0, 2.0, sin(float(i) * TAU / 5.0) * 7.0)
+		marker.material_override = _emissive_material(Color(0.25, 1.0, 0.5))
+		_effect_root.add_child(marker)
+		var pulse := create_tween().set_loops()
+		pulse.tween_property(marker, "scale", Vector3.ONE * 1.6, 0.55)
+		pulse.tween_property(marker, "scale", Vector3.ONE, 0.55)
 
 func _build_duck_sparkles() -> void:
 	_add_particles("duck_sparkles", Color(1.0, 0.86, 0.28, 0.9), 48)
@@ -200,6 +270,8 @@ func _start_synth_music(event_id: String) -> void:
 			notes = [329.63, 392.0, 493.88, 659.25, 493.88, 392.0, 440.0, 523.25]
 		"METEOR_SHOWER":
 			notes = [146.83, 174.61, 220.0, 261.63, 220.0, 174.61, 196.0, 146.83]
+		"PINK_SKY", "NPC_MODE":
+			notes = [293.66, 349.23, 440.0, 523.25, 440.0, 349.23, 392.0, 493.88]
 		_:
 			notes = [220.0, 261.63, 329.63, 392.0, 329.63, 261.63, 293.66, 220.0]
 	var sample_rate := 22050
