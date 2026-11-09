@@ -122,7 +122,7 @@ checks = [
     ('OXENWAR_SERVER_SECRET is required; refusing to start dedicated server.', read("scripts/oxenwar_network.gd"), "clear fail-closed server configuration error"),
     ('OS.get_environment("OXENWAR_TRANSPORT")', read("scripts/oxenwar_network.gd"), "configurable UDP or WebSocket transport"),
     ("WebSocketMultiplayerPeer.new()", read("scripts/oxenwar_network.gd"), "WebSocket multiplayer transport"),
-    ('websocket_port = int(OS.get_environment("OXENWAR_PORT"))', read("scripts/oxenwar_network.gd"), "private Godot WebSocket port avoids Render public port conflict"),
+    ('websocket_port := int(OS.get_environment("OXENWAR_PORT"))', read("scripts/oxenwar_network.gd"), "private Godot WebSocket port avoids Render public port conflict"),
     ('"GET /health "', read("server/render_entrypoint.py"), "Render HTTP health endpoint"),
     ("asyncio.start_server(_handle_client, \"0.0.0.0\", PUBLIC_PORT)", read("server/render_entrypoint.py"), "public Render port bound on all interfaces"),
     ('"python3", "/game/server/render_entrypoint.py"', read("Dockerfile"), "container runs Render health and WebSocket proxy"),
