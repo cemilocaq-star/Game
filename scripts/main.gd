@@ -1619,7 +1619,7 @@ func _finish_round() -> void:
 	var hits := int(local_stats.get("shots_hit", 0))
 	var accuracy := 100.0 * float(hits) / float(shots) if shots > 0 else 0.0
 	var personal := Label.new()
-	personal.text = "YOUR PERFORMANCE\nKILLS  %d     DEATHS  %d     SCORE  %d\nBLASTER ACCURACY  %.1f%%  (%d / %d)\nDAMAGE DEALT  %.0f     DAMAGE RECEIVED  %.0f" % [
+	personal.text = "YOUR PERFORMANCE\nKILLS  %d     DEATHS  %d     SCORE  %d\nWEAPON ACCURACY  %.1f%%  (%d / %d)\nDAMAGE DEALT  %.0f     DAMAGE RECEIVED  %.0f" % [
 		int(local_stats.get("kills", 0)), int(local_stats.get("deaths", 0)), int(local_stats.get("score", 0)),
 		accuracy, hits, shots, float(local_stats.get("damage_dealt", 0.0)), float(local_stats.get("damage_received", 0.0))
 	]
