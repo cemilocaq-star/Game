@@ -295,7 +295,6 @@ func _process(delta: float) -> void:
 	_blaster_recoil = move_toward(_blaster_recoil, 0.0, delta * 1.35)
 	if is_instance_valid(_blaster_model):
 		_blaster_model.position.z = -0.48 + _blaster_recoil
-	var selected_cooldown := float(ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"]).get("cooldown", 0.24))
 	if Input.is_action_pressed("fire") and _blaster_cooldown <= 0.0:
 		_fire_blaster()
 
