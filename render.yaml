@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: oxenwar-game-server
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: OXENWAR_TRANSPORT
+        value: websocket
+      - key: OXENWAR_SERVER_SECRET
+        sync: false

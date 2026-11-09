@@ -101,15 +101,37 @@ func start_server() -> bool:
 	if _server_secret.is_empty():
 		push_error("OXENWAR_SERVER_SECRET is required; refusing to start dedicated server.")
 		return false
-	var peer := ENetMultiplayerPeer.new()
-	var error := peer.create_server(PORT, MAX_CLIENTS)
-	if error != OK:
-		push_error("OxenWar server could not bind UDP %d: %s" % [PORT, error_string(error)])
-		return false
+
+	var transport := OS.get_environment("OXENWAR_TRANSPORT").strip_edges().to_lower()
+	var peer: MultiplayerPeer
+	var error: Error = OK
+	if transport == "websocket":
+		# Hosted web platforms terminate TLS at their edge and forward WebSocket
+		# upgrades to the container's injected PORT. Clients connect with wss://.
+		var websocket_port := int(OS.get_environment("PORT"))
+		if websocket_port <= 0:
+			websocket_port = int(OS.get_environment("OXENWAR_PORT"))
+		if websocket_port <= 0:
+			websocket_port = 8080
+		var websocket_peer := WebSocketMultiplayerPeer.new()
+		error = websocket_peer.create_server(websocket_port, "0.0.0.0")
+		if error != OK:
+			push_error("OxenWar server could not bind WebSocket port %d: %s" % [websocket_port, error_string(error)])
+			return false
+		peer = websocket_peer
+		print("OxenWar authoritative server listening on WebSocket port %d" % websocket_port)
+	else:
+		var enet_peer := ENetMultiplayerPeer.new()
+		error = enet_peer.create_server(PORT, MAX_CLIENTS)
+		if error != OK:
+			push_error("OxenWar server could not bind UDP %d: %s" % [PORT, error_string(error)])
+			return false
+		peer = enet_peer
+		print("OxenWar authoritative server listening on UDP %d" % PORT)
+
 	multiplayer.multiplayer_peer = peer
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
-	print("OxenWar authoritative server listening on UDP %d" % PORT)
 	return true
 
 func connect_to_server(host: String, access_token: String) -> void:
@@ -149,8 +171,17 @@ func _connect_now() -> void:
 	if _last_host.is_empty() or _game_ticket.is_empty():
 		connection_status_changed.emit("Secure game ticket is missing.")
 		return
-	var peer := ENetMultiplayerPeer.new()
-	var error := peer.create_client(_last_host, PORT)
+	var peer: MultiplayerPeer
+	var error: Error = OK
+	var websocket_url := _last_host.begins_with("ws://") or _last_host.begins_with("wss://")
+	if websocket_url:
+		var websocket_peer := WebSocketMultiplayerPeer.new()
+		error = websocket_peer.create_client(_last_host)
+		peer = websocket_peer
+	else:
+		var enet_peer := ENetMultiplayerPeer.new()
+		error = enet_peer.create_client(_last_host, PORT)
+		peer = enet_peer
 	if error != OK:
 		connection_status_changed.emit("Connection failed: " + error_string(error))
 		_schedule_reconnect()
@@ -162,7 +193,7 @@ func _connect_now() -> void:
 		multiplayer.connection_failed.connect(_on_connection_failed)
 	if not multiplayer.server_disconnected.is_connected(_on_server_disconnected):
 		multiplayer.server_disconnected.connect(_on_server_disconnected)
-	connection_status_changed.emit("Connecting to " + _last_host + ":" + str(PORT))
+	connection_status_changed.emit("Connecting securely to " + _last_host if _last_host.begins_with("wss://") else ("Connecting to " + _last_host if websocket_url else "Connecting to " + _last_host + ":" + str(PORT)))
 
 func update_access_token(token: String) -> void:
 	if not token.is_empty():
@@ -283,6 +314,10 @@ func _schedule_reconnect() -> void:
 		_reconnect_timer.start()
 
 func _on_peer_connected(peer_id: int) -> void:
+	if multiplayer.get_peers().size() > MAX_CLIENTS:
+		push_warning("OxenWar connection limit reached; rejecting peer %d." % peer_id)
+		multiplayer.multiplayer_peer.disconnect_peer(peer_id)
+		return
 	print("OxenWar incoming peer: ", peer_id)
 
 func _on_peer_disconnected(peer_id: int) -> void:

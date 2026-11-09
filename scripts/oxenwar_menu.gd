@@ -328,11 +328,11 @@ func _render_play_tab() -> void:
 	var server_stack := VBoxContainer.new()
 	server_stack.add_theme_constant_override("separation", 8)
 	server_panel.add_child(server_stack)
-	server_stack.add_child(_label("DEDICATED SERVER  •  UDP 2456"))
-	server_host_field = _field("Server host", "your-game-server.example")
+	server_stack.add_child(_label("GAME SERVER  •  WSS (hosted) OR UDP 2456"))
+	server_host_field = _field("Server host", "wss://your-game-server.onrender.com")
 	server_host_field.text = server_host
 	server_stack.add_child(server_host_field)
-	lobby_notice_label = _label("PUBLIC SERVER NOT DEPLOYED — enter a live UDP server address to enable online play." if server_host.is_empty() else "SERVER ADDRESS SET  •  connection will be verified when you enter a match")
+	lobby_notice_label = _label("PUBLIC SERVER NOT DEPLOYED — enter a live wss:// URL or UDP host to enable online play." if server_host.is_empty() else "SERVER ADDRESS SET  •  connection will be verified when you enter a match")
 	lobby_notice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lobby_notice_label.add_theme_color_override("font_color", Color("#FFC36B") if server_host.is_empty() else ACCENT)
 	server_stack.add_child(lobby_notice_label)

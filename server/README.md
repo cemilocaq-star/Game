@@ -8,7 +8,7 @@ Install Godot 4.4.1 Standard, then run from the repository root:
 godot --headless --path . -- --server
 ```
 
-The dedicated server listens on UDP **2456** and accepts up to 32 ENet connections. Each room supports up to 8 players. Game tickets expire after 60 seconds and can be redeemed once; the server-only session lasts 12 hours.
+By default the dedicated server listens on UDP **2456** and accepts up to 32 ENet connections. Set `OXENWAR_TRANSPORT=websocket` to use Godot's WebSocket multiplayer transport instead; hosted web platforms inject `PORT`, and clients connect using `wss://your-hostname`. Each room supports up to 8 players. Game tickets expire after 60 seconds and can be redeemed once; the server-only session lasts 12 hours.
 
 ## What the server owns
 
@@ -22,7 +22,7 @@ The dedicated server listens on UDP **2456** and accepts up to 32 ENet connectio
 
 ## Connect clients
 
-Run the game normally and sign in. Enter the server's LAN/public hostname in the server field, then press **CONNECT**. The client authenticates with its Supabase access token. After successful authentication it enters quick match automatically.
+Run the game normally and sign in. Enter the server's LAN/public hostname in the server field, then press **CONNECT**. For the WebSocket transport, use the complete `wss://` URL; for ENet, use a hostname/IP and expose UDP 2456. The client authenticates with its Supabase access token. After successful authentication it enters quick match automatically.
 
 - **CREATE ROOM** creates a private room.
 - Share its six-character code with an existing friend.
@@ -45,7 +45,7 @@ Without this secret, the one-time ticket handshake is disabled, so players canno
 
 ## Deploy template
 
-`Dockerfile` and `fly.toml` describe a Fly.io UDP service. Deployment is not performed by this repository change and no public server is online yet. From an authenticated host CLI, after reviewing the provider's current price, UDP support and account terms:
+`Dockerfile` and `fly.toml` describe a Fly.io UDP service. `render.yaml` describes an optional Render WebSocket service for platforms that route HTTP/WebSocket traffic rather than UDP. Deployment is not performed by this repository change and no public server is online yet. A free web-service plan may sleep when idle and is suitable only for a prototype, not a reliability guarantee. From an authenticated host CLI, after reviewing the provider's current price, UDP support and account terms:
 
 ```bash
 fly launch --no-deploy --copy-config

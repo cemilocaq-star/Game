@@ -7,7 +7,7 @@ errors = []
 required = [
     "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/arcade_weapon_visuals.gd", "scripts/character_visuals.gd", "scripts/character_motion_rig.gd", "scripts/combat_fx.gd",
     "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd",
-    "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "scripts/oxenwar_server_player.gd", "server/README.md", "Dockerfile", "fly.toml",
+    "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "scripts/oxenwar_server_player.gd", "server/README.md", "Dockerfile", "fly.toml", "render.yaml",
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
     "supabase/migrations/20261109114619_oxenwar_social_foundation.sql",
     "supabase/migrations/20261109114653_oxenwar_permissions_hardening.sql",
@@ -120,6 +120,11 @@ checks = [
     ("OXENWAR_SERVER_SECRET", read("scripts/oxenwar_network.gd"), "server-only persistence secret"),
     ('if _server_secret.is_empty():', read("scripts/oxenwar_network.gd"), "dedicated server refuses missing authentication secret"),
     ('OXENWAR_SERVER_SECRET is required; refusing to start dedicated server.', read("scripts/oxenwar_network.gd"), "clear fail-closed server configuration error"),
+    ('OS.get_environment("OXENWAR_TRANSPORT")', read("scripts/oxenwar_network.gd"), "configurable UDP or WebSocket transport"),
+    ("WebSocketMultiplayerPeer.new()", read("scripts/oxenwar_network.gd"), "WebSocket multiplayer transport"),
+    ('websocket_peer.create_server(websocket_port, "0.0.0.0")', read("scripts/oxenwar_network.gd"), "hosted WebSocket server binds injected port"),
+    ("websocket_peer.create_client(_last_host)", read("scripts/oxenwar_network.gd"), "client supports ws/wss URL"),
+
     ('Verify dedicated server rejects missing secret', workflow, "CI negative test for missing server secret"),
     ('ci-smoke-test-only-not-production', workflow, "CI server smoke test uses a non-production test secret"),
     ("FREEZE FRAME — MOVEMENT PAUSED", main, "freeze event localization label"),
