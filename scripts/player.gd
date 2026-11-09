@@ -3,16 +3,32 @@ class_name ArcadePlayer
 
 const CharacterVisuals = preload("res://scripts/character_visuals.gd")
 const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
+const ARCADE_WEAPON_VISUALS = preload("res://scripts/arcade_weapon_visuals.gd")
 
 const ARCADE_WEAPON_LOCAL := {
-	"aether": {"name":"AETHER BLASTER", "cooldown":0.24, "color":Color("#8CEEFF")},
-	"minicore": {"name":"MINICORE", "cooldown":0.09, "color":Color("#FF9B54")},
-	"hand_cannon": {"name":"NOVA HAND CANNON", "cooldown":0.68, "color":Color("#F2D36D")},
-	"pulse_carbine": {"name":"PULSE CARBINE", "cooldown":0.18, "color":Color("#76E6C5")},
-	"star_piercer": {"name":"STAR PIERCER", "cooldown":1.05, "color":Color("#C6A0FF")},
-	"duck_launcher": {"name":"DUCK LAUNCHER", "cooldown":0.62, "color":Color("#FFE56B")},
-	"banana_boomerang": {"name":"BANANA BOOMERANG", "cooldown":0.42, "color":Color("#E7F26C")},
-	"confetti_cannon": {"name":"CONFETTI CANNON", "cooldown":0.11, "color":Color("#FF83C8")}
+	"aether": {"name":"AETHER BLASTER", "cooldown":0.24, "range":65.0, "color":Color("#8CEEFF")},
+	"minicore": {"name":"MINICORE", "cooldown":0.09, "range":46.0, "color":Color("#FF9B54")},
+	"hand_cannon": {"name":"NOVA HAND CANNON", "cooldown":0.68, "range":58.0, "color":Color("#F2D36D")},
+	"pulse_carbine": {"name":"PULSE CARBINE", "cooldown":0.18, "range":62.0, "color":Color("#76E6C5")},
+	"star_piercer": {"name":"STAR PIERCER", "cooldown":1.05, "range":92.0, "color":Color("#C6A0FF")},
+	"duck_launcher": {"name":"DUCK LAUNCHER", "cooldown":0.62, "range":42.0, "color":Color("#FFE56B")},
+	"banana_boomerang": {"name":"BANANA BOOMERANG", "cooldown":0.42, "range":38.0, "color":Color("#E7F26C")},
+	"confetti_cannon": {"name":"CONFETTI CANNON", "cooldown":0.11, "range":34.0, "color":Color("#FF83C8")},
+	"prism_scepter": {"name":"PRISM SCEPTER", "cooldown":0.32, "range":72.0, "color":Color("#E98BFF")},
+	"vortex_orbiter": {"name":"VORTEX ORBITER", "cooldown":0.15, "range":52.0, "color":Color("#7A9DFF")},
+	"comet_bow": {"name":"COMET BOW", "cooldown":0.90, "range":88.0, "color":Color("#F7A8FF")},
+	"bubble_burst": {"name":"BUBBLE BURST", "cooldown":0.25, "range":36.0, "color":Color("#8EEAFF")},
+	"glitch_ray": {"name":"GLITCH RAY", "cooldown":0.13, "range":60.0, "color":Color("#B6FF63")},
+	"meteor_mallet": {"name":"METEOR MALLET", "cooldown":0.70, "range":30.0, "color":Color("#FF815D")},
+	"frost_wand": {"name":"FROST WAND", "cooldown":0.28, "range":58.0, "color":Color("#8FCFFF")},
+	"solar_lance": {"name":"SOLAR LANCE", "cooldown":0.98, "range":86.0, "color":Color("#FFD46A")},
+	"slime_slinger": {"name":"SLIME SLINGER", "cooldown":0.36, "range":44.0, "color":Color("#B9F56E")},
+	"pixel_storm": {"name":"PIXEL STORM", "cooldown":0.08, "range":40.0, "color":Color("#80F6DB")},
+	"thunder_drum": {"name":"THUNDER DRUM", "cooldown":0.40, "range":55.0, "color":Color("#7DC8FF")},
+	"moon_disc": {"name":"MOON DISC", "cooldown":0.52, "range":68.0, "color":Color("#BCC7FF")},
+	"jellyfish_staff": {"name":"JELLYFISH STAFF", "cooldown":0.30, "range":50.0, "color":Color("#D39BFF")},
+	"portal_popper": {"name":"PORTAL POPPER", "cooldown":0.64, "range":62.0, "color":Color("#9C72FF")},
+	"rubber_chicken": {"name":"RUBBER CHICKEN", "cooldown":0.48, "range":32.0, "color":Color("#FFB56C")}
 }
 
 signal collected(points: int)
@@ -377,89 +393,37 @@ func _make_emote_music() -> AudioStreamWAV:
 	stream.loop_end = sample_count
 	return stream
 
+func set_selected_weapon(weapon_id: String) -> void:
+	if not ARCADE_WEAPON_LOCAL.has(weapon_id) or selected_weapon_id == weapon_id:
+		return
+	selected_weapon_id = weapon_id
+	_blaster_cooldown = 0.0
+	_setup_blaster()
+	_blaster_recoil = 0.035
+	if is_instance_valid(_blaster_model):
+		var target_position := Vector3(0.27, -0.24, -0.48)
+		_blaster_model.position = target_position + Vector3(0.0, -0.09, 0.08)
+		var equip_tween := create_tween()
+		equip_tween.tween_property(_blaster_model, "position", target_position, 0.20).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
 func _setup_blaster() -> void:
 	if not is_instance_valid(_camera):
 		return
-	_blaster_model = Node3D.new()
-	_blaster_model.name = "AetherBlaster"
+	if is_instance_valid(_blaster_model):
+		_blaster_model.queue_free()
+	var weapon_data: Dictionary = ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"])
+	var weapon_color: Color = weapon_data.get("color", Color("#8CEEFF"))
+	_blaster_model = ARCADE_WEAPON_VISUALS.build_weapon(selected_weapon_id, weapon_color)
 	_blaster_model.position = Vector3(0.27, -0.24, -0.48)
 	_camera.add_child(_blaster_model)
-	var core := MeshInstance3D.new()
-	var core_mesh := BoxMesh.new()
-	core_mesh.size = Vector3(0.16, 0.18, 0.62)
-	core.mesh = core_mesh
-	core.material_override = _blaster_material(Color("#26384E"), 0.35)
-	_blaster_model.add_child(core)
-	_add_blaster_box("BarrelShroud", Vector3(0.22, 0.20, 0.34), Vector3(0, 0.005, -0.245), Color("#1D3147"), 0.58)
-	_add_blaster_box("LeftReceiverRail", Vector3(0.045, 0.115, 0.43), Vector3(-0.105, 0.015, -0.035), Color("#405A70"), 0.62)
-	_add_blaster_box("RightReceiverRail", Vector3(0.045, 0.115, 0.43), Vector3(0.105, 0.015, -0.035), Color("#405A70"), 0.62)
-	_add_blaster_box("UpperPowerRail", Vector3(0.052, 0.035, 0.44), Vector3(0, 0.17, -0.035), Color("#9CB2C4"), 0.72)
-	_add_blaster_box("Grip", Vector3(0.14, 0.25, 0.18), Vector3(0, -0.19, 0.15), Color("#172638"), 0.18)
-	_add_blaster_box("GripInset", Vector3(0.012, 0.15, 0.115), Vector3(0.077, -0.19, 0.15), Color("#526D83"), 0.42)
-	_add_blaster_box("TriggerGuardTop", Vector3(0.10, 0.035, 0.13), Vector3(0, -0.105, 0.015), Color("#60788A"), 0.7)
-	_add_blaster_box("RearSight", Vector3(0.12, 0.075, 0.055), Vector3(0, 0.205, 0.20), Color("#8299AA"), 0.65)
-	_add_blaster_box("FrontSight", Vector3(0.08, 0.06, 0.045), Vector3(0, 0.155, -0.405), Color("#8299AA"), 0.65)
-	for side in [-1.0, 1.0]:
-		for vent_index in range(3):
-			_add_blaster_box("CoolingVent_%s_%d" % [side, vent_index], Vector3(0.012, 0.022, 0.055), Vector3(side * 0.132, 0.035, -0.12 + float(vent_index) * 0.075), Color("#8DA6B9"), 0.45)
-	var top := MeshInstance3D.new()
-	var top_mesh := BoxMesh.new()
-	top_mesh.size = Vector3(0.12, 0.07, 0.36)
-	top.mesh = top_mesh
-	top.position = Vector3(0.0, 0.12, -0.04)
-	top.material_override = _blaster_material(Color("#3C5B78"), 0.5)
-	_blaster_model.add_child(top)
-	var emitter := MeshInstance3D.new()
-	var emitter_mesh := CylinderMesh.new()
-	emitter_mesh.top_radius = 0.075
-	emitter_mesh.bottom_radius = 0.095
-	emitter_mesh.height = 0.18
-	emitter.mesh = emitter_mesh
-	emitter.rotation_degrees.x = 90.0
-	emitter.position.z = -0.37
-	emitter.material_override = _blaster_material(Color("#31E8FF"), 0.2, true)
-	_blaster_model.add_child(emitter)
-	var muzzle_ring := MeshInstance3D.new()
-	muzzle_ring.name = "MuzzleRing"
-	var ring_mesh := CylinderMesh.new()
-	ring_mesh.top_radius = 0.108
-	ring_mesh.bottom_radius = 0.108
-	ring_mesh.height = 0.045
-	muzzle_ring.mesh = ring_mesh
-	muzzle_ring.rotation_degrees.x = 90.0
-	muzzle_ring.position.z = -0.475
-	muzzle_ring.material_override = _blaster_material(Color("#8EA5BA"), 0.82)
-	_blaster_model.add_child(muzzle_ring)
-	_add_blaster_box("CellFrameTop", Vector3(0.17, 0.025, 0.19), Vector3(0.105, 0.105, 0.02), Color("#465F78"), 0.7)
-	_add_blaster_box("CellFrameBottom", Vector3(0.17, 0.025, 0.19), Vector3(0.105, -0.135, 0.02), Color("#465F78"), 0.7)
-	_add_blaster_box("CellFrameLeft", Vector3(0.025, 0.20, 0.19), Vector3(0.015, -0.015, 0.02), Color("#465F78"), 0.7)
-	_add_blaster_box("CellFrameRight", Vector3(0.025, 0.20, 0.19), Vector3(0.195, -0.015, 0.02), Color("#465F78"), 0.7)
-	var cell := MeshInstance3D.new()
-	var cell_mesh := SphereMesh.new()
-	cell_mesh.radius = 0.085
-	cell_mesh.height = 0.18
-	cell.mesh = cell_mesh
-	cell.position = Vector3(0.105, -0.015, 0.02)
-	cell.material_override = _blaster_material(Color("#9C7BFF"), 0.25, true)
-	_blaster_model.add_child(cell)
-	_blaster_audio = AudioStreamPlayer3D.new()
-	_blaster_audio.name = "AetherPulseAudio"
-	_blaster_audio.volume_db = -7.0
-	_blaster_audio.max_distance = 42.0
-	_blaster_audio.unit_size = 9.0
-	_blaster_audio.stream = _make_blaster_stream()
-	_blaster_model.add_child(_blaster_audio)
-
-func _add_blaster_box(node_name: String, size: Vector3, position: Vector3, color: Color, metallic_value: float) -> MeshInstance3D:
-	var instance := MeshInstance3D.new()
-	instance.name = node_name
-	var mesh := BoxMesh.new()
-	mesh.size = size
-	instance.mesh = mesh
-	instance.position = position
-	instance.material_override = _blaster_material(color, metallic_value)
-	_blaster_model.add_child(instance)
-	return instance
+	if not is_instance_valid(_blaster_audio):
+		_blaster_audio = AudioStreamPlayer3D.new()
+		_blaster_audio.name = "ArcadeWeaponAudio"
+		_blaster_audio.volume_db = -7.0
+		_blaster_audio.max_distance = 42.0
+		_blaster_audio.unit_size = 9.0
+		_blaster_audio.stream = _make_blaster_stream()
+		_camera.add_child(_blaster_audio)
 
 func _blaster_material(color: Color, metallic_value: float, emissive: bool = false) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -500,7 +464,8 @@ func _fire_blaster() -> void:
 	_blaster_recoil = 0.055
 	var origin := _camera.global_position
 	var direction := -_camera.global_basis.z.normalized()
-	var endpoint := origin + direction * 65.0
+	var weapon_data: Dictionary = ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"])
+	var endpoint := origin + direction * float(weapon_data.get("range", 65.0))
 	var query := PhysicsRayQueryParameters3D.create(origin, endpoint)
 	query.exclude = [get_rid()]
 	query.collide_with_areas = false
@@ -514,7 +479,8 @@ func _fire_blaster() -> void:
 	else:
 		_show_blaster_beam(origin, endpoint)
 	if is_instance_valid(_blaster_audio):
-		_blaster_audio.pitch_scale = randf_range(0.96, 1.04)
+		var pitch_by_weapon := {"minicore":1.28, "hand_cannon":0.78, "star_piercer":0.68, "duck_launcher":1.12, "banana_boomerang":1.42, "confetti_cannon":1.55, "rubber_chicken":1.72, "thunder_drum":0.82, "bubble_burst":1.34}
+		_blaster_audio.pitch_scale = float(pitch_by_weapon.get(selected_weapon_id, 1.0)) * randf_range(0.98, 1.02)
 		_blaster_audio.play()
 	var flash := MeshInstance3D.new()
 	var flash_mesh := SphereMesh.new()
@@ -534,10 +500,11 @@ func _show_blaster_beam(origin: Vector3, endpoint: Vector3) -> void:
 	mesh.size = Vector3(0.035, 0.035, 1.0)
 	beam.mesh = mesh
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(0.25, 0.9, 1.0, 0.92)
+	var beam_color: Color = ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"]).get("color", Color("#35EFFF"))
+	material.albedo_color = Color(beam_color.r, beam_color.g, beam_color.b, 0.92)
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.emission_enabled = true
-	material.emission = Color("#35EFFF")
+	material.emission = beam_color
 	material.emission_energy_multiplier = 2.4
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	beam.material_override = material
