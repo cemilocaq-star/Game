@@ -230,7 +230,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			_server_players.erase(peer_id)
 		_peer_users.erase(peer_id)
 		_last_input_ms.erase(peer_id)
-	_last_blaster_ms.erase(peer_id)
+		_last_blaster_ms.erase(peer_id)
 		return
 	var room_code := str(_user_rooms.get(user_id, ""))
 	if not room_code.is_empty() and _rooms.has(room_code):
@@ -257,6 +257,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			_server_players.erase(peer_id)
 	_peer_users.erase(peer_id)
 	_last_input_ms.erase(peer_id)
+	_last_blaster_ms.erase(peer_id)
 	if int(_user_peers.get(user_id, 0)) == peer_id:
 		_user_peers.erase(user_id)
 		_session_tokens.erase(user_id)
