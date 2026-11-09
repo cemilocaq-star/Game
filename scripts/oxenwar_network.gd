@@ -191,7 +191,8 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			"xp": int(_server_players[peer_id].xp) if _server_players.has(peer_id) else 0,
 			"match_xp": int(_server_players[peer_id].match_xp) if _server_players.has(peer_id) else 0,
 			"collections": _server_players[peer_id].collection_counts.duplicate(true) if _server_players.has(peer_id) else {},
-			"token": str(_tokens.get(user_id, ""))
+			"token": str(_tokens.get(user_id, "")),
+			"already_persisted": bool(room.get("persisted", {}).has(user_id))
 		}
 		if _server_players.has(peer_id):
 			_server_players[peer_id].queue_free()
@@ -460,6 +461,7 @@ func _assign_user_to_room(user_id: String, peer_id: int, code: String) -> void:
 		_server_players[peer_id].match_xp = 0
 		_server_players[peer_id].collection_counts.clear()
 		_server_players[peer_id].secret_404_found = false
+		_server_players[peer_id].apply_event(str(room.event_id))
 
 func _server_remove_from_room(user_id: String) -> void:
 	var old_code := str(_user_rooms.get(user_id, ""))
@@ -586,6 +588,8 @@ func _collection_list_from_counts(counts: Dictionary) -> Array[String]:
 	return result
 
 func _persist_session_result(user_id: String, session: Dictionary) -> void:
+	if bool(session.get("already_persisted", false)):
+		return
 	var counts: Dictionary = session.get("collections", {})
 	_persist_result_values(
 		user_id,
