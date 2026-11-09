@@ -455,6 +455,8 @@ func _server_blaster_fire(direction: Vector3) -> void:
 					if str(shooter.team_id) != "" and str(shooter.team_id) == str(target.get("team_id")):
 						break
 					var was_killed: bool = target.apply_damage(34.0)
+					if was_killed:
+						shooter.kills += 1
 					shooter.score += 10 + (50 if was_killed else 0)
 					break
 	var room: Dictionary = _rooms[room_code]
@@ -560,6 +562,8 @@ func _server_detonate_grenade(room_code: String, grenade: Dictionary) -> void:
 			var killed: bool = target.apply_damage(damage)
 			damaged[target_peer] = true
 			if _server_players.has(owner_peer) and target_peer != owner_peer:
+				if killed:
+					_server_players[owner_peer].kills += 1
 				_server_players[owner_peer].score += 8 + (45 if killed else 0)
 	var room: Dictionary = _rooms.get(room_code, {})
 	for member_uid in room.get("members", {}).keys():
@@ -731,6 +735,7 @@ func _assign_user_to_room(user_id: String, peer_id: int, code: String) -> void:
 		_server_players[peer_id].global_position = Vector3(team_spawn_x, 1.5, 6)
 		_server_players[peer_id].velocity = Vector3.ZERO
 		_server_players[peer_id].score = 0
+		_server_players[peer_id].kills = 0
 		_server_players[peer_id].health = 100.0
 		_server_players[peer_id].is_dead = false
 		_server_players[peer_id].respawn_left = 0.0
@@ -952,7 +957,7 @@ func _broadcast_snapshot(code: String) -> void:
 			"color": _color_for_profile(_profiles.get(user_id, {})),
 			"outfit_id": str(_profiles.get(user_id, {}).get("outfit_id", "outfit_default")),
 			"team_id": str(player.team_id),
-			"score": player.score, "xp": player.xp, "stamina": player.stamina, "sliding": player.sliding_active,
+			"score": player.score, "kills": player.kills, "xp": player.xp, "stamina": player.stamina, "sliding": player.sliding_active,
 			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left
 		}
 	for user_id in room.members.keys():
