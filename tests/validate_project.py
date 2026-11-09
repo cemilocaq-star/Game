@@ -15,7 +15,7 @@ required = [
     "supabase/migrations/20261109124756_oxenwar_one_time_game_tickets.sql",
     "supabase/migrations/20261109125313_oxenwar_deny_client_ticket_access.sql",
     "supabase/config.toml",
-    "supabase/functions/oxenwar-server-sync/index.ts",
+    "supabase/functions/oxenwar-server-sync/index.ts",\n    "supabase/functions/oxenwar-username-auth/index.ts",\n    "supabase/migrations/20261109230000_oxenwar_username_only_auth.sql",
     "supabase/migrations/20261109114858_oxenwar_free_accessories.sql",
     "supabase/migrations/20261109143000_oxenwar_hero_inspired_outfits.sql",
     "supabase/migrations/20261109170000_oxenwar_career_statistics.sql",
@@ -122,7 +122,7 @@ checks = [
     ("_add_selected_accessory", player, "visible accessory customization"),
     ("friend_requests", backend, "friend request API"),
     ("refresh_token", backend, "session refresh"),
-    ("PUBLISHABLE_KEY", backend, "Supabase publishable-key client"),
+    ("PUBLISHABLE_KEY", backend, "Supabase publishable-key client"),\n    ("/functions/v1/oxenwar-username-auth", backend, "username-only auth Edge Function client"),\n    ("action\": \"register\"", backend, "username-only registration request"),\n    ("action\": \"login\"", backend, "username-only login request"),\n    ("oxenwar_lookup_auth_email", read("supabase/functions/oxenwar-username-auth/index.ts"), "server-side username-to-auth lookup"),\n    ("oxenwar_consume_username_auth_attempt", read("supabase/functions/oxenwar-username-auth/index.ts"), "database-backed auth rate limiting"),\n    ("createUser", read("supabase/functions/oxenwar-username-auth/index.ts"), "server-side account creation"),\n    ("signInWithPassword", read("supabase/functions/oxenwar-username-auth/index.ts"), "server-side password verification"),\n    ("accounts.oxenwar.invalid", read("supabase/functions/oxenwar-username-auth/index.ts"), "non-routable internal auth alias"),
     ("accessory_id", menu, "accessory selection"),
     ("outfit_iron_vanguard", player, "Iron Vanguard hero-inspired skin"),
     ("outfit_web_sentinel", player, "Web Sentinel hero-inspired skin"),
@@ -310,7 +310,7 @@ for needle, source, label in checks:
     if needle not in source:
         errors.append(f"missing {label}")
 
-if "service_role" in backend.lower() or "sb_secret_" in backend:
+if "email_input" in menu:\n    errors.append("email field remains in the account UI")\nif "/auth/v1/signup" in backend or "/auth/v1/token?grant_type=password" in backend:\n    errors.append("game client still calls email-based Supabase Auth endpoints directly")\nif "service_role" in backend.lower() or "sb_secret_" in backend:
     errors.append("secret/service-role credential must never be present in the game client")
 if "ADMIN_CODE_SHA256" in main or "ADMIN_PLAYER_NAME" in main:
     errors.append("obsolete client-side admin password/name authorization remains")
