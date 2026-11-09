@@ -42,7 +42,22 @@ const ARCADE_WEAPONS := {
 	"star_piercer": {"name":"STAR PIERCER", "damage":70.0, "cooldown_ms":1050, "range":92.0},
 	"duck_launcher": {"name":"DUCK LAUNCHER", "damage":24.0, "cooldown_ms":620, "range":42.0},
 	"banana_boomerang": {"name":"BANANA BOOMERANG", "damage":16.0, "cooldown_ms":420, "range":38.0},
-	"confetti_cannon": {"name":"CONFETTI CANNON", "damage":8.0, "cooldown_ms":110, "range":34.0}
+	"confetti_cannon": {"name":"CONFETTI CANNON", "damage":8.0, "cooldown_ms":110, "range":34.0},
+	"prism_scepter": {"name":"PRISM SCEPTER", "damage":28.0, "cooldown_ms":320, "range":72.0},
+	"vortex_orbiter": {"name":"VORTEX ORBITER", "damage":17.0, "cooldown_ms":150, "range":52.0},
+	"comet_bow": {"name":"COMET BOW", "damage":56.0, "cooldown_ms":900, "range":88.0},
+	"bubble_burst": {"name":"BUBBLE BURST", "damage":12.0, "cooldown_ms":250, "range":36.0},
+	"glitch_ray": {"name":"GLITCH RAY", "damage":22.0, "cooldown_ms":130, "range":60.0},
+	"meteor_mallet": {"name":"METEOR MALLET", "damage":42.0, "cooldown_ms":700, "range":30.0},
+	"frost_wand": {"name":"FROST WAND", "damage":19.0, "cooldown_ms":280, "range":58.0},
+	"solar_lance": {"name":"SOLAR LANCE", "damage":62.0, "cooldown_ms":980, "range":86.0},
+	"slime_slinger": {"name":"SLIME SLINGER", "damage":15.0, "cooldown_ms":360, "range":44.0},
+	"pixel_storm": {"name":"PIXEL STORM", "damage":9.0, "cooldown_ms":80, "range":40.0},
+	"thunder_drum": {"name":"THUNDER DRUM", "damage":24.0, "cooldown_ms":400, "range":55.0},
+	"moon_disc": {"name":"MOON DISC", "damage":30.0, "cooldown_ms":520, "range":68.0},
+	"jellyfish_staff": {"name":"JELLYFISH STAFF", "damage":20.0, "cooldown_ms":300, "range":50.0},
+	"portal_popper": {"name":"PORTAL POPPER", "damage":38.0, "cooldown_ms":640, "range":62.0},
+	"rubber_chicken": {"name":"RUBBER CHICKEN", "damage":14.0, "cooldown_ms":480, "range":32.0}
 }
 
 var is_dedicated_server := false
