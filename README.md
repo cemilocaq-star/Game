@@ -112,3 +112,6 @@ The in-game HUD now uses restrained translucent panels for combat status, vitals
 
 ## Kill feed and match scoreboard
 Confirmed eliminations now generate a reliable server-authored kill-feed event for every room member, identifying the killer, victim and weapon type (Aether Blaster or grenade). The server tracks deaths alongside kills and includes both in authoritative snapshots. The client displays the five most recent elimination notices and a live scoreboard sorted by kills, then score, with K/D/score columns. Press **Tab** on desktop or use the **SCOREBOARD** touch button on mobile. These UI elements do not award kills or alter combat authority.
+
+## Match results and combat statistics
+The server now records accepted Aether Blaster shots, confirmed hits, damage dealt and damage received, and replicates these fields in authoritative player snapshots. The match-results overlay shows the local player's K/D, score, blaster accuracy, damage dealt/received, a ranked top-five table and an MVP selected by score (kills break ties). Team Deathmatch additionally reports red/blue team kill totals and the winning side or a draw. Accuracy is specifically blaster hit rate; grenade damage is included in damage totals but not in the blaster accuracy denominator.
