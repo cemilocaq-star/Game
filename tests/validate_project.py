@@ -9,6 +9,7 @@ required = [
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
     "assets/LostFoodCourt_Arena_Blockout.glb", "assets/GoldenOrb_Collectible.glb",
     "assets/DuckBeacon_Mascot.glb", "assets/CosmicHalo_Cosmetic.glb",
+    "scripts/progression.gd", "scripts/graphics_manager.gd", "shaders/neon_surface.gdshader",
 ]
 for rel in required:
     if not (ROOT / rel).is_file():
@@ -34,9 +35,29 @@ for needle, text, label in [
     ("COYOTE_TIME", player_script, "coyote-time jump window"),
     ("_finish_round", main_script, "round completion screen"),
     ("ROUND COMPLETE", main_script, "round results UI"),
+    ("ProgressionManager", main_script, "XP progression manager"),
+    ("_on_level_up", main_script, "level-up reward feedback"),
+    ("BONK_MODE", main_script, "meme event"),
+    ("graphics_option", main_script, "graphics quality selector"),
+    ("discover_secret", main_script, "secret meme collectible"),
     ("Input.get_gyroscope", player_script, "mobile gyro path"),
     ('name="Windows Desktop"', presets, "Windows export preset"),
     ('name="Android"', presets, "Android export preset"),
+]:
+    if needle not in text:
+        errors.append(f"missing {label}")
+
+progression_script = (ROOT / "scripts/progression.gd").read_text(encoding="utf-8")
+graphics_script = (ROOT / "scripts/graphics_manager.gd").read_text(encoding="utf-8")
+shader_script = (ROOT / "shaders/neon_surface.gdshader").read_text(encoding="utf-8")
+for needle, text, label in [
+    ("xp_for_next_level", progression_script, "level XP curve"),
+    ("secret_404_found", progression_script, "persistent secret unlock"),
+    ("best_score", progression_script, "persistent best score"),
+    ("_resolve_quality", graphics_script, "automatic graphics selection"),
+    ("LOW", graphics_script, "low graphics preset"),
+    ("ULTRA", graphics_script, "ultra graphics preset"),
+    ("effect_strength", shader_script, "adjustable neon shader"),
 ]:
     if needle not in text:
         errors.append(f"missing {label}")
@@ -45,5 +66,5 @@ if errors:
     print("VALIDATION FAILED")
     print("\n".join(f"- {e}" for e in errors))
     raise SystemExit(1)
-print(f"VALIDATION PASSED: {len(required)} required paths, 4 GLB headers, gameplay hooks and both local export presets checked")
+print(f"VALIDATION PASSED: {len(required)} required paths, 4 GLB headers, gameplay/progression/graphics hooks and both local export presets checked")
 print("NOTE: this is a structural check, not a Godot parse, runtime, network, or platform-build test.")

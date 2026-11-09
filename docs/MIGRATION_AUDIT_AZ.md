@@ -3,7 +3,7 @@
 ## Status
 
 - **IMPLEMENTED + VERIFIED:** source archive extracted; source layout and project config inspected; original Unreal static checks run; safe original GLB assets copied; Godot starter project, Windows/Android export presets and local structural validation script added; no CI workflow included.
-- **NOT VERIFIED:** Godot parser/editor import, playable runtime, Windows export, Android APK export, Android device input/gyro, multiplayer, network latency, performance and store signing. Godot is not installed in the current working container, so no Godot runtime test was possible.
+- **NOT VERIFIED:** Godot parser/editor import, playable runtime, Windows export, Android APK export, Android device input/gyro, multiplayer, network latency, performance and store signing. The AUTO graphics selection is a conservative heuristic, not a measured GPU benchmark; real device FPS and thermal testing remain required. Godot is not installed in the current working container, so no Godot runtime test was possible.
 - **BLOCKED / NOT INCLUDED:** Unreal-only C++/UMG/JNI code cannot be reused directly. Internet matchmaking, account backend and cross-platform online sessions were not complete in the original package and are not claimed as migrated. iOS output is not targeted in this first pass.
 
 ## Original package inventory
@@ -38,6 +38,9 @@ These are original generated prototype meshes and remain blockout-quality, stati
 
 - First-person CharacterBody3D movement, mouse look, jump buffering, coyote-time jumps, sprint, lowered slide stance, dash and stamina.
 - Animated collectible visuals, timed 5-minute round, final-score screen and replay flow.
+- Persistent XP/level progression, reward milestones, best-score save and one-time hidden 404 XP secret.
+- Meme-inspired random events (BONK MODE, NPC MODE, DUCK.EXE) and toast feedback.
+- Adjustable LOW/MEDIUM/HIGH/ULTRA neon shader presets plus AUTO quality heuristic using platform, CPU core count and screen resolution.
 - Touch buttons and swipe camera look path; Android gyroscope look path.
 - Procedural low-poly arena, collectible score loop, collectible respawn and five lighthearted event states.
 - Export presets for Windows x86_64 and Android arm64 APK.
