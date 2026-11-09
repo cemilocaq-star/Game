@@ -1,9 +1,11 @@
 extends Node3D
 ## Lightweight, original event visuals and synthesized ambience for OxenWar.
-## All effects are generated from Godot primitives; no third-party audio is streamed.
+## Visuals are procedural; licensed CC0 audio is stored locally and never streamed.
 
 var _effect_root: Node3D
 var _music: AudioStreamPlayer
+var _ambience: AudioStreamPlayer
+var _cue: AudioStreamPlayer
 var _active_event := ""
 
 func set_event(event_id: String) -> void:
@@ -12,7 +14,10 @@ func set_event(event_id: String) -> void:
 	_active_event = event_id
 	_clear_effects()
 	if event_id.is_empty():
+		_play_event_cue("event-end.ogg")
 		return
+	_play_event_cue(_event_cue_file(event_id))
+	_start_licensed_loop()
 	_effect_root = Node3D.new()
 	_effect_root.name = "EventFX_" + event_id
 	add_child(_effect_root)
@@ -40,13 +45,51 @@ func set_event(event_id: String) -> void:
 		_start_synth_music(event_id)
 
 func _clear_effects() -> void:
-	if is_instance_valid(_music):
-		_music.stop()
-		_music.queue_free()
+	for audio_player in [_music, _ambience, _cue]:
+		if is_instance_valid(audio_player):
+			audio_player.stop()
+			audio_player.queue_free()
 	_music = null
+	_ambience = null
+	_cue = null
 	if is_instance_valid(_effect_root):
 		_effect_root.queue_free()
 	_effect_root = null
+
+func _event_cue_file(event_id: String) -> String:
+	if event_id == "FREEZE_FRAME":
+		return "event-freeze.ogg"
+	if event_id == "BONK_MODE":
+		return "event-bonk.ogg"
+	if event_id in ["GOLDEN_ORB_RUSH", "DOUBLE_XP"]:
+		return "event-reward.ogg"
+	return "event-start.ogg"
+
+func _play_event_cue(filename: String) -> void:
+	var stream := load("res://assets/audio/" + filename) as AudioStream
+	if stream == null:
+		push_warning("Optional event audio not installed: " + filename)
+		return
+	_cue = AudioStreamPlayer.new()
+	_cue.name = "LicensedEventCue"
+	_cue.stream = stream
+	_cue.volume_db = -12.0
+	_cue.finished.connect(_cue.queue_free)
+	add_child(_cue)
+	_cue.play()
+
+func _start_licensed_loop() -> void:
+	var stream := load("res://assets/audio/event-music-loop.ogg") as AudioStreamOggVorbis
+	if stream == null:
+		push_warning("Optional event music loop not installed.")
+		return
+	stream.loop = true
+	_ambience = AudioStreamPlayer.new()
+	_ambience.name = "LicensedEventMusicLoop"
+	_ambience.stream = stream
+	_ambience.volume_db = -31.0
+	add_child(_ambience)
+	_ambience.play()
 
 func _build_event_artifact(event_id: String) -> void:
 	# Original, lightweight 3D centerpiece for each event. Geometry is generated
