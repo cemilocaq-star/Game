@@ -39,6 +39,9 @@ var _access_token := ""
 var _game_ticket := ""
 var _ticket_request_in_progress := false
 var _last_send_ms := 0
+var _pending_jump := false
+var _pending_slide := false
+var _pending_dash := false
 var _snapshot_accumulator := 0.0
 var _server_players: Dictionary = {} # peer id -> CharacterBody3D
 var _last_input_ms: Dictionary = {}
@@ -162,11 +165,14 @@ func _process(delta: float) -> void:
 		return
 	_last_send_ms = now
 	var move := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	var jump := Input.is_action_just_pressed("jump")
-	var dash := Input.is_action_just_pressed("dash")
+	_pending_jump = _pending_jump or Input.is_action_just_pressed("jump")
+	_pending_slide = _pending_slide or Input.is_action_just_pressed("slide")
+	_pending_dash = _pending_dash or Input.is_action_just_pressed("dash")
 	var sprint := Input.is_action_pressed("sprint")
-	var slide := Input.is_action_pressed("slide")
-	rpc_id(1, "_server_submit_input", move, local_player.rotation.y, jump, sprint, slide, dash)
+	rpc_id(1, "_server_submit_input", move, local_player.rotation.y, _pending_jump, sprint, _pending_slide, _pending_dash)
+	_pending_jump = false
+	_pending_slide = false
+	_pending_dash = false
 
 func _on_connected_to_server() -> void:
 	_reconnect_attempts = 0
@@ -367,7 +373,7 @@ func _server_submit_input(move: Vector2, yaw: float, jump: bool, sprint: bool, s
 	player.look_yaw = wrapf(yaw, -PI, PI)
 	player.jump_requested = player.jump_requested or jump
 	player.sprinting = sprint
-	player.sliding = slide
+	player.slide_requested = player.slide_requested or slide
 	player.dash_requested = player.dash_requested or dash
 
 @rpc("any_peer", "call_remote", "reliable")
