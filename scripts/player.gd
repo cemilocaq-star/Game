@@ -85,6 +85,7 @@ var _blaster_model: Node3D
 var _blaster_cooldown := 0.0
 var _blaster_recoil := 0.0
 var selected_weapon_id := "aether"
+var arsenal_open := false
 var active_emote := ""
 var _emote_clock := 0.0
 var _emote_music: AudioStreamPlayer
@@ -311,7 +312,7 @@ func _process(delta: float) -> void:
 	_blaster_recoil = move_toward(_blaster_recoil, 0.0, delta * 1.35)
 	if is_instance_valid(_blaster_model):
 		_blaster_model.position.z = -0.48 + _blaster_recoil
-	if Input.is_action_pressed("fire") and _blaster_cooldown <= 0.0:
+	if Input.is_action_pressed("fire") and _blaster_cooldown <= 0.0 and not arsenal_open:
 		_fire_blaster()
 
 func play_emote(emote_id: String) -> void:
@@ -392,6 +393,11 @@ func _make_emote_music() -> AudioStreamWAV:
 	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 	stream.loop_end = sample_count
 	return stream
+
+func set_arsenal_open(open: bool) -> void:
+	arsenal_open = open
+	if open:
+		Input.action_release("fire")
 
 func set_selected_weapon(weapon_id: String) -> void:
 	if not ARCADE_WEAPON_LOCAL.has(weapon_id) or selected_weapon_id == weapon_id:
