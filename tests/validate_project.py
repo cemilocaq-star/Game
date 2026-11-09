@@ -192,7 +192,7 @@ checks = [
     ('"wave"', read("scripts/oxenwar_network.gd"), "server validates wave emote"),
     ('"collections": player.collection_counts.duplicate(true)', read("scripts/oxenwar_network.gd"), "authoritative collectible count snapshot"),
     ('"secret_404_found": player.secret_404_found', read("scripts/oxenwar_network.gd"), "authoritative secret discovery snapshot"),
-    ("GOLD ORBS (XP ONLY)", main, "clear non-currency orb counter"));
+    ("GOLD ORBS (XP ONLY)", main, "clear non-currency orb counter"),
     ("_server_throw_grenade", read("scripts/oxenwar_network.gd"), "server-validated grenade throw"),
     ("_server_detonate_grenade", read("scripts/oxenwar_network.gd"), "server-authoritative grenade blast"),
     ("_server_step_grenades", read("scripts/oxenwar_network.gd"), "server grenade fuse and movement"),
