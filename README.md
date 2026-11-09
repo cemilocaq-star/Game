@@ -15,6 +15,9 @@ OxenWar is a free-to-play Godot 4.4.1 parkour arena project. Its visual directio
 - Local 3D footsteps with distinct generated sound profiles for stone, wood, metal, grass, dirt and ice; surfaces can be identified by `surface_type` metadata or `surface_<type>` groups.
 - Procedural first-person Aether Blaster model, original synthesized sci-fi pulse sound, short energy trail, desktop/mobile fire input, and server-validated multiplayer hit scoring.
 - Server-authoritative health: players start with 100 HP, each confirmed pulse hit deals 34 damage, zero HP triggers a 4-second K.O. state, then automatic full-health respawn; a final hit grants a bonus score.
+- Free-for-all and Team Deathmatch room modes. Team assignment is server-owned, with team spawns, team HUD colours and friendly-fire protection.
+- Server-simulated grenades with a 2.5-second fuse, 5-metre blast radius, distance-scaled damage, cooldown validation and replicated projectile/explosion visuals.
+- Original Dust II-inspired desert three-lane map blockout (A Long/site, Mid, connector and B site) built from procedural geometry; no Valve assets are copied.
 - Match results are persisted through a Supabase Edge Function using one-time HMAC game tickets and a server-only session/secret.
 - Free starter cosmetics plus two original hero-inspired outfits: Iron Vanguard (red/gold armored hero) and Web Sentinel (red/blue masked agility hero); outfit selection uses the existing character customization tab and is replicated to remote players.
 - Azerbaijani, English, Turkish and Russian menu localization.
@@ -39,7 +42,7 @@ Database schema source is in `supabase/migrations/`. Apply all new migrations, i
 5. Register/sign in with Supabase.
 6. Run a dedicated server in another terminal: `godot --headless --path . -- --server`.
 7. In the game, enter the server's LAN address or public hostname and press **CONNECT**.
-8. Use **CREATE ROOM** to make a private friend room, **JOIN** with its code, or **QUICK MATCH** to enter a public room.
+8. Choose **FREE FOR ALL** or **TEAM DEATHMATCH** in the in-game mode selector. Use **CREATE ROOM** to make a private friend room, **JOIN** with its code, or **QUICK MATCH** to enter a public room of the selected mode. The current arena is the original Dust II-inspired desert blockout.
 
 For a private room, share its six-character code with an existing OxenWar friend. The server checks the friendship relationship before allowing entry. Public quick-match rooms are available to all authenticated players.
 
@@ -52,6 +55,7 @@ For a private room, share its six-character code with an existing OxenWar friend
 - Ctrl: slide
 - Q: dash
 - Left mouse button / mobile PULSE: fire the Aether Blaster
+- G: throw a server-simulated grenade
 - Escape: release/capture mouse
 
 Online clients send input only. The server runs CharacterBody3D movement and collision against its own arena, and sends authoritative snapshots back to clients.
