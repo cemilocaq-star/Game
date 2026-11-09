@@ -95,6 +95,11 @@ checks = [
     ("best_damage", read("supabase/migrations/20261109170000_oxenwar_career_statistics.sql"), "best match damage record"),
     ("get_player_stats", read("scripts/oxenwar_supabase.gd"), "career stats read API"),
     ("_render_stats", read("scripts/oxenwar_menu.gd"), "career statistics profile tab"),
+    ("_rank_for_xp", read("scripts/oxenwar_menu.gd"), "XP-derived competitive rank"),
+    ('"minimum":12000', read("scripts/oxenwar_menu.gd"), "Master rank XP threshold"),
+    ("_render_rank_progress", read("scripts/oxenwar_menu.gd"), "rank progression UI"),
+    ("rank_diamond", read("scripts/oxenwar_i18n.gd"), "localized rank labels"),
+
     ("p_playtime_seconds", read("supabase/functions/oxenwar-server-sync/index.ts"), "validated playtime persistence"),
     ("match_outcome = outcome", read("scripts/oxenwar_network.gd"), "server-derived win/loss outcome"),
     ("var match_outcome := \"abandoned\"", read("scripts/oxenwar_server_player.gd"), "per-match outcome state"),
