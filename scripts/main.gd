@@ -44,6 +44,7 @@ func _ready() -> void:
 	progression.level_up.connect(_on_level_up)
 	graphics = GraphicsManager.new()
 	graphics.load_settings()
+	graphics.quality_changed.connect(_refresh_graphics_materials)
 	_setup_input()
 	_build_environment()
 	_build_arena()
@@ -55,6 +56,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if _round_finished:
 		return
+	graphics.update_performance(delta)
 	round_left = maxf(0.0, round_left - delta)
 	if round_left <= 0.0:
 		_finish_round()
@@ -441,10 +443,12 @@ func _show_meme_toast(message: String) -> void:
 func _on_graphics_selected(index: int) -> void:
 	var options := ["AUTO", "LOW", "MEDIUM", "HIGH", "ULTRA"]
 	graphics.set_quality(options[index])
+	_show_meme_toast("GRAPHICS: %s  →  %s" % [graphics.quality_setting, graphics.resolved_quality])
+
+func _refresh_graphics_materials(_new_quality: String = "") -> void:
 	for i in range(arena_meshes.size()):
 		if is_instance_valid(arena_meshes[i]):
 			arena_meshes[i].material_override = graphics.make_material(arena_colors[i])
-	_show_meme_toast("GRAPHICS: %s  →  %s" % [graphics.quality_setting, graphics.resolved_quality])
 
 func _on_collected(_points: int) -> void:
 	_update_hud()

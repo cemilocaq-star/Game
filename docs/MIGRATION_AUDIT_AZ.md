@@ -3,7 +3,7 @@
 ## Status
 
 - **IMPLEMENTED + VERIFIED:** source archive extracted; source layout and project config inspected; original Unreal static checks run; safe original GLB assets copied; Godot starter project, Windows/Android export presets and local structural validation script added; no CI workflow included.
-- **NOT VERIFIED:** Godot parser/editor import, playable runtime, Windows export, Android APK export, Android device input/gyro, multiplayer, network latency, performance and store signing. The AUTO graphics selection is a conservative heuristic, not a measured GPU benchmark; real device FPS and thermal testing remain required. Godot is not installed in the current working container, so no Godot runtime test was possible.
+- **NOT VERIFIED:** Godot parser/editor import, playable runtime, Windows export, Android APK export, Android device input/gyro, multiplayer, network latency, performance and store signing. The AUTO graphics selection uses platform/CPU/GPU-name/display heuristics and runtime FPS sampling; it is not a full hardware benchmark. Real device FPS and thermal testing remain required. Godot is not installed in the current working container, so no Godot runtime test was possible.
 - **BLOCKED / NOT INCLUDED:** Unreal-only C++/UMG/JNI code cannot be reused directly. Internet matchmaking, account backend and cross-platform online sessions were not complete in the original package and are not claimed as migrated. iOS output is not targeted in this first pass.
 
 ## Original package inventory
