@@ -190,7 +190,7 @@ func _physics_process(delta: float) -> void:
 			velocity.x = move_toward(velocity.x, direction.x * target_speed, acceleration * delta)
 			velocity.z = move_toward(velocity.z, direction.z * target_speed, acceleration * delta)
 		else:
-			var friction := 7.0 if _is_sliding else 20.0
+			var friction := 3.5 if active_event_ice() else (7.0 if _is_sliding else 20.0)
 			velocity.x = move_toward(velocity.x, 0.0, friction * delta)
 			velocity.z = move_toward(velocity.z, 0.0, friction * delta)
 
@@ -289,6 +289,9 @@ func add_score(points: int) -> void:
 	score += points
 	collected.emit(points)
 
+func active_event_ice() -> bool:
+	return event_speed_scale == 0.82
+
 func apply_event(event_id: String) -> void:
 	event_gravity_scale = 0.55 if event_id == "LOW_GRAVITY" else 1.0
 	match event_id:
@@ -298,6 +301,10 @@ func apply_event(event_id: String) -> void:
 			event_speed_scale = 0.78
 		"ICE_WORLD":
 			event_speed_scale = 0.82
+		"FREEZE_FRAME":
+			event_speed_scale = 0.0
+			velocity.x = 0.0
+			velocity.z = 0.0
 		_:
 			event_speed_scale = 1.0
 
