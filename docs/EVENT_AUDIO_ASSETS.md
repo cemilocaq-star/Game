@@ -2,7 +2,7 @@
 
 ## Integrated open assets
 
-The build setup downloads a small set of event cues and one low-volume background loop from the open-audio folder in [blancmathis/Super_Bash_Folds](https://github.com/blancmathis/Super_Bash_Folds/tree/main/public/assets/audio). The source repository's audio provenance file identifies the selected Kenney sound packs and the music loop's source.
+The build setup downloads a small set of event cues and one low-volume background loop from the open-audio folder in [blancmathis/Super_Bash_Folds](https://github.com/blancmathis/Super_Bash_Folds/tree/1028a3b739ef54efdcbe5a2ef0ad1714fe569c47/public/assets/audio). The source repository's audio provenance file identifies the selected Kenney sound packs and the music loop's source.
 
 - **Event start** (event-start.ogg), **freeze cue** (event-freeze.ogg), **reward cue** (event-reward.ogg), **Bonk-mode arcade cue** (event-bonk.ogg), and **round/event end** (event-end.ogg): selected from Kenney's CC0 audio collections. The upstream provenance record includes Impact Sounds, Interface Sounds, and Music Jingles, and the corresponding license notices are retained.
 - **Background loop** (event-music-loop.ogg): “Two Simple Game Music Loops” by qubodup, CC0 1.0, sourced through the upstream repository's provenance record.
