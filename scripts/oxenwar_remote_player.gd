@@ -133,6 +133,9 @@ func _process(delta: float) -> void:
 		var phase := _emote_clock * TAU * rate
 		_visual.position.y = 0.9 + absf(sin(phase)) * 0.12
 		_visual.rotation.z = sin(phase) * (0.24 if _emote_id == "griddy" else 0.34)
+	elif _sliding:
+		_visual.position.y = move_toward(_visual.position.y, 0.5, delta * 8.0)
+		_visual.rotation.z = move_toward(_visual.rotation.z, 0.0, delta * 2.0)
 	else:
 		_visual.position.y = move_toward(_visual.position.y, 0.9, delta * 4.0)
 		_visual.rotation.z = move_toward(_visual.rotation.z, 0.0, delta * 2.0)
