@@ -279,7 +279,8 @@ func _server_authenticate(ticket: String) -> void:
 	var player := _create_server_player(peer_id, profile, identity.get("stats", {}))
 	var restored: Dictionary = _sessions.get(user_id, {})
 	var restored_room := str(restored.get("room_code", ""))
-	var can_restore := not restored.is_empty() and int(restored.get("expires", 0)) >= Time.get_ticks_msec() and _rooms.has(restored_room)
+	var restored_room_active := _rooms.has(restored_room) and not bool(_rooms[restored_room].get("round_finished", false))
+	var can_restore := not restored.is_empty() and int(restored.get("expires", 0)) >= Time.get_ticks_msec() and restored_room_active
 	if can_restore:
 		player.global_position = restored.get("position", Vector3(0, 1.5, 6))
 		player.score = int(restored.get("score", 0))
@@ -288,6 +289,7 @@ func _server_authenticate(ticket: String) -> void:
 		player.collection_counts = restored.get("collections", {})
 		var room: Dictionary = _rooms[restored_room]
 		room.members[user_id] = peer_id
+		player.apply_event(str(room.event_id))
 		_rooms[restored_room] = room
 		_user_rooms[user_id] = restored_room
 		_last_room_code = restored_room
@@ -371,6 +373,10 @@ func _server_submit_input(move: Vector2, yaw: float, jump: bool, sprint: bool, s
 	if not is_finite(move.x) or not is_finite(move.y) or not is_finite(yaw):
 		return
 	_last_input_ms[peer_id] = now
+	var user_id := str(_peer_users[peer_id])
+	var room_code := str(_user_rooms.get(user_id, ""))
+	if room_code.is_empty() or not _rooms.has(room_code) or bool(_rooms[room_code].get("round_finished", false)):
+		return
 	var player = _server_players[peer_id]
 	player.input_vector = move.limit_length(1.0)
 	player.look_yaw = wrapf(yaw, -PI, PI)
@@ -511,6 +517,7 @@ func _assign_user_to_room(user_id: String, peer_id: int, code: String) -> void:
 	_user_rooms[user_id] = code
 	_last_room_code = code
 	if _server_players.has(peer_id):
+		_server_players[peer_id].set_physics_process(true)
 		_server_players[peer_id].global_position = Vector3(0, 1.5, 6)
 		_server_players[peer_id].velocity = Vector3.ZERO
 		_server_players[peer_id].score = 0
@@ -523,11 +530,17 @@ func _server_remove_from_room(user_id: String) -> void:
 	var old_code := str(_user_rooms.get(user_id, ""))
 	if old_code.is_empty() or not _rooms.has(old_code):
 		_user_rooms.erase(user_id)
+		var current_peer := int(_user_peers.get(user_id, 0))
+		if current_peer > 0 and _server_players.has(current_peer):
+			_server_players[current_peer].set_physics_process(false)
 		return
 	var room: Dictionary = _rooms[old_code]
 	var old_peer := int(room.members.get(user_id, 0))
 	if old_peer > 0 and _server_players.has(old_peer):
 		_persist_room_member_result(old_code, user_id, _server_players[old_peer])
+		_server_players[old_peer].input_vector = Vector2.ZERO
+		_server_players[old_peer].velocity = Vector3.ZERO
+		_server_players[old_peer].set_physics_process(false)
 		for member_uid in room.members.keys():
 			var member_peer := int(room.members[member_uid])
 			if member_peer > 0 and member_peer != old_peer:
@@ -623,6 +636,7 @@ func _server_process_rooms(delta: float) -> void:
 					var finished_player = _server_players[finished_peer]
 					finished_player.input_vector = Vector2.ZERO
 					finished_player.velocity = Vector3.ZERO
+					finished_player.set_physics_process(false)
 					_persist_room_member_result(str(code), str(uid), finished_player)
 		_rooms[code] = room
 	if _snapshot_accumulator >= SNAPSHOT_INTERVAL:
