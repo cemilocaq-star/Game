@@ -6,6 +6,7 @@ var target_yaw := 0.0
 var _sliding := false
 var display_name := "Player"
 var _base_color := Color("#27D7E7")
+var _outfit_id := "outfit_default"
 var _visual: MeshInstance3D
 var _name_tag: Label3D
 
@@ -25,12 +26,13 @@ func _ready() -> void:
 	_name_tag.pixel_size = 0.006
 	add_child(_name_tag)
 
-func set_player_identity(player_name: String, color: Color) -> void:
+func set_player_identity(player_name: String, color: Color, outfit_id: String = "outfit_default") -> void:
 	display_name = player_name.substr(0, 24)
+	_outfit_id = outfit_id
 	if is_instance_valid(_name_tag):
 		_name_tag.text = display_name
 	if is_instance_valid(_visual):
-		_base_color = color
+		_base_color = Color("#A92332") if outfit_id == "outfit_iron_vanguard" else (Color("#B52D3D") if outfit_id == "outfit_web_sentinel" else color)
 		var material := StandardMaterial3D.new()
 		material.albedo_color = color
 		material.roughness = 0.65
