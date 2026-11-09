@@ -97,7 +97,10 @@ var _server_secret := ""
 func start_server() -> bool:
 	is_dedicated_server = true
 	_rng.randomize()
-	_server_secret = OS.get_environment("OXENWAR_SERVER_SECRET")
+	_server_secret = OS.get_environment("OXENWAR_SERVER_SECRET").strip_edges()
+	if _server_secret.is_empty():
+		push_error("OXENWAR_SERVER_SECRET is required; refusing to start dedicated server.")
+		return false
 	var peer := ENetMultiplayerPeer.new()
 	var error := peer.create_server(PORT, MAX_CLIENTS)
 	if error != OK:
