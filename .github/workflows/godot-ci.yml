@@ -92,13 +92,17 @@ jobs:
           path = Path("export_presets.cfg")
           data = path.read_text(encoding="utf-8")
           home = os.environ["HOME"]
-          signing = (
-              f'keystore/debug="{home}/.android/debug.keystore"\n'
-              'keystore/debug_user="androiddebugkey"\n'
-              'keystore/debug_password="android"\n'
-          )
-          data = data.replace('package/signed=true', signing + 'package/signed=true')
+          replacements = {
+              'keystore/debug=""': f'keystore/debug="{home}/.android/debug.keystore"',
+              'keystore/debug_user=""': 'keystore/debug_user="androiddebugkey"',
+              'keystore/debug_password=""': 'keystore/debug_password="android"',
+          }
+          for old, new in replacements.items():
+              if old not in data:
+                  raise SystemExit(f"Expected Android signing field not found: {old}")
+              data = data.replace(old, new, 1)
           path.write_text(data, encoding="utf-8")
+          print("\n".join(line for line in data.splitlines() if line.startswith("keystore/") or line.startswith("package/signed=")))
           PY
 
       - name: Verify toolchain
