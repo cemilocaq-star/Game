@@ -134,6 +134,10 @@ func _physics_process(delta: float) -> void:
 		velocity = fly_direction * 14.0 + Vector3.UP * vertical * 10.0
 		move_and_slide()
 		return
+	if event_speed_scale <= 0.0:
+		velocity = Vector3.ZERO
+		move_and_slide()
+		return
 	dash_cooldown = maxf(0.0, dash_cooldown - delta)
 	dash_left = maxf(0.0, dash_left - delta)
 	_jump_buffer_left = maxf(0.0, _jump_buffer_left - delta)
