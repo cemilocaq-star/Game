@@ -1,0 +1,2 @@
+[functions.oxenwar-server-sync]
+verify_jwt = false
