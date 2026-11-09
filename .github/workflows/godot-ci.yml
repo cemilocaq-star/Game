@@ -84,6 +84,23 @@ jobs:
           EOF
           cat "$HOME/.config/godot/editor_settings-4.tres"
 
+      - name: Configure Android preset signing
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          path = Path("export_presets.cfg")
+          data = path.read_text(encoding="utf-8")
+          home = os.environ["HOME"]
+          signing = (
+              f'keystore/debug="{home}/.android/debug.keystore"\n'
+              'keystore/debug_user="androiddebugkey"\n'
+              'keystore/debug_password="android"\n'
+          )
+          data = data.replace('package/signed=true', signing + 'package/signed=true')
+          path.write_text(data, encoding="utf-8")
+          PY
+
       - name: Verify toolchain
         run: |
           godot --version
