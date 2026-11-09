@@ -190,7 +190,8 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			"score": int(_server_players[peer_id].score) if _server_players.has(peer_id) else 0,
 			"xp": int(_server_players[peer_id].xp) if _server_players.has(peer_id) else 0,
 			"match_xp": int(_server_players[peer_id].match_xp) if _server_players.has(peer_id) else 0,
-			"collections": _collection_list(_server_players[peer_id]) if _server_players.has(peer_id) else []
+			"collections": _collection_list(_server_players[peer_id]) if _server_players.has(peer_id) else [],
+			"token": str(_tokens.get(user_id, ""))
 		}
 		if _server_players.has(peer_id):
 			_server_players[peer_id].queue_free()
@@ -494,6 +495,7 @@ func _server_process_rooms(delta: float) -> void:
 	for user_id in _sessions.keys():
 		var session: Dictionary = _sessions[user_id]
 		if now > int(session.expires):
+			_persist_session_result(str(user_id), session)
 			_sessions.erase(user_id)
 			_user_rooms.erase(user_id)
 			var code := str(session.get("room_code", ""))
@@ -580,6 +582,15 @@ func _collection_list(player) -> Array[String]:
 			result.append(str(collection_id))
 	return result
 
+func _persist_session_result(user_id: String, session: Dictionary) -> void:
+	_persist_result_values(
+		user_id,
+		str(session.get("token", "")),
+		int(session.get("score", 0)),
+		int(session.get("match_xp", 0)),
+		session.get("collections", [])
+	)
+
 func _persist_room_member_result(room_code: String, user_id: String, player) -> void:
 	if not _rooms.has(room_code):
 		return
@@ -593,18 +604,18 @@ func _persist_room_member_result(room_code: String, user_id: String, player) -> 
 	_persist_user_result(user_id, player)
 
 func _persist_user_result(user_id: String, player) -> void:
-	if user_id.is_empty() or (player.score <= 0 and player.match_xp <= 0 and player.collection_counts.is_empty()):
-		return
-	var token := str(_tokens.get(user_id, ""))
-	if token.is_empty():
+	_persist_result_values(user_id, str(_tokens.get(user_id, "")), int(player.score), int(player.match_xp), _collection_list(player))
+
+func _persist_result_values(user_id: String, token: String, score: int, xp: int, collections: Array) -> void:
+	if user_id.is_empty() or (score <= 0 and xp <= 0 and collections.is_empty()) or token.is_empty():
 		return
 	if _server_secret.is_empty():
 		push_warning("OXENWAR_SERVER_SECRET is not configured; match results remain server-side for this session.")
 		return
 	var payload := {
-		"score": clampi(player.score, 0, 20000),
-		"xp": clampi(player.match_xp, 0, 50000),
-		"collections": _collection_list(player)
+		"score": clampi(score, 0, 20000),
+		"xp": clampi(xp, 0, 50000),
+		"collections": collections
 	}
 	var headers := PackedStringArray([
 		"apikey: " + SUPABASE_KEY,
