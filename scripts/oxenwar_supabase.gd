@@ -28,29 +28,32 @@ func restore_session() -> Dictionary:
 		return await refresh_session()
 	return {"ok": not access_token.is_empty(), "user_id": user_id}
 
-func sign_up(email: String, password: String, display_name: String, username: String = "", locale: String = "en") -> Dictionary:
-	var result := await _request(HTTPClient.METHOD_POST, "/auth/v1/signup", {
-		"email": email.strip_edges(),
+func sign_up(password: String, display_name: String, username: String = "", locale: String = "en") -> Dictionary:
+	var result := await _request(HTTPClient.METHOD_POST, "/functions/v1/oxenwar-username-auth", {
+		"action": "register",
+		"username": username.strip_edges(),
 		"password": password,
-		"data": {"display_name": display_name.strip_edges(), "username": username.strip_edges(), "locale": locale}
+		"display_name": display_name.strip_edges(),
+		"locale": locale
 	})
 	if not result.get("ok", false):
 		return result
 	_accept_auth_response(result.get("data", {}))
 	if access_token.is_empty():
-		return {"ok": true, "needs_email_confirmation": true, "message": "Check your email to confirm your account."}
+		return {"ok": false, "message": "Authentication service did not return a session."}
 	return {"ok": true, "user_id": user_id}
 
-func sign_in(email: String, password: String) -> Dictionary:
-	var result := await _request(HTTPClient.METHOD_POST, "/auth/v1/token?grant_type=password", {
-		"email": email.strip_edges(),
+func sign_in(username: String, password: String) -> Dictionary:
+	var result := await _request(HTTPClient.METHOD_POST, "/functions/v1/oxenwar-username-auth", {
+		"action": "login",
+		"username": username.strip_edges(),
 		"password": password
 	})
 	if not result.get("ok", false):
 		return result
 	_accept_auth_response(result.get("data", {}))
 	if access_token.is_empty():
-		return {"ok": false, "message": "Supabase did not return an access token."}
+		return {"ok": false, "message": "Authentication service did not return an access token."}
 	return {"ok": true, "user_id": user_id}
 
 func refresh_session() -> Dictionary:
