@@ -14,6 +14,7 @@ func _ready() -> void:
 	capsule.radius = 0.38
 	capsule.height = 1.8
 	_visual.mesh = capsule
+	_visual.position.y = 0.9
 	add_child(_visual)
 	_name_tag = Label3D.new()
 	_name_tag.position = Vector3(0, 2.15, 0)
