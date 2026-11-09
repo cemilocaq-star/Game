@@ -305,6 +305,8 @@ func _render_stats() -> void:
 	var loading := _label("Loading your verified career record...")
 	content.add_child(loading)
 	var result: Dictionary = await backend.get_player_stats()
+	if not is_instance_valid(loading):
+		return
 	if not result.get("ok", false):
 		loading.text = "Career statistics unavailable. Check your connection and database migration."
 		return
