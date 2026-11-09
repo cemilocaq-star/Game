@@ -35,6 +35,7 @@ func set_event(event_id: String) -> void:
 			_build_npc_mode()
 		"DUCK_PARADE", "DUCK_EXE":
 			_build_duck_sparkles()
+	_build_event_artifact(event_id)
 	if event_id in ["ICE_WORLD", "FREEZE_FRAME", "CONFETTI_STORM", "LOW_GRAVITY", "GOLDEN_ORB_RUSH", "DOUBLE_XP", "METEOR_SHOWER", "DUCK_PARADE", "DUCK_EXE", "BONK_MODE", "PINK_SKY", "NPC_MODE"]:
 		_start_synth_music(event_id)
 
@@ -46,6 +47,119 @@ func _clear_effects() -> void:
 	if is_instance_valid(_effect_root):
 		_effect_root.queue_free()
 	_effect_root = null
+
+func _build_event_artifact(event_id: String) -> void:
+	# Original, lightweight 3D centerpiece for each event. Geometry is generated
+	# locally so events do not depend on remote downloads or runtime network access.
+	var artifact := Node3D.new()
+	artifact.name = "EventArtifact_" + event_id
+	artifact.position = Vector3(0, 3.1, -1.8)
+	_effect_root.add_child(artifact)
+	var color := Color(0.25, 0.85, 1.0)
+	match event_id:
+		"ICE_WORLD", "FREEZE_FRAME":
+			color = Color(0.42, 0.88, 1.0)
+			for i in range(3):
+				var crystal := PrismMesh.new()
+				crystal.size = Vector3(0.65, 1.7 + float(i) * 0.25, 0.65)
+				_artifact_part(artifact, crystal, color, Vector3((i - 1) * 0.58, 0.0, 0.0))
+		"CONFETTI_STORM":
+			for i in range(5):
+				var tile := BoxMesh.new()
+				tile.size = Vector3(0.48, 0.48, 0.12)
+				var colors := [Color(1.0,0.3,0.6), Color(1.0,0.75,0.2), Color(0.25,0.8,1.0), Color(0.45,1.0,0.45), Color(0.7,0.4,1.0)]
+				_artifact_part(artifact, tile, colors[i], Vector3(cos(float(i) * TAU / 5.0), sin(float(i) * TAU / 5.0), 0.0))
+		"LOW_GRAVITY":
+			var core := SphereMesh.new()
+			core.radius = 0.58
+			core.height = 1.16
+			_artifact_part(artifact, core, color, Vector3.ZERO)
+			for i in range(3):
+				var ring := TorusMesh.new()
+				ring.inner_radius = 0.72 + float(i) * 0.18
+				ring.outer_radius = ring.inner_radius + 0.055
+				var part := _artifact_part(artifact, ring, color.lightened(float(i) * 0.12), Vector3.ZERO)
+				part.rotation_degrees.x = 55.0 + float(i) * 35.0
+		"GOLDEN_ORB_RUSH", "DOUBLE_XP":
+			color = Color(1.0, 0.72, 0.16) if event_id == "GOLDEN_ORB_RUSH" else Color(0.35, 1.0, 0.68)
+			var orb := SphereMesh.new()
+			orb.radius = 0.68
+			orb.height = 1.36
+			_artifact_part(artifact, orb, color, Vector3.ZERO)
+			for i in range(2):
+				var halo := TorusMesh.new()
+				halo.inner_radius = 0.86 + float(i) * 0.18
+				halo.outer_radius = halo.inner_radius + 0.06
+				var part := _artifact_part(artifact, halo, color.lightened(0.12), Vector3.ZERO)
+				part.rotation_degrees.x = 65.0 if i == 0 else -65.0
+		"METEOR_SHOWER":
+			color = Color(1.0, 0.38, 0.12)
+			var core := SphereMesh.new()
+			core.radius = 0.55
+			core.height = 1.1
+			_artifact_part(artifact, core, color, Vector3.ZERO)
+			var tail := CylinderMesh.new()
+			tail.top_radius = 0.04
+			tail.bottom_radius = 0.36
+			tail.height = 1.8
+			var tail_part := _artifact_part(artifact, tail, Color(1.0, 0.68, 0.2), Vector3(0.0, 0.9, 0.0))
+			tail_part.rotation_degrees.z = 22.0
+		"BONK_MODE":
+			color = Color(1.0, 0.56, 0.12)
+			var handle := CylinderMesh.new()
+			handle.top_radius = 0.07
+			handle.bottom_radius = 0.09
+			handle.height = 1.55
+			var h := _artifact_part(artifact, handle, Color(0.62, 0.42, 0.22), Vector3(0.0, -0.25, 0.0))
+			h.rotation_degrees.z = -25.0
+			var head := BoxMesh.new()
+			head.size = Vector3(1.15, 0.58, 0.62)
+			_artifact_part(artifact, head, color, Vector3(0.3, 0.5, 0.0))
+		"NPC_MODE":
+			color = Color(0.3, 1.0, 0.52)
+			var stem := CylinderMesh.new()
+			stem.top_radius = 0.08
+			stem.bottom_radius = 0.08
+			stem.height = 1.2
+			_artifact_part(artifact, stem, color, Vector3(0.0, -0.15, 0.0))
+			var marker := SphereMesh.new()
+			marker.radius = 0.42
+			marker.height = 0.84
+			_artifact_part(artifact, marker, Color(1.0, 0.9, 0.25), Vector3(0.0, 0.65, 0.0))
+		"PINK_SKY":
+			color = Color(1.0, 0.28, 0.72)
+			var core := SphereMesh.new()
+			core.radius = 0.48
+			core.height = 0.96
+			_artifact_part(artifact, core, color, Vector3.ZERO)
+			var halo := TorusMesh.new()
+			halo.inner_radius = 0.8
+			halo.outer_radius = 0.88
+			var ring_part := _artifact_part(artifact, halo, Color(1.0, 0.68, 0.9), Vector3.ZERO)
+			ring_part.rotation_degrees.x = 62.0
+		"DUCK_PARADE", "DUCK_EXE":
+			color = Color(1.0, 0.82, 0.24)
+			var duck_body := SphereMesh.new()
+			duck_body.radius = 0.55
+			duck_body.height = 0.85
+			_artifact_part(artifact, duck_body, color, Vector3.ZERO, Vector3(1.25, 0.9, 0.9))
+			var beak := PrismMesh.new()
+			beak.size = Vector3(0.36, 0.22, 0.28)
+			_artifact_part(artifact, beak, Color(1.0, 0.42, 0.08), Vector3(0.0, 0.0, -0.52))
+	var motion := create_tween().set_loops()
+	motion.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	motion.tween_property(artifact, "position:y", 3.55, 0.85)
+	motion.parallel().tween_property(artifact, "rotation:y", TAU, 2.8)
+	motion.tween_property(artifact, "position:y", 3.1, 0.85)
+
+func _artifact_part(parent: Node3D, mesh: Mesh, color: Color, position: Vector3, scale: Vector3 = Vector3.ONE) -> MeshInstance3D:
+	var part := MeshInstance3D.new()
+	part.mesh = mesh
+	part.position = position
+	part.scale = scale
+	part.material_override = _emissive_material(color)
+	parent.add_child(part)
+	return part
 
 func _build_ice_world(freeze_burst: bool) -> void:
 	var floor_fx := MeshInstance3D.new()
