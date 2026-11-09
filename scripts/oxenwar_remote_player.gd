@@ -11,6 +11,7 @@ var _visual: MeshInstance3D
 var _name_tag: Label3D
 var _emote_id := ""
 var _emote_clock := 0.0
+var _swimwear_root: Node3D
 
 func _ready() -> void:
 	_visual = MeshInstance3D.new()
@@ -20,6 +21,7 @@ func _ready() -> void:
 	_visual.mesh = capsule
 	_visual.position.y = 0.9
 	add_child(_visual)
+	_build_remote_swimwear()
 	_name_tag = Label3D.new()
 	_name_tag.position = Vector3(0, 2.15, 0)
 	_name_tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -40,9 +42,48 @@ func set_player_identity(player_name: String, color: Color, outfit_id: String = 
 		material.roughness = 0.65
 		_visual.material_override = material
 
-func apply_network_state(position_value: Vector3, yaw_value: float, sliding: bool = false, health: float = 100.0, dead: bool = false, team_id: String = "", emote_id: String = "") -> void:
+func _build_remote_swimwear() -> void:
+	_swimwear_root = Node3D.new()
+	_swimwear_root.name = "BeachSwimwear"
+	_swimwear_root.visible = false
+	_visual.add_child(_swimwear_root)
+	var shirt := MeshInstance3D.new()
+	var shirt_mesh := BoxMesh.new()
+	shirt_mesh.size = Vector3(0.66, 0.56, 0.44)
+	shirt.mesh = shirt_mesh
+	shirt.position.y = 0.18
+	shirt.material_override = _remote_material(Color("#16A6C8"))
+	_swimwear_root.add_child(shirt)
+	var shorts := MeshInstance3D.new()
+	var shorts_mesh := BoxMesh.new()
+	shorts_mesh.size = Vector3(0.68, 0.34, 0.46)
+	shorts.mesh = shorts_mesh
+	shorts.position.y = -0.30
+	shorts.material_override = _remote_material(Color("#FFB347"))
+	_swimwear_root.add_child(shorts)
+	var glasses := Node3D.new()
+	glasses.position = Vector3(0.0, 0.62, -0.34)
+	_swimwear_root.add_child(glasses)
+	for side in [-1.0, 1.0]:
+		var lens := MeshInstance3D.new()
+		var lens_mesh := BoxMesh.new()
+		lens_mesh.size = Vector3(0.22, 0.12, 0.055)
+		lens.mesh = lens_mesh
+		lens.position.x = side * 0.13
+		lens.material_override = _remote_material(Color("#172638"))
+		glasses.add_child(lens)
+
+func _remote_material(color: Color) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 0.65
+	return material
+
+func apply_network_state(position_value: Vector3, yaw_value: float, sliding: bool = false, health: float = 100.0, dead: bool = false, team_id: String = "", emote_id: String = "", swimming: bool = false) -> void:
 	target_position = position_value
 	target_yaw = yaw_value
+	if is_instance_valid(_swimwear_root):
+		_swimwear_root.visible = swimming
 	if emote_id != _emote_id:
 		_emote_id = emote_id if emote_id in ["griddy", "goofy"] else ""
 		_emote_clock = 0.0
