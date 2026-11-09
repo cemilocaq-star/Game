@@ -283,6 +283,8 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			"respawn_left": float(_server_players[peer_id].respawn_left) if _server_players.has(peer_id) else 0.0,
 			"kills": int(_server_players[peer_id].kills) if _server_players.has(peer_id) else 0,
 			"deaths": int(_server_players[peer_id].deaths) if _server_players.has(peer_id) else 0,
+			"blaster_mastery_xp": int(_server_players[peer_id].blaster_mastery_xp) if _server_players.has(peer_id) else 0,
+			"grenade_mastery_xp": int(_server_players[peer_id].grenade_mastery_xp) if _server_players.has(peer_id) else 0,
 			"damage_dealt": float(_server_players[peer_id].damage_dealt) if _server_players.has(peer_id) else 0.0,
 			"shots_fired": int(_server_players[peer_id].shots_fired) if _server_players.has(peer_id) else 0,
 			"shots_hit": int(_server_players[peer_id].shots_hit) if _server_players.has(peer_id) else 0,
@@ -347,6 +349,8 @@ func _server_authenticate(ticket: String) -> void:
 		player.respawn_left = maxf(0.0, float(restored.get("respawn_left", 0.0)))
 		player.kills = int(restored.get("kills", 0))
 		player.deaths = int(restored.get("deaths", 0))
+		player.blaster_mastery_xp = int(restored.get("blaster_mastery_xp", 0))
+		player.grenade_mastery_xp = int(restored.get("grenade_mastery_xp", 0))
 		player.damage_dealt = float(restored.get("damage_dealt", 0.0))
 		player.shots_fired = int(restored.get("shots_fired", 0))
 		player.shots_hit = int(restored.get("shots_hit", 0))
