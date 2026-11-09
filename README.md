@@ -12,6 +12,7 @@ OxenWar is a free-to-play Godot 4.4.1 parkour arena project. Its visual directio
 - 30-second reconnect reservation for a disconnected player.
 - Server-owned score, XP awards, collectible inventory and event timers.
 - Event-specific procedural 3D centerpieces, animated particles, original synthesized motifs, and hash-verified CC0 event cues/music.
+- Local 3D footsteps with distinct generated sound profiles for stone, wood, metal, grass, dirt and ice; surfaces can be identified by `surface_type` metadata or `surface_<type>` groups.
 - Match results are persisted through a Supabase Edge Function using one-time HMAC game tickets and a server-only session/secret.
 - Free starter cosmetics and Azerbaijani, English, Turkish and Russian menu localization.
 - Admin role is read-only from the client and must be assigned through trusted database administration.
