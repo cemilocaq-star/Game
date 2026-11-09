@@ -1,6 +1,8 @@
 extends CharacterBody3D
 class_name ArcadePlayer
 
+const CharacterVisuals = preload("res://scripts/character_visuals.gd")
+
 signal collected(points: int)
 
 const WALK_SPEED := 6.0
@@ -58,6 +60,7 @@ var _emote_clock := 0.0
 var _emote_music: AudioStreamPlayer
 var _emote_base_rotation := Vector3.ZERO
 var _swimwear_root: Node3D
+var _character_detail_root: Node3D
 var is_swimming := false
 
 func _ready() -> void:
@@ -100,6 +103,7 @@ func _build_visuals() -> void:
 	_body_mesh.position.y = 0.9
 	add_child(_body_mesh)
 	_build_swimwear()
+	_character_detail_root = CharacterVisuals.build(_body_mesh, cosmetic_outfit, cosmetic_color)
 	if cosmetic_outfit == "outfit_iron_vanguard" or cosmetic_outfit == "outfit_web_sentinel":
 		_add_hero_skin_details()
 
@@ -253,6 +257,8 @@ func set_swimming(enabled: bool) -> void:
 	is_swimming = enabled
 	if is_instance_valid(_swimwear_root):
 		_swimwear_root.visible = enabled
+	if is_instance_valid(_character_detail_root):
+		_character_detail_root.visible = not enabled
 
 func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("emote_griddy"):
