@@ -91,6 +91,9 @@ The client arena receives a lightweight procedural art-detail pass with floor in
 ## Character model detail pass
 The local player and replicated remote-player proxies now share a lightweight procedural equipment model: helmet/visor, layered vest and chest plate, shoulder pads, sleeves, forearm guards, gloves, utility belt and pouches, separate leg and knee pieces, boots, backpack and small accent panels. Outfit palettes are derived from the selected cosmetic, with dedicated Iron Vanguard and Web Sentinel colors. The detail meshes are visual-only, sit inside the existing movement capsule, and are hidden while the beach outfit is active. This pass does not add a skeletal rig, motion-captured animation, or change collision and server movement.
 
+## Aether Blaster detail pass
+The first-person Aether Blaster now has a layered barrel shroud, receiver rails, cooling vents, grip inset, trigger guard, front/rear sights, muzzle ring and framed energy cell. Firing adds a small visual-only recoil offset that eases back to its resting position. The existing ray query, server-validated fire request, cooldown, damage and hit scoring are unchanged.
+
 ## Beach / swimwear
 
 The arena includes a shallow, non-blocking pool. Entering its marked swim zone switches the character to a modest beach outfit (shirt, swim shorts and sunglasses); leaving restores the regular appearance. The server derives the swim-zone state from player position and replicates it in snapshots so remote players see the same outfit. This is a visual zone only; it does not yet implement swimming physics or water movement.
