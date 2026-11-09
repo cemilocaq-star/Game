@@ -161,10 +161,6 @@ func request_join_room(code: String) -> void:
 	if is_authenticated and not is_dedicated_server:
 		rpc_id(1, "_server_join_room", code.strip_edges().to_upper())
 
-func request_quick_match() -> void:
-	if is_authenticated and not is_dedicated_server:
-		rpc_id(1, "_server_quick_match")
-
 func request_leave_room() -> void:
 	if is_authenticated and not is_dedicated_server:
 		rpc_id(1, "_server_leave_room")
