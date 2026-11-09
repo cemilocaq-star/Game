@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 errors = []
 
 required = [
-    "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/character_visuals.gd", "scripts/combat_fx.gd",
+    "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/character_visuals.gd", "scripts/character_motion_rig.gd", "scripts/combat_fx.gd",
     "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd",
     "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "scripts/oxenwar_server_player.gd", "server/README.md", "Dockerfile", "fly.toml",
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
@@ -164,6 +164,11 @@ checks.extend([
     ("AetherHitImpactFX", read("scripts/combat_fx.gd"), "Aether blaster impact visual"),
     ("COMBAT_FX_SCRIPT.grenade_explosion", main, "grenade explosion FX integration"),
     ("COMBAT_FX_SCRIPT.hit_impact", main, "remote blaster impact FX integration"),
+    ("ProceduralMotionRig", read("scripts/character_motion_rig.gd"), "procedural animated limb rig"),
+    ("ArmPivot_L", read("scripts/character_motion_rig.gd"), "left arm animation pivot"),
+    ("LegPivot_R", read("scripts/character_motion_rig.gd"), "right leg animation pivot"),
+    ("CharacterMotionRig.animate", player, "local procedural movement animation"),
+    ("CharacterMotionRig.animate", read("scripts/oxenwar_remote_player.gd"), "remote procedural movement animation"),
     ("_build_swimming_pool", main, "visible beach pool area"),
     ("_build_arena_detail_pass", main, "procedural arena art detail pass"),
     ("FloorGridX_", main, "floor inlay detail"),
