@@ -18,6 +18,9 @@ var player: ArcadePlayer
 var score_label: Label
 var event_label: Label
 var stamina_bar: ProgressBar
+var health_bar: ProgressBar
+var health_label: Label
+var death_label: Label
 var status_label: Label
 var round_left := ROUND_SECONDS
 var event_clock := EVENT_INTERVAL
@@ -175,6 +178,9 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 	player.rotation.y = float(state.get("yaw", player.rotation.y))
 	player.score = int(state.get("score", player.score))
 	player.stamina = float(state.get("stamina", player.stamina))
+	player.health = float(state.get("health", player.health))
+	player.is_dead = bool(state.get("dead", false))
+	player.respawn_left = float(state.get("respawn_left", 0.0))
 	player.apply_server_slide(bool(state.get("sliding", false)))
 	if is_instance_valid(progression):
 		progression.sync_server_total_xp(int(state.get("xp", progression.total_xp)))
@@ -284,7 +290,7 @@ func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
 		add_child(remote)
 		remote_players[peer_id] = remote
 		remote.set_player_identity(str(state.get("display_name", "Player")), Color.from_string(str(state.get("color", "#27D7E7")), Color("#27D7E7")))
-	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)), bool(state.get("sliding", false)))
+	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)), bool(state.get("sliding", false)), float(state.get("health", 100.0)), bool(state.get("dead", false)))
 
 func _make_remote_blaster_stream() -> AudioStreamWAV:
 	const sample_rate := 22050
@@ -613,63 +619,83 @@ func _build_hud() -> void:
 	score_label = _make_label(root, "SCORE 0000", Vector2(22, 16), 26)
 	event_label = _make_label(root, "COLLECT THE ORBS • PARKOUR ARENA", Vector2(22, 52), 18)
 	status_label = _make_label(root, "WASD move • Space jump • Shift sprint • Ctrl slide • Q dash • Esc mouse", Vector2(22, 84), 14)
-	network_status_label = _make_label(root, "MULTIPLAYER • Connecting...", Vector2(22, 198), 14)
+	network_status_label = _make_label(root, "MULTIPLAYER • Connecting...", Vector2(22, 245), 14)
 	network_host_input = LineEdit.new()
-	network_host_input.position = Vector2(22, 226)
+	network_host_input.position = Vector2(22, 273)
 	network_host_input.size = Vector2(240, 36)
 	network_host_input.placeholder_text = "Server IP / hostname"
 	network_host_input.text = OS.get_environment("OXENWAR_SERVER_HOST") if not OS.get_environment("OXENWAR_SERVER_HOST").is_empty() else "127.0.0.1"
 	root.add_child(network_host_input)
 	var connect_button := Button.new()
 	connect_button.text = "CONNECT"
-	connect_button.position = Vector2(270, 226)
+	connect_button.position = Vector2(270, 273)
 	connect_button.size = Vector2(112, 36)
 	connect_button.pressed.connect(_on_network_connect_pressed)
 	root.add_child(connect_button)
 	room_code_input = LineEdit.new()
-	room_code_input.position = Vector2(22, 272)
+	room_code_input.position = Vector2(22, 319)
 	room_code_input.size = Vector2(128, 34)
 	room_code_input.placeholder_text = "ROOM CODE"
 	root.add_child(room_code_input)
 	var create_room_button := Button.new()
 	create_room_button.text = "CREATE ROOM"
-	create_room_button.position = Vector2(158, 272)
+	create_room_button.position = Vector2(158, 319)
 	create_room_button.size = Vector2(112, 34)
 	create_room_button.pressed.connect(_on_create_room_pressed)
 	root.add_child(create_room_button)
 	var quick_match_button := Button.new()
 	quick_match_button.text = "QUICK MATCH"
-	quick_match_button.position = Vector2(278, 272)
+	quick_match_button.position = Vector2(278, 319)
 	quick_match_button.size = Vector2(112, 34)
 	quick_match_button.pressed.connect(_on_quick_match_pressed)
 	root.add_child(quick_match_button)
 	var join_room_button := Button.new()
 	join_room_button.text = "JOIN"
-	join_room_button.position = Vector2(398, 272)
+	join_room_button.position = Vector2(398, 319)
 	join_room_button.size = Vector2(72, 34)
 	join_room_button.pressed.connect(_on_join_room_pressed)
 	root.add_child(join_room_button)
 	friend_name_input = LineEdit.new()
-	friend_name_input.position = Vector2(22, 312)
+	friend_name_input.position = Vector2(22, 359)
 	friend_name_input.size = Vector2(160, 34)
 	friend_name_input.placeholder_text = "Friend username"
 	root.add_child(friend_name_input)
 	var invite_friend_button := Button.new()
 	invite_friend_button.text = "INVITE FRIEND"
-	invite_friend_button.position = Vector2(190, 312)
+	invite_friend_button.position = Vector2(190, 359)
 	invite_friend_button.size = Vector2(118, 34)
 	invite_friend_button.pressed.connect(_on_invite_friend_pressed)
 	root.add_child(invite_friend_button)
-	room_status_label = _make_label(root, "LOBBY • Sign in to play online", Vector2(22, 350), 13)
+	room_status_label = _make_label(root, "LOBBY • Sign in to play online", Vector2(22, 397), 13)
+	health_label = _make_label(root, "HEALTH 100 / 100", Vector2(22, 108), 14)
+	health_bar = ProgressBar.new()
+	health_bar.position = Vector2(22, 128)
+	health_bar.size = Vector2(220, 16)
+	health_bar.max_value = 100
+	health_bar.show_percentage = false
+	root.add_child(health_bar)
+	death_label = _make_label(root, "", Vector2(0, 0), 34)
+	death_label.anchor_left = 0.5
+	death_label.anchor_right = 0.5
+	death_label.anchor_top = 0.5
+	death_label.anchor_bottom = 0.5
+	death_label.offset_left = -220
+	death_label.offset_right = 220
+	death_label.offset_top = -50
+	death_label.offset_bottom = 50
+	death_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	death_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	death_label.add_theme_color_override("font_color", Color("#FF667A"))
+	root.add_child(death_label)
 	stamina_bar = ProgressBar.new()
-	stamina_bar.position = Vector2(22, 114)
+	stamina_bar.position = Vector2(22, 152)
 	stamina_bar.size = Vector2(220, 20)
 	stamina_bar.max_value = 100
 	stamina_bar.show_percentage = false
 	root.add_child(stamina_bar)
-	level_label = _make_label(root, "LEVEL 1  •  0 / 100 XP", Vector2(22, 144), 17)
+	level_label = _make_label(root, "LEVEL 1  •  0 / 100 XP", Vector2(22, 180), 17)
 	xp_bar = ProgressBar.new()
-	xp_bar.position = Vector2(22, 171)
+	xp_bar.position = Vector2(22, 207)
 	xp_bar.size = Vector2(220, 13)
 	xp_bar.max_value = 100
 	xp_bar.show_percentage = false
@@ -1120,6 +1146,13 @@ func _update_hud() -> void:
 		xp_bar.max_value = progression.xp_for_next_level()
 		xp_bar.value = progression.xp
 	stamina_bar.value = player.stamina
+	if is_instance_valid(health_bar):
+		health_bar.value = player.health
+	if is_instance_valid(health_label):
+		health_label.text = "HEALTH %d / 100" % int(ceil(player.health))
+	if is_instance_valid(death_label):
+		death_label.visible = player.is_dead
+		death_label.text = "K.O.  •  RESPAWNING IN %d" % ceili(player.respawn_left) if player.is_dead else ""
 	if active_event.is_empty():
 		event_label.text = "COLLECT THE ORBS • NEXT EVENT %02d" % ceili(event_clock)
 	else:
