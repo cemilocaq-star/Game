@@ -19,14 +19,20 @@ var cosmetics: Dictionary = {}
 var registration_notice := ""
 var preview_spin: Node3D
 var preview_model: Node3D
+var server_host := ""
+var selected_game_mode := "ffa"
+var room_code_field: LineEdit
+var server_host_field: LineEdit
+var lobby_notice_label: Label
 
 const BG := Color("#07111F")
 const PANEL := Color("#101F32")
 const ACCENT := Color("#25D7C2")
 const MUTED := Color("#91A5B8")
 
-func configure(client: Node, restored: Dictionary = {}) -> void:
+func configure(client: Node, restored: Dictionary = {}, configured_server_host: String = "") -> void:
 	backend = client
+	server_host = configured_server_host.strip_edges()
 	if restored.get("ok", false):
 		await _load_account()
 	_build()
@@ -288,29 +294,101 @@ func _render_tab() -> void:
 		child.queue_free()
 	match active_tab:
 		"play":
-			var title := _large_label("OXENWAR")
-			content.add_child(title)
-			var desc := _label("Free-to-play parkour arena  •  Friends  •  Character style")
-			content.add_child(desc)
-			var start := _button(_t("start"), true)
-			start.custom_minimum_size = Vector2(0, 64)
-			start.pressed.connect(func():
-				play_requested.emit({
-					"display_name": str(profile.get("display_name", profile.get("username", "Player"))),
-					"profile": profile,
-					"is_admin": is_admin
-				})
-			)
-			content.add_child(start)
-			var logout := _button(_t("logout"), false)
-			logout.pressed.connect(_on_logout)
-			content.add_child(logout)
+			_render_play_tab()
 		"stats":
 			await _render_stats()
 		"friends":
 			await _render_friends()
 		"character":
 			_render_character()
+
+func _render_play_tab() -> void:
+	content.add_child(_large_label("OXENWAR"))
+	content.add_child(_label("ONLINE ARENA  •  FRIEND ROOMS  •  COMPETITIVE MODES"))
+	var mode_row := HBoxContainer.new()
+	mode_row.add_theme_constant_override("separation", 10)
+	content.add_child(mode_row)
+	var mode_label := _label("GAME MODE")
+	mode_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mode_row.add_child(mode_label)
+	var mode_select := OptionButton.new()
+	mode_select.custom_minimum_size = Vector2(220, 44)
+	mode_select.add_item("FREE FOR ALL")
+	mode_select.set_item_metadata(0, "ffa")
+	mode_select.add_item("TEAM DEATHMATCH")
+	mode_select.set_item_metadata(1, "team_deathmatch")
+	mode_select.add_item("KING OF THE HILL")
+	mode_select.set_item_metadata(2, "king_of_the_hill")
+	mode_select.item_selected.connect(func(index: int): selected_game_mode = str(mode_select.get_item_metadata(index)))
+	mode_row.add_child(mode_select)
+
+	var server_panel := PanelContainer.new()
+	server_panel.add_theme_stylebox_override("panel", _panel_style())
+	content.add_child(server_panel)
+	var server_stack := VBoxContainer.new()
+	server_stack.add_theme_constant_override("separation", 8)
+	server_panel.add_child(server_stack)
+	server_stack.add_child(_label("DEDICATED SERVER  •  UDP 2456"))
+	server_host_field = _field("Server host", "your-game-server.example")
+	server_host_field.text = server_host
+	server_stack.add_child(server_host_field)
+	lobby_notice_label = _label("PUBLIC SERVER NOT DEPLOYED — enter a live UDP server address to enable online play." if server_host.is_empty() else "SERVER ADDRESS SET  •  connection will be verified when you enter a match")
+	lobby_notice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lobby_notice_label.add_theme_color_override("font_color", Color("#FFC36B") if server_host.is_empty() else ACCENT)
+	server_stack.add_child(lobby_notice_label)
+
+	var start := _button("START  •  FIND MATCH", true)
+	start.custom_minimum_size = Vector2(0, 58)
+	start.disabled = server_host.is_empty()
+	start.pressed.connect(_launch_game.bind("quick_match"))
+	content.add_child(start)
+
+	var room_row := HBoxContainer.new()
+	room_row.add_theme_constant_override("separation", 10)
+	var create := _button("CREATE ROOM", false)
+	create.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create.custom_minimum_size.y = 52
+	create.disabled = server_host.is_empty()
+	create.pressed.connect(_launch_game.bind("create_room"))
+	room_row.add_child(create)
+	content.add_child(room_row)
+
+	var join_row := HBoxContainer.new()
+	join_row.add_theme_constant_override("separation", 10)
+	room_code_field = _field("ROOM CODE", "A1B2C3")
+	room_code_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	join_row.add_child(room_code_field)
+	var join := _button("JOIN ROOM", false)
+	join.custom_minimum_size = Vector2(130, 44)
+	join.disabled = server_host.is_empty()
+	join.pressed.connect(_launch_game.bind("join_room"))
+	join_row.add_child(join)
+	content.add_child(join_row)
+
+	var logout := _button(_t("logout"), false)
+	logout.pressed.connect(_on_logout)
+	content.add_child(logout)
+
+func _launch_game(action: String) -> void:
+	var host := server_host_field.text.strip_edges() if is_instance_valid(server_host_field) else server_host
+	if host.is_empty():
+		if is_instance_valid(lobby_notice_label):
+			lobby_notice_label.text = "No public game server is deployed yet. Online matchmaking is unavailable."
+		return
+	var room_code := room_code_field.text.strip_edges().to_upper() if is_instance_valid(room_code_field) else ""
+	if action == "join_room" and room_code.length() != 6:
+		if is_instance_valid(lobby_notice_label):
+			lobby_notice_label.text = "Enter a valid six-character room code."
+		return
+	play_requested.emit({
+		"display_name": str(profile.get("display_name", profile.get("username", "Player"))),
+		"profile": profile,
+		"is_admin": is_admin,
+		"launch_action": action,
+		"game_mode": selected_game_mode,
+		"room_code": room_code,
+		"server_host": host
+	})
 
 func _render_weapon_mastery() -> void:
 	content.add_child(_large_label("WEAPON MASTERY"))

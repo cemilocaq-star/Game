@@ -9,6 +9,9 @@ const COMBAT_FX_SCRIPT = preload("res://scripts/combat_fx.gd")
 const REMOTE_PLAYER_SCRIPT = preload("res://scripts/oxenwar_remote_player.gd")
 var local_player_name := "Player"
 var local_admin_authorized := false
+var pending_launch_action := "quick_match"
+var pending_launch_room_code := ""
+var launch_server_host := ""
 var player_profile: Dictionary = {}
 var backend: Node
 const ROUND_SECONDS := 300.0
@@ -201,11 +204,15 @@ func _request_player_identity() -> void:
 	var menu = MENU_SCRIPT.new()
 	menu.name = "OxenWarMainMenu"
 	add_child(menu)
-	await menu.configure(backend, restored)
+	await menu.configure(backend, restored, _configured_server_host())
 	var identity: Dictionary = await menu.play_requested
 	local_player_name = str(identity.get("display_name", "Player"))
 	player_profile = identity.get("profile", {})
 	local_admin_authorized = bool(identity.get("is_admin", false))
+	pending_launch_action = str(identity.get("launch_action", "quick_match"))
+	pending_launch_room_code = str(identity.get("room_code", ""))
+	selected_game_mode = str(identity.get("game_mode", "ffa"))
+	launch_server_host = str(identity.get("server_host", "")).strip_edges()
 	menu.queue_free()
 
 func _send_presence_heartbeat() -> void:
@@ -230,6 +237,8 @@ func _start_dedicated_server() -> void:
 		get_tree().quit()
 
 func _configured_server_host() -> String:
+	if not launch_server_host.is_empty():
+		return launch_server_host
 	var host := OS.get_environment("OXENWAR_SERVER_HOST").strip_edges()
 	if host.is_empty():
 		host = str(ProjectSettings.get_setting("oxenwar/server_host", "")).strip_edges()
@@ -271,6 +280,14 @@ func _on_network_authentication_changed(authenticated: bool, message: String) ->
 		for area in get_tree().get_nodes_in_group("local_collectibles"):
 			if area is Area3D:
 				area.monitoring = false
+		match pending_launch_action:
+			"create_room":
+				network.request_create_room(true, selected_game_mode)
+			"join_room":
+				network.request_join_room(pending_launch_room_code)
+			_:
+				network.request_quick_match(selected_game_mode)
+		pending_launch_action = ""
 		_show_meme_toast("SERVER VERIFIED • " + message)
 	elif is_instance_valid(player) and not authenticated:
 		player.set_physics_process(false)
