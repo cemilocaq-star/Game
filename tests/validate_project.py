@@ -19,6 +19,10 @@ required = [
     "supabase/migrations/20261109114858_oxenwar_free_accessories.sql",
     "assets/LostFoodCourt_Arena_Blockout.glb", "assets/GoldenOrb_Collectible.glb",
     "assets/DuckBeacon_Mascot.glb", "assets/CosmicHalo_Cosmetic.glb",
+    "assets/audio/event-start.ogg", "assets/audio/event-freeze.ogg",
+    "assets/audio/event-reward.ogg", "assets/audio/event-bonk.ogg",
+    "assets/audio/event-end.ogg", "assets/audio/event-music-loop.ogg",
+    "tools/fetch_open_audio_assets.py", "docs/EVENT_AUDIO_ASSETS.md",
     "scripts/progression.gd", "scripts/graphics_manager.gd", "scripts/oxenwar_event_fx.gd", "shaders/neon_surface.gdshader",
 ]
 for rel in required:
@@ -62,6 +66,9 @@ checks = [
     ("move_and_slide()", read("scripts/oxenwar_server_player.gd"), "server-side physics simulation"),
     ("FREEZE_FRAME", read("scripts/oxenwar_network.gd"), "server-scheduled freeze event"),
     ("_build_event_artifact", read("scripts/oxenwar_event_fx.gd"), "event-specific animated 3D centerpiece"),
+    ("event-freeze.ogg", read("scripts/oxenwar_event_fx.gd"), "freeze event sound cue"),
+    ("event-reward.ogg", read("scripts/oxenwar_event_fx.gd"), "reward event sound cue"),
+    ("event-music-loop.ogg", read("scripts/oxenwar_event_fx.gd"), "licensed event music loop"),
     ("OriginalEventSynth", read("scripts/oxenwar_event_fx.gd"), "original synthesized event audio"),
     ("FREEZE_FRAME", read("scripts/oxenwar_server_player.gd"), "server-authoritative freeze event"),
     ("FrostedArenaFloor", read("scripts/oxenwar_event_fx.gd"), "ice event visuals"),
