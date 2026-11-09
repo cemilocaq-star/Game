@@ -102,7 +102,7 @@ func _physics_process(delta: float) -> void:
 			velocity.x = move_toward(velocity.x, direction.x * target_speed, acceleration * delta)
 			velocity.z = move_toward(velocity.z, direction.z * target_speed, acceleration * delta)
 		else:
-			var friction := 7.0 if _was_sliding else 20.0
+			var friction := 3.5 if event_id == "ICE_WORLD" else (7.0 if _was_sliding else 20.0)
 			velocity.x = move_toward(velocity.x, 0.0, friction * delta)
 			velocity.z = move_toward(velocity.z, 0.0, friction * delta)
 		if _was_sliding:
@@ -128,4 +128,8 @@ func apply_event(next_event: String) -> void:
 		"BONK_MODE": speed_scale = 1.3
 		"NPC_MODE": speed_scale = 0.78
 		"ICE_WORLD": speed_scale = 0.82
+		"FREEZE_FRAME":
+			speed_scale = 0.0
+			velocity.x = 0.0
+			velocity.z = 0.0
 		_: speed_scale = 1.0
