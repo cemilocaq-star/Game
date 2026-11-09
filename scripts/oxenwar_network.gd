@@ -14,6 +14,7 @@ signal blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Vect
 signal grenade_spawn_received(grenade_id: int, origin: Vector3, velocity: Vector3)
 signal grenade_exploded_received(grenade_id: int, position: Vector3)
 signal kill_feed_received(killer_name: String, victim_name: String, weapon_name: String)
+signal killstreak_received(player_name: String, streak: int, bonus: int)
 
 const PORT := 2456
 const MAX_CLIENTS := 32
@@ -496,7 +497,11 @@ func _server_blaster_fire(direction: Vector3) -> void:
 					target.damage_received += 34.0
 					if was_killed:
 						shooter.kills += 1
+						shooter.kill_streak += 1
+						shooter.best_kill_streak = maxi(shooter.best_kill_streak, shooter.kill_streak)
 						target.deaths += 1
+						target.kill_streak = 0
+						_award_killstreak(room_code, peer_id)
 						_broadcast_kill_feed(room_code, peer_id, int(target_peer), "AETHER")
 					shooter.score += 10 + (50 if was_killed else 0)
 					break
@@ -607,9 +612,13 @@ func _server_detonate_grenade(room_code: String, grenade: Dictionary) -> void:
 			damaged[target_peer] = true
 			if killed:
 				target.deaths += 1
+				target.kill_streak = 0
 			if _server_players.has(owner_peer) and target_peer != owner_peer:
 				if killed:
 					_server_players[owner_peer].kills += 1
+					_server_players[owner_peer].kill_streak += 1
+					_server_players[owner_peer].best_kill_streak = maxi(_server_players[owner_peer].best_kill_streak, _server_players[owner_peer].kill_streak)
+					_award_killstreak(room_code, owner_peer)
 					_broadcast_kill_feed(room_code, owner_peer, target_peer, "GRENADE")
 				_server_players[owner_peer].score += 8 + (45 if killed else 0)
 	var room: Dictionary = _rooms.get(room_code, {})
@@ -617,6 +626,25 @@ func _server_detonate_grenade(room_code: String, grenade: Dictionary) -> void:
 		var member_peer := int(room.members[member_uid])
 		if member_peer > 0:
 			rpc_id(member_peer, "_client_grenade_explode", int(grenade.get("id", 0)), blast_position)
+
+
+func _award_killstreak(room_code: String, killer_peer: int) -> void:
+	if not _rooms.has(room_code) or not _server_players.has(killer_peer):
+		return
+	var killer = _server_players[killer_peer]
+	var streak := int(killer.kill_streak)
+	var bonus_by_streak := {3: 20, 5: 40, 7: 60, 10: 100}
+	if not bonus_by_streak.has(streak):
+		return
+	var bonus := int(bonus_by_streak[streak])
+	killer.score += bonus
+	var user_id := str(_peer_users.get(killer_peer, ""))
+	var player_name := str(_profiles.get(user_id, {}).get("display_name", "Player"))
+	var room: Dictionary = _rooms[room_code]
+	for member_uid in room.members.keys():
+		var member_peer := int(room.members[member_uid])
+		if member_peer > 0:
+			rpc_id(member_peer, "_client_killstreak", player_name, streak, bonus)
 
 func _broadcast_kill_feed(room_code: String, killer_peer: int, victim_peer: int, weapon_name: String) -> void:
 	if not _rooms.has(room_code):
@@ -630,6 +658,12 @@ func _broadcast_kill_feed(room_code: String, killer_peer: int, victim_peer: int,
 		var member_peer := int(room.members[member_uid])
 		if member_peer > 0:
 			rpc_id(member_peer, "_client_kill_feed", killer_name, victim_name, weapon_name)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _client_killstreak(player_name: String, streak: int, bonus: int) -> void:
+	if not multiplayer.is_server():
+		killstreak_received.emit(player_name, streak, bonus)
 
 @rpc("authority", "call_remote", "reliable")
 func _client_kill_feed(killer_name: String, victim_name: String, weapon_name: String) -> void:
@@ -805,6 +839,8 @@ func _assign_user_to_room(user_id: String, peer_id: int, code: String) -> void:
 		_server_players[peer_id].velocity = Vector3.ZERO
 		_server_players[peer_id].score = 0
 		_server_players[peer_id].kills = 0
+		_server_players[peer_id].kill_streak = 0
+		_server_players[peer_id].best_kill_streak = 0
 		_server_players[peer_id].health = 100.0
 		_server_players[peer_id].is_dead = false
 		_server_players[peer_id].respawn_left = 0.0
@@ -1104,7 +1140,7 @@ func _broadcast_snapshot(code: String) -> void:
 			"color": _color_for_profile(_profiles.get(user_id, {})),
 			"outfit_id": str(_profiles.get(user_id, {}).get("outfit_id", "outfit_default")),
 			"team_id": str(player.team_id), "emote_id": str(player.emote_id), "is_swimming": bool(player.is_swimming),
-			"score": player.score, "kills": player.kills, "deaths": player.deaths, "shots_fired": player.shots_fired, "shots_hit": player.shots_hit, "damage_dealt": player.damage_dealt, "damage_received": player.damage_received, "xp": player.xp, "match_xp": player.match_xp, "stamina": player.stamina, "sliding": player.sliding_active,
+			"score": player.score, "kills": player.kills, "deaths": player.deaths, "kill_streak": player.kill_streak, "best_kill_streak": player.best_kill_streak, "shots_fired": player.shots_fired, "shots_hit": player.shots_hit, "damage_dealt": player.damage_dealt, "damage_received": player.damage_received, "xp": player.xp, "match_xp": player.match_xp, "stamina": player.stamina, "sliding": player.sliding_active,
 			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left
 		}
 	for user_id in room.members.keys():
