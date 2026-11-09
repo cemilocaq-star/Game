@@ -80,42 +80,94 @@ static func grenade_explosion(parent: Node3D, world_position: Vector3) -> void:
 	tween.tween_callback(root.queue_free)
 
 
-static func hit_impact(parent: Node3D, world_position: Vector3) -> void:
+static func hit_impact(parent: Node3D, world_position: Vector3, weapon_id: String = "aether", tint: Color = Color("#72F6FF")) -> void:
 	var root := Node3D.new()
-	root.name = "AetherHitImpactFX"
+	root.name = "ArcadeWeaponImpactFX_" + weapon_id
 	parent.add_child(root)
 	root.global_position = world_position
 	var flash := OmniLight3D.new()
-	flash.light_color = Color("#47EFFF")
-	flash.light_energy = 2.4
-	flash.omni_range = 3.2
+	flash.light_color = tint
+	flash.light_energy = 2.2
+	flash.omni_range = 2.8
 	root.add_child(flash)
 
-	var material := _fx_material(Color("#72F6FF"), 3.5)
-	var burst := MeshInstance3D.new()
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.10
-	mesh.height = 0.20
-	burst.mesh = mesh
-	burst.material_override = material
-	root.add_child(burst)
+	var material := _fx_material(tint, 3.0)
+	var core := MeshInstance3D.new()
+	core.name = "ImpactCore"
+	var core_mesh := SphereMesh.new()
+	core_mesh.radius = 0.10
+	core_mesh.height = 0.20
+	core.mesh = core_mesh
+	core.material_override = material
+	root.add_child(core)
 
 	var ring := MeshInstance3D.new()
+	ring.name = "ImpactPulseRing"
 	var ring_mesh := TorusMesh.new()
 	ring_mesh.inner_radius = 0.12
-	ring_mesh.outer_radius = 0.18
+	ring_mesh.outer_radius = 0.19
 	ring.mesh = ring_mesh
 	ring.rotation_degrees.x = 90.0
 	ring.material_override = material
 	root.add_child(ring)
 
+	# Distinct silhouettes make the 23 archetypes readable without changing hit logic.
+	var shard_count := 6
+	var shard_shape := "orb"
+	match weapon_id:
+		"pixel_storm", "glitch_ray":
+			shard_count = 8
+			shard_shape = "pixel"
+		"bubble_burst", "slime_slinger", "jellyfish_staff":
+			shard_count = 5
+			shard_shape = "bubble"
+		"meteor_mallet", "thunder_drum", "hand_cannon":
+			shard_count = 7
+			shard_shape = "spark"
+		"moon_disc", "banana_boomerang", "vortex_orbiter":
+			shard_count = 4
+			shard_shape = "disc"
+		"duck_launcher", "rubber_chicken", "confetti_cannon":
+			shard_count = 9
+			shard_shape = "confetti"
+	for index in range(shard_count):
+		var shard := MeshInstance3D.new()
+		shard.name = "ImpactShard_%02d" % index
+		var shard_mesh: Mesh
+		if shard_shape == "pixel" or shard_shape == "confetti":
+			var block := BoxMesh.new()
+			block.size = Vector3(0.055, 0.055, 0.055) if shard_shape == "pixel" else Vector3(0.045, 0.08, 0.035)
+			shard_mesh = block
+		elif shard_shape == "disc":
+			var disc := CylinderMesh.new()
+			disc.top_radius = 0.045
+			disc.bottom_radius = 0.045
+			disc.height = 0.025
+			shard_mesh = disc
+		else:
+			var orb := SphereMesh.new()
+			orb.radius = 0.045 if shard_shape == "spark" else 0.06
+			orb.height = orb.radius * 2.0
+			shard_mesh = orb
+		shard.mesh = shard_mesh
+		shard.material_override = material
+		var angle := TAU * float(index) / float(shard_count)
+		var direction := Vector3(cos(angle), 0.25 + float(index % 3) * 0.16, sin(angle)).normalized()
+		shard.position = direction * 0.12
+		root.add_child(shard)
+		var shard_tween := root.create_tween()
+		shard_tween.set_parallel(true)
+		shard_tween.tween_property(shard, "position", direction * (0.48 + float(index % 3) * 0.08), 0.22)
+		shard_tween.tween_property(shard, "scale", Vector3.ONE * 0.18, 0.22)
+
 	var tween := root.create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(burst, "scale", Vector3.ONE * 3.8, 0.18)
-	tween.tween_property(ring, "scale", Vector3.ONE * 3.2, 0.22)
-	tween.tween_property(material, "albedo_color:a", 0.0, 0.22)
+	tween.tween_property(core, "scale", Vector3.ONE * 2.8, 0.18)
+	tween.tween_property(ring, "scale", Vector3.ONE * 3.0, 0.24)
+	tween.tween_property(material, "albedo_color:a", 0.0, 0.24)
 	tween.tween_property(flash, "light_energy", 0.0, 0.16)
-	tween.chain().tween_callback(root.queue_free)
+	tween.chain().tween_interval(0.08)
+	tween.tween_callback(root.queue_free)
 
 
 static func _fx_material(color: Color, emission_energy: float) -> StandardMaterial3D:
