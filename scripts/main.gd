@@ -135,6 +135,7 @@ func _start_multiplayer_client() -> void:
 	network.name = "OxenWarNet"
 	add_child(network)
 	network.player_state_received.connect(_on_remote_player_state)
+	network.blaster_fx_received.connect(_on_blaster_fx_received)
 	network.player_disconnected.connect(_on_remote_player_left)
 	network.connection_status_changed.connect(_on_network_status_changed)
 	network.authentication_changed.connect(_on_network_authentication_changed)
@@ -285,6 +286,29 @@ func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
 		remote.set_player_identity(str(state.get("display_name", "Player")), Color.from_string(str(state.get("color", "#27D7E7")), Color("#27D7E7")))
 	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)), bool(state.get("sliding", false)))
 
+func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Vector3) -> void:
+	if is_instance_valid(network) and shooter_peer_id == multiplayer.get_unique_id():
+		return
+	var beam := MeshInstance3D.new()
+	beam.name = "RemoteAetherPulse"
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(0.035, 0.035, 1.0)
+	beam.mesh = mesh
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.25, 0.9, 1.0, 0.92)
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.emission_enabled = true
+	material.emission = Color("#35EFFF")
+	material.emission_energy_multiplier = 2.4
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	beam.material_override = material
+	add_child(beam)
+	beam.global_position = (origin + endpoint) * 0.5
+	var up := Vector3.RIGHT if absf((endpoint - origin).normalized().dot(Vector3.UP)) > 0.97 else Vector3.UP
+	beam.look_at(endpoint, up)
+	beam.scale.z = maxf(0.05, origin.distance_to(endpoint))
+	get_tree().create_timer(0.085).timeout.connect(beam.queue_free)
+
 func _on_remote_player_left(peer_id: int) -> void:
 	var remote: Node = remote_players.get(peer_id)
 	if is_instance_valid(remote):
@@ -338,6 +362,11 @@ func _setup_input() -> void:
 	_add_key_action("sprint", KEY_SHIFT)
 	_add_key_action("slide", KEY_CTRL)
 	_add_key_action("dash", KEY_Q)
+	if not InputMap.has_action("fire"):
+		InputMap.add_action("fire")
+	var fire_mouse := InputEventMouseButton.new()
+	fire_mouse.button_index = MOUSE_BUTTON_LEFT
+	InputMap.action_add_event("fire", fire_mouse)
 	_add_key_action("move_forward", KEY_UP)
 	_add_key_action("move_back", KEY_DOWN)
 	_add_key_action("move_left", KEY_LEFT)
@@ -929,6 +958,7 @@ func _build_touch_controls(root: Control) -> void:
 	_add_touch_button(root, "DASH", "dash", Vector2(-150, -118), Vector2(88, 60), false)
 	_add_touch_button(root, "SPRINT", "sprint", Vector2(-250, -110), Vector2(96, 54), true)
 	_add_touch_button(root, "SLIDE", "slide", Vector2(-150, -48), Vector2(88, 54), true)
+	_add_touch_button(root, "PULSE", "fire", Vector2(-255, -270), Vector2(96, 64), false)
 
 func _add_touch_button(root: Control, text_value: String, action: String, offset: Vector2, button_size: Vector2, hold_action: bool) -> void:
 	var button := Button.new()
