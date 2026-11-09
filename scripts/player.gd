@@ -4,6 +4,17 @@ class_name ArcadePlayer
 const CharacterVisuals = preload("res://scripts/character_visuals.gd")
 const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
 
+const ARCADE_WEAPON_LOCAL := {
+	"aether": {"name":"AETHER BLASTER", "cooldown":0.24, "color":Color("#8CEEFF")},
+	"minicore": {"name":"MINICORE", "cooldown":0.09, "color":Color("#FF9B54")},
+	"hand_cannon": {"name":"NOVA HAND CANNON", "cooldown":0.68, "color":Color("#F2D36D")},
+	"pulse_carbine": {"name":"PULSE CARBINE", "cooldown":0.18, "color":Color("#76E6C5")},
+	"star_piercer": {"name":"STAR PIERCER", "cooldown":1.05, "color":Color("#C6A0FF")},
+	"duck_launcher": {"name":"DUCK LAUNCHER", "cooldown":0.62, "color":Color("#FFE56B")},
+	"banana_boomerang": {"name":"BANANA BOOMERANG", "cooldown":0.42, "color":Color("#E7F26C")},
+	"confetti_cannon": {"name":"CONFETTI CANNON", "cooldown":0.11, "color":Color("#FF83C8")}
+}
+
 signal collected(points: int)
 
 const WALK_SPEED := 6.0
@@ -57,6 +68,7 @@ var _blaster_audio: AudioStreamPlayer3D
 var _blaster_model: Node3D
 var _blaster_cooldown := 0.0
 var _blaster_recoil := 0.0
+var selected_weapon_id := "aether"
 var active_emote := ""
 var _emote_clock := 0.0
 var _emote_music: AudioStreamPlayer
@@ -283,7 +295,9 @@ func _process(delta: float) -> void:
 	_blaster_recoil = move_toward(_blaster_recoil, 0.0, delta * 1.35)
 	if is_instance_valid(_blaster_model):
 		_blaster_model.position.z = -0.48 + _blaster_recoil
-	if Input.is_action_just_pressed("fire") and _blaster_cooldown <= 0.0:
+	var selected_cooldown := float(ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"]).get("cooldown", 0.24))
+	if Input.is_action_pressed("fire") and _blaster_cooldown <= 0.0:
+		_blaster_cooldown = selected_cooldown
 		_fire_blaster()
 
 func play_emote(emote_id: String) -> void:
@@ -498,7 +512,7 @@ func _fire_blaster() -> void:
 	var net := get_parent().get_node_or_null("OxenWarNet")
 	var online_fire := is_instance_valid(net) and net.is_authenticated
 	if online_fire:
-		net.request_blaster_fire(direction)
+		net.request_blaster_fire(selected_weapon_id, direction)
 	else:
 		_show_blaster_beam(origin, endpoint)
 	if is_instance_valid(_blaster_audio):
@@ -509,7 +523,8 @@ func _fire_blaster() -> void:
 	flash_mesh.radius = 0.065
 	flash_mesh.height = 0.13
 	flash.mesh = flash_mesh
-	flash.material_override = _blaster_material(Color("#9AF7FF"), 0.0, true)
+	var weapon_color: Color = ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"]).get("color", Color("#9AF7FF"))
+	flash.material_override = _blaster_material(weapon_color, 0.0, true)
 	flash.position = Vector3(0.0, 0.0, -0.48)
 	_camera.add_child(flash)
 	get_tree().create_timer(0.055).timeout.connect(flash.queue_free)
