@@ -1199,7 +1199,7 @@ func _broadcast_snapshot(code: String) -> void:
 			"color": _color_for_profile(_profiles.get(user_id, {})),
 			"outfit_id": str(_profiles.get(user_id, {}).get("outfit_id", "outfit_default")),
 			"team_id": str(player.team_id), "emote_id": str(player.emote_id), "is_swimming": bool(player.is_swimming),
-			"score": player.score, "kills": player.kills, "deaths": player.deaths, "kill_streak": player.kill_streak, "best_kill_streak": player.best_kill_streak, "blaster_mastery_xp": player.blaster_mastery_xp, "grenade_mastery_xp": player.grenade_mastery_xp, "shots_fired": player.shots_fired, "shots_hit": player.shots_hit, "damage_dealt": player.damage_dealt, "damage_received": player.damage_received, "xp": player.xp, "match_xp": player.match_xp, "stamina": player.stamina, "sliding": player.sliding_active,
+			"score": player.score, "kills": player.kills, "deaths": player.deaths, "kill_streak": player.kill_streak, "best_kill_streak": player.best_kill_streak, "equipped_weapon_id": player.equipped_weapon_id, "blaster_mastery_xp": player.blaster_mastery_xp, "grenade_mastery_xp": player.grenade_mastery_xp, "shots_fired": player.shots_fired, "shots_hit": player.shots_hit, "damage_dealt": player.damage_dealt, "damage_received": player.damage_received, "xp": player.xp, "match_xp": player.match_xp, "stamina": player.stamina, "sliding": player.sliding_active,
 			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left
 		}
 	for user_id in room.members.keys():
