@@ -36,6 +36,7 @@ var shots_fired := 0
 var shots_hit := 0
 var damage_dealt := 0.0
 var damage_received := 0.0
+var match_outcome := "abandoned"
 var emote_id := ""
 var is_swimming := false
 var xp := 0
