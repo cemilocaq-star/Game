@@ -122,7 +122,15 @@ checks = [
     ("_add_selected_accessory", player, "visible accessory customization"),
     ("friend_requests", backend, "friend request API"),
     ("refresh_token", backend, "session refresh"),
-    ("PUBLISHABLE_KEY", backend, "Supabase publishable-key client"),\n    ("/functions/v1/oxenwar-username-auth", backend, "username-only auth Edge Function client"),\n    ("action\": \"register\"", backend, "username-only registration request"),\n    ("action\": \"login\"", backend, "username-only login request"),\n    ("oxenwar_lookup_auth_email", read("supabase/functions/oxenwar-username-auth/index.ts"), "server-side username-to-auth lookup"),\n    ("oxenwar_consume_username_auth_attempt", read("supabase/functions/oxenwar-username-auth/index.ts"), "database-backed auth rate limiting"),\n    ("createUser", read("supabase/functions/oxenwar-username-auth/index.ts"), "server-side account creation"),\n    ("signInWithPassword", read("supabase/functions/oxenwar-username-auth/index.ts"), "server-side password verification"),\n    ("accounts.oxenwar.invalid", read("supabase/functions/oxenwar-username-auth/index.ts"), "non-routable internal auth alias"),
+    ("PUBLISHABLE_KEY", backend, "Supabase publishable-key client"),
+    ("/functions/v1/oxenwar-username-auth", backend, "username-only auth Edge Function client"),
+    ('"action": "register"', backend, "username-only registration request"),
+    ('"action": "login"', backend, "username-only login request"),
+    ("oxenwar_lookup_auth_email", read("supabase/functions/oxenwar-username-auth/index.ts"), "server-side username-to-auth lookup"),
+    ("oxenwar_consume_username_auth_attempt", read("supabase/functions/oxenwar-username-auth/index.ts"), "database-backed auth rate limiting"),
+    ("createUser", read("supabase/functions/oxenwar-username-auth/index.ts"), "server-side account creation"),
+    ("signInWithPassword", read("supabase/functions/oxenwar-username-auth/index.ts"), "server-side password verification"),
+    ("accounts.oxenwar.invalid", read("supabase/functions/oxenwar-username-auth/index.ts"), "non-routable internal auth alias"),
     ("accessory_id", menu, "accessory selection"),
     ("outfit_iron_vanguard", player, "Iron Vanguard hero-inspired skin"),
     ("outfit_web_sentinel", player, "Web Sentinel hero-inspired skin"),
@@ -310,7 +318,11 @@ for needle, source, label in checks:
     if needle not in source:
         errors.append(f"missing {label}")
 
-if "email_input" in menu:\n    errors.append("email field remains in the account UI")\nif "/auth/v1/signup" in backend or "/auth/v1/token?grant_type=password" in backend:\n    errors.append("game client still calls email-based Supabase Auth endpoints directly")\nif "service_role" in backend.lower() or "sb_secret_" in backend:
+if "email_input" in menu:
+    errors.append("email field remains in the account UI")
+if "/auth/v1/signup" in backend or "/auth/v1/token?grant_type=password" in backend:
+    errors.append("game client still calls email-based Supabase Auth endpoints directly")
+if "service_role" in backend.lower() or "sb_secret_" in backend:
     errors.append("secret/service-role credential must never be present in the game client")
 if "ADMIN_CODE_SHA256" in main or "ADMIN_PLAYER_NAME" in main:
     errors.append("obsolete client-side admin password/name authorization remains")
