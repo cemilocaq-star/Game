@@ -1910,9 +1910,9 @@ func _on_collected(_points: int) -> void:
 func _update_collectibles_hud() -> void:
 	if not is_instance_valid(collectibles_label):
 		return
-	var is_online := is_instance_valid(network) and network.is_authenticated
-	var orb_count := online_orb_collections if is_online else local_orb_collections
-	var secret_found := online_secret_found if is_online else (is_instance_valid(progression) and progression.secret_404_found)
+	var is_online: bool = is_instance_valid(network) and bool(network.get("is_authenticated"))
+	var orb_count: int = online_orb_collections if is_online else local_orb_collections
+	var secret_found: bool = online_secret_found if is_online else (is_instance_valid(progression) and progression.secret_404_found)
 	collectibles_label.text = "GOLD ORBS (XP ONLY): %d  •  404 SECRET: %s" % [orb_count, "FOUND" if secret_found else "NOT FOUND"]
 
 func _update_hud() -> void:
