@@ -36,7 +36,8 @@ These are original generated prototype meshes and remain blockout-quality, stati
 
 ## Godot prototype features authored
 
-- First-person CharacterBody3D movement, mouse look, jump, sprint, slide, dash and stamina.
+- First-person CharacterBody3D movement, mouse look, jump buffering, coyote-time jumps, sprint, lowered slide stance, dash and stamina.
+- Animated collectible visuals, timed 5-minute round, final-score screen and replay flow.
 - Touch buttons and swipe camera look path; Android gyroscope look path.
 - Procedural low-poly arena, collectible score loop, collectible respawn and five lighthearted event states.
 - Export presets for Windows x86_64 and Android arm64 APK.

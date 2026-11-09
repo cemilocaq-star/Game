@@ -8,12 +8,12 @@ This is the first Godot migration pass from the Unreal Engine 5.7 source package
 - Mouse: look
 - Space: jump
 - Shift: sprint
-- Ctrl: slide
+- Ctrl: slide (tap to start)
 - Q: dash
 - Escape: release/capture mouse
 - Touchscreen: on-screen movement/action buttons and swipe look
 
-Collect golden orbs for points. Random lighthearted events rotate during the round. The renderer is set to Compatibility for broad desktop/mobile support.
+Collect golden orbs for points. Orbs now rotate and bob, and respawn after collection. Slide uses a lowered stance; jump input buffering and a short coyote-time window make parkour controls more forgiving. A 5-minute round ends with a score screen and replay button. Random lighthearted events rotate during the round. The renderer is set to Compatibility for broad desktop/mobile support.
 
 ## Local opening and export
 

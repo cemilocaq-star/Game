@@ -17,6 +17,7 @@ var active_event := ""
 var orb_spawns: Array[Vector3] = []
 var rng := RandomNumberGenerator.new()
 var hud_layer: CanvasLayer
+var _round_finished := false
 
 const EVENT_NAMES := {
 	"DUCK_PARADE": "DUCK PARADE!",
@@ -37,7 +38,13 @@ func _ready() -> void:
 	_update_hud()
 
 func _process(delta: float) -> void:
+	if _round_finished:
+		return
 	round_left = maxf(0.0, round_left - delta)
+	if round_left <= 0.0:
+		_finish_round()
+		_update_hud()
+		return
 	if active_event.is_empty():
 		event_clock -= delta
 		if event_clock <= 0.0:
@@ -165,6 +172,11 @@ func _spawn_orb(index: int) -> void:
 		mesh_node.mesh = mesh
 		visual = mesh_node
 	area.add_child(visual)
+	var bob := create_tween()
+	bob.set_loops()
+	bob.tween_property(visual, "rotation:y", TAU, 2.4)
+	bob.tween_property(visual, "position:y", 0.22, 0.65)
+	bob.tween_property(visual, "position:y", 0.0, 0.65)
 	area.body_entered.connect(_on_orb_body_entered.bind(area, index))
 	add_child(area)
 
@@ -178,7 +190,8 @@ func _on_orb_body_entered(body: Node3D, orb: Area3D, index: int) -> void:
 	await get_tree().create_timer(8.0).timeout
 	if is_instance_valid(orb):
 		orb.queue_free()
-	_spawn_orb(index)
+	if not _round_finished:
+		_spawn_orb(index)
 
 func _start_random_event() -> void:
 	var choices: Array[String] = ["DUCK_PARADE", "PINK_SKY", "GOLDEN_ORB_RUSH", "CONFETTI_STORM", "LOW_GRAVITY"]
@@ -285,6 +298,72 @@ func _add_touch_button(root: Control, text_value: String, action: String, offset
 	button.button_down.connect(func(): Input.action_press(action))
 	button.button_up.connect(func(): Input.action_release(action))
 	button.tree_exiting.connect(func(): Input.action_release(action))
+
+
+func _finish_round() -> void:
+	if _round_finished:
+		return
+	_round_finished = true
+	if is_instance_valid(player):
+		player.set_physics_process(false)
+		player.set_process_unhandled_input(false)
+
+	var overlay := ColorRect.new()
+	overlay.name = "RoundFinishedOverlay"
+	overlay.color = Color(0.015, 0.025, 0.055, 0.88)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	hud_layer.add_child(overlay)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(440, 250)
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.045, 0.085, 0.14, 1.0)
+	panel_style.border_color = Color(0.12, 0.78, 0.68, 1.0)
+	panel_style.set_border_width_all(2)
+	panel_style.set_corner_radius_all(16)
+	panel_style.content_margin_left = 28
+	panel_style.content_margin_right = 28
+	panel_style.content_margin_top = 24
+	panel_style.content_margin_bottom = 24
+	panel.add_theme_stylebox_override("panel", panel_style)
+	center.add_child(panel)
+
+	var column := VBoxContainer.new()
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", 16)
+	panel.add_child(column)
+
+	var title := Label.new()
+	title.text = "ROUND COMPLETE"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_color_override("font_color", Color(0.45, 1.0, 0.86))
+	column.add_child(title)
+
+	var result := Label.new()
+	result.text = "FINAL SCORE  %04d" % player.score
+	result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	result.add_theme_font_size_override("font_size", 23)
+	result.add_theme_color_override("font_color", Color(0.92, 0.97, 1.0))
+	column.add_child(result)
+
+	var hint := Label.new()
+	hint.text = "Nice run! Try again and beat your score."
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_color_override("font_color", Color(0.68, 0.78, 0.88))
+	column.add_child(hint)
+
+	var restart := Button.new()
+	restart.text = "PLAY AGAIN"
+	restart.custom_minimum_size = Vector2(180, 48)
+	restart.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	restart.pressed.connect(func(): get_tree().reload_current_scene())
+	column.add_child(restart)
 
 func _on_collected(_points: int) -> void:
 	_update_hud()
