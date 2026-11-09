@@ -153,6 +153,23 @@ func request_quick_match(mode: String = "ffa") -> void:
 func _sanitize_mode(mode: String) -> String:
 	return "team_deathmatch" if mode == "team_deathmatch" else "ffa"
 
+func request_emote(emote_id: String) -> void:
+	if is_authenticated and not is_dedicated_server and emote_id in ["griddy", "goofy"]:
+		rpc_id(1, "_server_set_emote", emote_id)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _server_set_emote(emote_id: String) -> void:
+	if not multiplayer.is_server() or emote_id not in ["griddy", "goofy", ""]:
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _peer_users.has(peer_id) or not _server_players.has(peer_id):
+		return
+	var user_id := str(_peer_users[peer_id])
+	var room_code := str(_user_rooms.get(user_id, ""))
+	if room_code.is_empty() or not _rooms.has(room_code) or bool(_rooms[room_code].get("round_finished", false)):
+		return
+	_server_players[peer_id].emote_id = emote_id
+
 func request_grenade_throw(direction: Vector3) -> void:
 	if is_authenticated and not is_dedicated_server and direction.length() > 0.9:
 		rpc_id(1, "_server_throw_grenade", direction.normalized())
@@ -956,7 +973,7 @@ func _broadcast_snapshot(code: String) -> void:
 			"display_name": str(_profiles.get(user_id, {}).get("display_name", "Player")),
 			"color": _color_for_profile(_profiles.get(user_id, {})),
 			"outfit_id": str(_profiles.get(user_id, {}).get("outfit_id", "outfit_default")),
-			"team_id": str(player.team_id),
+			"team_id": str(player.team_id), "emote_id": str(player.emote_id),
 			"score": player.score, "kills": player.kills, "xp": player.xp, "stamina": player.stamina, "sliding": player.sliding_active,
 			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left
 		}
