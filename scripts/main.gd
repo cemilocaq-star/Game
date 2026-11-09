@@ -52,6 +52,8 @@ var room_code_input: LineEdit
 var friend_name_input: LineEdit
 var room_status_label: Label
 var remote_players: Dictionary = {}
+var match_killboard: Dictionary = {}
+var active_room_mode := "ffa"
 
 const EVENT_NAMES := {
 	"DUCK_PARADE": "DUCK PARADE!",
@@ -181,6 +183,7 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 		player.global_position = position_value
 	player.rotation.y = float(state.get("yaw", player.rotation.y))
 	player.score = int(state.get("score", player.score))
+	match_killboard[local_player_name] = int(state.get("kills", 0))
 	player.stamina = float(state.get("stamina", player.stamina))
 	player.health = float(state.get("health", player.health))
 	player.is_dead = bool(state.get("dead", false))
@@ -201,6 +204,9 @@ func _on_network_room_state(state: Dictionary) -> void:
 			_on_server_event_changed(active_event)
 		event_left = float(state.get("event_left", 0.0))
 		round_left = float(state.get("round_left", ROUND_SECONDS))
+		active_room_mode = str(state.get("mode", active_room_mode))
+		if round_left <= 0.0 and not _round_finished:
+			_finish_round()
 		var available: Dictionary = state.get("orb_available", {})
 		for index in range(orb_spawns.size()):
 			var orb = get_node_or_null("GoldenOrb_%02d" % index)
@@ -290,6 +296,7 @@ func _on_invite_friend_pressed() -> void:
 		room_status_label.text = "Friend username not found"
 
 func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
+	match_killboard[str(state.get("display_name", "Player"))] = int(state.get("kills", 0))
 	var remote = remote_players.get(peer_id)
 	if not is_instance_valid(remote):
 		remote = REMOTE_PLAYER_SCRIPT.new()
@@ -1180,21 +1187,30 @@ func _finish_round() -> void:
 	panel.add_child(column)
 
 	var title := Label.new()
-	title.text = "ROUND COMPLETE"
+	title.text = "FREE FOR ALL • MATCH COMPLETE" if active_room_mode == "ffa" else "ROUND COMPLETE"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 30)
 	title.add_theme_color_override("font_color", Color(0.45, 1.0, 0.86))
 	column.add_child(title)
 
 	var result := Label.new()
-	result.text = "FINAL SCORE  %04d" % player.score
+	var standings: Array = []
+	for player_name in match_killboard.keys():
+		standings.append({"name": str(player_name), "kills": int(match_killboard[player_name])})
+	standings.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.kills) > int(b.kills))
+	var winner_name := str(standings[0].name) if not standings.is_empty() else local_player_name
+	var winner_kills := int(standings[0].kills) if not standings.is_empty() else 0
+	result.text = "WINNER  %s  •  %d KILLS" % [winner_name, winner_kills]
 	result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	result.add_theme_font_size_override("font_size", 23)
 	result.add_theme_color_override("font_color", Color(0.92, 0.97, 1.0))
 	column.add_child(result)
 
 	var hint := Label.new()
-	hint.text = "Nice run! Try again and beat your score."
+	var board_lines := PackedStringArray()
+	for index in range(mini(5, standings.size())):
+		board_lines.append("%d. %s  —  %d KILLS" % [index + 1, str(standings[index].name), int(standings[index].kills)])
+	hint.text = "\n".join(board_lines) if not board_lines.is_empty() else "No eliminations recorded."
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_color_override("font_color", Color(0.68, 0.78, 0.88))
 	column.add_child(hint)
