@@ -18,17 +18,32 @@ var orb_spawns: Array[Vector3] = []
 var rng := RandomNumberGenerator.new()
 var hud_layer: CanvasLayer
 var _round_finished := false
+var progression: ProgressionManager
+var graphics: GraphicsManager
+var level_label: Label
+var xp_bar: ProgressBar
+var graphics_option: OptionButton
+var arena_meshes: Array[MeshInstance3D] = []
+var arena_colors: Array[Color] = []
 
 const EVENT_NAMES := {
 	"DUCK_PARADE": "DUCK PARADE!",
 	"PINK_SKY": "PINK SKY!",
 	"GOLDEN_ORB_RUSH": "GOLDEN ORB RUSH — 2X POINTS!",
 	"CONFETTI_STORM": "CONFETTI STORM!",
-	"LOW_GRAVITY": "LOW GRAVITY!"
+	"LOW_GRAVITY": "LOW GRAVITY!",
+	"BONK_MODE": "BONK MODE — SPEED BOOST!",
+	"NPC_MODE": "NPC MODE — SIDE QUEST ENERGY",
+	"DUCK_EXE": "DUCK.EXE HAS STOPPED RESPONDING"
 }
 
 func _ready() -> void:
 	rng.randomize()
+	progression = ProgressionManager.new()
+	add_child(progression)
+	progression.level_up.connect(_on_level_up)
+	graphics = GraphicsManager.new()
+	graphics.load_settings()
 	_setup_input()
 	_build_environment()
 	_build_arena()
@@ -97,6 +112,7 @@ func _build_environment() -> void:
 	sun.light_energy = 1.2
 	sun.shadow_enabled = true
 	add_child(sun)
+	graphics.configure(env, sun)
 
 func _build_arena() -> void:
 	_make_box("ArenaFloor", Vector3(36, 0.8, 30), Vector3(0, -0.4, 0), Color(0.07, 0.12, 0.19))
@@ -129,10 +145,9 @@ func _make_box(node_name: String, size: Vector3, position: Vector3, color: Color
 	var mesh := BoxMesh.new()
 	mesh.size = size
 	mesh_node.mesh = mesh
-	var material := StandardMaterial3D.new()
-	material.albedo_color = color
-	material.roughness = 0.75
-	mesh_node.material_override = material
+	arena_meshes.append(mesh_node)
+	arena_colors.append(color)
+	mesh_node.material_override = graphics.make_material(color)
 	body.add_child(mesh_node)
 	add_child(body)
 
@@ -185,6 +200,9 @@ func _on_orb_body_entered(body: Node3D, orb: Area3D, index: int) -> void:
 		return
 	var points := 20 if active_event == "GOLDEN_ORB_RUSH" else 10
 	player.add_score(points)
+	progression.add_xp(25 if active_event == "GOLDEN_ORB_RUSH" else 15)
+	if index == 11 and progression.discover_secret():
+		_show_meme_toast("SECRET FOUND: 404 SKILL NOT FOUND  •  +100 XP")
 	orb.set_deferred("monitoring", false)
 	orb.visible = false
 	await get_tree().create_timer(8.0).timeout
@@ -194,15 +212,19 @@ func _on_orb_body_entered(body: Node3D, orb: Area3D, index: int) -> void:
 		_spawn_orb(index)
 
 func _start_random_event() -> void:
-	var choices: Array[String] = ["DUCK_PARADE", "PINK_SKY", "GOLDEN_ORB_RUSH", "CONFETTI_STORM", "LOW_GRAVITY"]
+	var choices: Array[String] = ["DUCK_PARADE", "PINK_SKY", "GOLDEN_ORB_RUSH", "CONFETTI_STORM", "LOW_GRAVITY", "BONK_MODE", "NPC_MODE", "DUCK_EXE"]
 	active_event = choices[rng.randi_range(0, choices.size() - 1)]
 	event_left = EVENT_DURATION
 	event_clock = EVENT_INTERVAL
 	player.apply_event(active_event)
 	if active_event == "PINK_SKY":
 		RenderingServer.set_default_clear_color(Color(0.20, 0.045, 0.18))
-	if active_event == "DUCK_PARADE":
+	if active_event == "DUCK_PARADE" or active_event == "DUCK_EXE":
 		_spawn_duck_mascot()
+	if active_event == "BONK_MODE":
+		_show_meme_toast("BONK! THE LAWS OF PHYSICS TOOK A BREAK.")
+	if active_event == "NPC_MODE":
+		_show_meme_toast("SIDE QUEST: COLLECT THE SHINY THINGS.")
 
 func _spawn_duck_mascot() -> void:
 	var packed: PackedScene = load("res://assets/DuckBeacon_Mascot.glb")
@@ -248,6 +270,29 @@ func _build_hud() -> void:
 	stamina_bar.max_value = 100
 	stamina_bar.show_percentage = false
 	root.add_child(stamina_bar)
+	level_label = _make_label(root, "LEVEL 1  •  0 / 100 XP", Vector2(22, 144), 17)
+	xp_bar = ProgressBar.new()
+	xp_bar.position = Vector2(22, 171)
+	xp_bar.size = Vector2(220, 13)
+	xp_bar.max_value = 100
+	xp_bar.show_percentage = false
+	root.add_child(xp_bar)
+
+	graphics_option = OptionButton.new()
+	graphics_option.anchor_left = 0.78
+	graphics_option.anchor_right = 0.98
+	graphics_option.anchor_top = 0.09
+	graphics_option.anchor_bottom = 0.09
+	graphics_option.offset_left = 0
+	graphics_option.offset_right = 0
+	graphics_option.offset_top = 0
+	graphics_option.offset_bottom = 38
+	for quality_name in ["AUTO", "LOW", "MEDIUM", "HIGH", "ULTRA"]:
+		graphics_option.add_item(quality_name)
+	graphics_option.select(["AUTO", "LOW", "MEDIUM", "HIGH", "ULTRA"].find(graphics.quality_setting))
+	graphics_option.item_selected.connect(_on_graphics_selected)
+	root.add_child(graphics_option)
+
 	var round_label := _make_label(root, "", Vector2(0, 16), 20)
 	round_label.anchor_left = 0.78
 	round_label.anchor_right = 0.98
@@ -305,6 +350,7 @@ func _finish_round() -> void:
 		return
 	_round_finished = true
 	if is_instance_valid(player):
+		progression.record_score(player.score)
 		player.set_physics_process(false)
 		player.set_process_unhandled_input(false)
 
@@ -365,6 +411,41 @@ func _finish_round() -> void:
 	restart.pressed.connect(func(): get_tree().reload_current_scene())
 	column.add_child(restart)
 
+
+func _on_level_up(new_level: int, reward: String) -> void:
+	_show_meme_toast("LEVEL UP!  LEVEL %d  •  UNLOCKED: %s" % [new_level, reward])
+	_update_hud()
+
+func _show_meme_toast(message: String) -> void:
+	if not is_instance_valid(hud_layer):
+		return
+	var toast := Label.new()
+	toast.text = message
+	toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	toast.anchor_left = 0.12
+	toast.anchor_right = 0.88
+	toast.anchor_top = 0.34
+	toast.anchor_bottom = 0.34
+	toast.add_theme_font_size_override("font_size", 23)
+	toast.add_theme_color_override("font_color", Color(1.0, 0.82, 0.25))
+	toast.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.95))
+	toast.add_theme_constant_override("shadow_offset_x", 2)
+	toast.add_theme_constant_override("shadow_offset_y", 2)
+	hud_layer.add_child(toast)
+	var tween := create_tween()
+	tween.tween_property(toast, "modulate:a", 1.0, 0.12)
+	tween.tween_interval(2.0)
+	tween.tween_property(toast, "modulate:a", 0.0, 0.55)
+	tween.tween_callback(toast.queue_free)
+
+func _on_graphics_selected(index: int) -> void:
+	var options := ["AUTO", "LOW", "MEDIUM", "HIGH", "ULTRA"]
+	graphics.set_quality(options[index])
+	for i in range(arena_meshes.size()):
+		if is_instance_valid(arena_meshes[i]):
+			arena_meshes[i].material_override = graphics.make_material(arena_colors[i])
+	_show_meme_toast("GRAPHICS: %s  →  %s" % [graphics.quality_setting, graphics.resolved_quality])
+
 func _on_collected(_points: int) -> void:
 	_update_hud()
 
@@ -372,6 +453,10 @@ func _update_hud() -> void:
 	if not is_instance_valid(player) or not is_instance_valid(score_label):
 		return
 	score_label.text = "SCORE %04d" % player.score
+	if is_instance_valid(progression) and is_instance_valid(level_label):
+		level_label.text = "LEVEL %d  •  %d / %d XP" % [progression.level, progression.xp, progression.xp_for_next_level()]
+		xp_bar.max_value = progression.xp_for_next_level()
+		xp_bar.value = progression.xp
 	stamina_bar.value = player.stamina
 	if active_event.is_empty():
 		event_label.text = "COLLECT THE ORBS • NEXT EVENT %02d" % ceili(event_clock)

@@ -24,6 +24,7 @@ var dash_cooldown := 0.0
 var dash_left := 0.0
 var slide_left := 0.0
 var event_gravity_scale := 1.0
+var event_speed_scale := 1.0
 var score := 0
 var gyro_enabled := true
 var _dash_direction := Vector3.ZERO
@@ -109,8 +110,8 @@ func _physics_process(delta: float) -> void:
 
 	if dash_left > 0.0:
 		_set_sliding(false)
-		velocity.x = _dash_direction.x * DASH_SPEED
-		velocity.z = _dash_direction.z * DASH_SPEED
+		velocity.x = _dash_direction.x * DASH_SPEED * event_speed_scale
+		velocity.z = _dash_direction.z * DASH_SPEED * event_speed_scale
 	else:
 		var target_speed := WALK_SPEED
 		if _is_sliding:
@@ -122,6 +123,7 @@ func _physics_process(delta: float) -> void:
 		else:
 			stamina = minf(MAX_STAMINA, stamina + 20.0 * delta)
 
+		target_speed *= event_speed_scale
 		if direction.length() > 0.01:
 			var acceleration := 34.0 if _is_sliding else 28.0
 			velocity.x = move_toward(velocity.x, direction.x * target_speed, acceleration * delta)
@@ -179,6 +181,13 @@ func add_score(points: int) -> void:
 
 func apply_event(event_id: String) -> void:
 	event_gravity_scale = 0.55 if event_id == "LOW_GRAVITY" else 1.0
+	match event_id:
+		"BONK_MODE":
+			event_speed_scale = 1.3
+		"NPC_MODE":
+			event_speed_scale = 0.78
+		_:
+			event_speed_scale = 1.0
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
