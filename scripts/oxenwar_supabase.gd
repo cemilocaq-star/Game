@@ -154,6 +154,17 @@ func update_profile(changes: Dictionary) -> Dictionary:
 		"/rest/v1/profiles?id=eq.%s" % user_id, changes, true,
 		PackedStringArray(["Prefer: return=representation"]))
 
+func get_player_stats() -> Dictionary:
+	if not await _ensure_session():
+		return {"ok": false, "message": "Please sign in again."}
+	var result := await _request(HTTPClient.METHOD_GET,
+		"/rest/v1/player_stats?select=total_score,best_score,total_xp,matches_played,total_kills,total_deaths,matches_won,matches_lost,matches_drawn,best_kills,best_damage,total_damage_dealt,total_shots_fired,total_shots_hit,total_playtime_seconds&user_id=eq.%s&limit=1" % user_id,
+		null, true)
+	if not result.get("ok", false):
+		return result
+	var rows: Array = result.get("data", [])
+	return {"ok": true, "data": rows[0] if not rows.is_empty() else {}}
+
 func get_role() -> String:
 	var result := await _request(HTTPClient.METHOD_GET,
 		"/rest/v1/player_roles?select=role&user_id=eq.%s&limit=1" % user_id, null, true)
