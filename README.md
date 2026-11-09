@@ -82,3 +82,7 @@ GitHub Actions validates the structure, imports/parses the project with Godot he
 - Keep RLS enabled on every exposed table.
 - Supabase Auth validates the player's JWT; the server never trusts a client-provided user ID or display name.
 - The server owns movement, collision, scores, XP, event timing and collectible awards. Never re-enable client-side online movement or score awards.
+
+
+## Emotes
+Players can trigger the original Griddy dance with **B** or the mobile **GRIDDY** button, and a goofy dance with **N** or **GOOFY**. Emotes animate the character while normal movement continues; selecting the same emote again stops it. Griddy plays a short, original synthesized looping beat. Emote state is replicated in multiplayer snapshots so other players can see the dance. No third-party dance audio or character animation assets are bundled.
