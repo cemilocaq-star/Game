@@ -3,6 +3,7 @@ extends Node3D
 
 var target_position := Vector3.ZERO
 var target_yaw := 0.0
+var _sliding := false
 var display_name := "Player"
 var _visual: MeshInstance3D
 var _name_tag: Label3D
@@ -32,9 +33,14 @@ func set_identity(player_name: String, color: Color) -> void:
 		material.roughness = 0.65
 		_visual.material_override = material
 
-func apply_network_state(position_value: Vector3, yaw_value: float) -> void:
+func apply_network_state(position_value: Vector3, yaw_value: float, sliding: bool = false) -> void:
 	target_position = position_value
 	target_yaw = yaw_value
+	if _sliding != sliding:
+		_sliding = sliding
+		_visual.scale.y = 0.56 if sliding else 1.0
+		_visual.position.y = 0.5 if sliding else 0.9
+		_name_tag.position.y = 1.35 if sliding else 2.15
 	if not is_inside_tree():
 		global_position = target_position
 		rotation.y = target_yaw
