@@ -173,6 +173,7 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 	player.rotation.y = float(state.get("yaw", player.rotation.y))
 	player.score = int(state.get("score", player.score))
 	player.stamina = float(state.get("stamina", player.stamina))
+	player.apply_server_slide(bool(state.get("sliding", false)))
 	if is_instance_valid(progression):
 		progression.sync_server_total_xp(int(state.get("xp", progression.total_xp)))
 	_update_hud()
@@ -249,7 +250,7 @@ func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
 		add_child(remote)
 		remote_players[peer_id] = remote
 		remote.set_identity(str(state.get("display_name", "Player")), Color.from_string(str(state.get("color", "#27D7E7")), Color("#27D7E7")))
-	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)))
+	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)), bool(state.get("sliding", false)))
 
 func _on_remote_player_left(peer_id: int) -> void:
 	var remote: Node = remote_players.get(peer_id)
