@@ -113,6 +113,9 @@ jobs:
       - name: Import project and parse resources
         run: godot --headless --editor --path . --quit
 
+      - name: Start dedicated server smoke test
+        run: godot --headless --path . -- --server --smoke-test
+
       - name: Export Windows x86_64
         run: |
           mkdir -p build

@@ -110,6 +110,14 @@ func _start_dedicated_server() -> void:
 	add_child(network)
 	if not network.start_server():
 		get_tree().quit(1)
+		return
+	if OS.get_cmdline_user_args().has("--smoke-test"):
+		_finish_server_smoke_test()
+
+func _finish_server_smoke_test() -> void:
+	await get_tree().create_timer(1.0).timeout
+	print("OxenWar dedicated server smoke test passed")
+	get_tree().quit()
 
 func _start_multiplayer_client() -> void:
 	network = NETWORK_SCRIPT.new()

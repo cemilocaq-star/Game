@@ -7,6 +7,7 @@ errors = []
 required = [
     "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd",
     "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd",
+    "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "server/README.md", "Dockerfile", "fly.toml",
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
     "supabase/migrations/20261109114619_oxenwar_social_foundation.sql",
     "supabase/migrations/20261109114653_oxenwar_permissions_hardening.sql",
@@ -47,6 +48,12 @@ checks = [
     ('config/name="OxenWar"', project, "OxenWar application name"),
     ("OxenWarMainMenu", main, "OxenWar menu integration"),
     ("OnlinePresenceHeartbeat", main, "presence heartbeat"),
+    ('get_cmdline_user_args().has("--server")', main, "dedicated server entry point"),
+    ("_start_multiplayer_client", main, "multiplayer client startup"),
+    ("_on_remote_player_state", main, "remote player rendering"),
+    ('@rpc("any_peer", "call_remote", "unreliable_ordered")', read("scripts/oxenwar_network.gd"), "server movement RPC"),
+    ("MAX_CLIENTS := 32", read("scripts/oxenwar_network.gd"), "dedicated server capacity"),
+    ("MAX_SPEED := 24.0", read("scripts/oxenwar_network.gd"), "movement relay speed validation"),
     ("cosmetic_accessory", main, "player accessory integration"),
     ("_add_selected_accessory", player, "visible accessory customization"),
     ("friend_requests", backend, "friend request API"),
@@ -62,7 +69,8 @@ checks = [
     ("OxenWar.apk", presets, "OxenWar Android export name"),
     ("OxenWar-Windows-x86_64", workflow, "OxenWar Windows artifact"),
     ("OxenWar-Android-arm64-debug", workflow, "OxenWar Android artifact"),
-    ("single-player", readme, "multiplayer limitation documented"),
+    ("multiplayer", readme.lower(), "multiplayer scope documented"),
+    ("server-relayed movement prototype", read("server/README.md"), "server relay limitations documented"),
 ]
 for needle, source, label in checks:
     if needle not in source:
