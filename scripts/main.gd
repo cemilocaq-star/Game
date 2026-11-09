@@ -219,7 +219,7 @@ func _on_join_room_pressed() -> void:
 		network.request_join_room(room_code_input.text)
 
 func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
-	var remote: Node3D = remote_players.get(peer_id)
+	var remote = remote_players.get(peer_id)
 	if not is_instance_valid(remote):
 		remote = REMOTE_PLAYER_SCRIPT.new()
 		remote.name = "RemotePlayer_%d" % peer_id
