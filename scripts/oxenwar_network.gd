@@ -187,7 +187,9 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			"expires": Time.get_ticks_msec() + int(ROOM_GRACE_SECONDS * 1000.0),
 			"position": _server_players[peer_id].global_position if _server_players.has(peer_id) else Vector3(0, 1.5, 6),
 			"score": int(_server_players[peer_id].score) if _server_players.has(peer_id) else 0,
-			"xp": int(_server_players[peer_id].xp) if _server_players.has(peer_id) else 0
+			"xp": int(_server_players[peer_id].xp) if _server_players.has(peer_id) else 0,
+			"match_xp": int(_server_players[peer_id].match_xp) if _server_players.has(peer_id) else 0,
+			"collections": _collection_list(_server_players[peer_id]) if _server_players.has(peer_id) else []
 		}
 		if _server_players.has(peer_id):
 			_server_players[peer_id].queue_free()
@@ -220,12 +222,14 @@ func _server_authenticate(token: String) -> void:
 	_user_peers[user_id] = peer_id
 	_profiles[user_id] = profile
 	_tokens[user_id] = token
-	var player := _create_server_player(peer_id, profile)
+	var player := _create_server_player(peer_id, profile, identity.get("stats", {}))
 	var restored: Dictionary = _sessions.get(user_id, {})
 	if not restored.is_empty() and int(restored.get("expires", 0)) >= Time.get_ticks_msec():
 		player.global_position = restored.get("position", Vector3(0, 1.5, 6))
 		player.score = int(restored.get("score", 0))
-		player.xp = int(restored.get("xp", 0))
+		player.xp = int(restored.get("xp", player.xp))
+		player.match_xp = int(restored.get("match_xp", 0))
+		player.collection_counts = restored.get("collections", {})
 		var old_room := str(restored.get("room_code", ""))
 		if _rooms.has(old_room):
 			var room: Dictionary = _rooms[old_room]
@@ -258,7 +262,14 @@ func _verify_supabase_token(token: String) -> Dictionary:
 	var profiles: Array = profile_response.get("data", [])
 	if profiles.is_empty():
 		return {"ok": false}
-	return {"ok": true, "user_id": user_id, "profile": profiles[0]}
+	var stats_response := await _http_json(HTTPClient.METHOD_GET,
+		SUPABASE_URL + "/rest/v1/player_stats?select=total_xp,best_score,total_score,matches_played&user_id=eq." + user_id.uri_encode() + "&limit=1", headers)
+	var stats: Dictionary = {}
+	if stats_response.get("ok", false):
+		var stats_rows: Array = stats_response.get("data", [])
+		if not stats_rows.is_empty():
+			stats = stats_rows[0]
+	return {"ok": true, "user_id": user_id, "profile": profiles[0], "stats": stats}
 
 func _http_json(method: int, url: String, headers: PackedStringArray, payload: Variant = null) -> Dictionary:
 	var request := HTTPRequest.new()
@@ -280,10 +291,11 @@ func _http_json(method: int, url: String, headers: PackedStringArray, payload: V
 			parsed = json.data
 	return {"ok": status >= 200 and status < 300, "status": status, "data": parsed}
 
-func _create_server_player(peer_id: int, profile: Dictionary) -> CharacterBody3D:
+func _create_server_player(peer_id: int, profile: Dictionary, stats: Dictionary = {}) -> CharacterBody3D:
 	var player: CharacterBody3D = SERVER_PLAYER_SCRIPT.new()
 	player.name = "ServerPlayer_%d" % peer_id
 	player.position = Vector3(0, 1.5, 6)
+	player.xp = int(stats.get("total_xp", 0))
 	var color_id := str(profile.get("avatar_color_id", "color_cyan"))
 	var spawn_offset := Vector3(float(_server_players.size() % 4) * 1.6 - 2.4, 0, float(_server_players.size() / 4) * 1.6)
 	player.position += spawn_offset
@@ -427,6 +439,7 @@ func _new_room(code: String, owner_uid: String, public_room: bool) -> Dictionary
 		"orb_respawn": respawn, "event_id": "", "event_left": 0.0,
 		"event_clock": EVENT_INTERVAL, "round_left": ROUND_SECONDS,
 		"round_id": str(Time.get_unix_time_from_system()) + "-" + code,
+		"round_finished": false,
 		"persisted": {}
 	}
 
@@ -441,6 +454,10 @@ func _assign_user_to_room(user_id: String, peer_id: int, code: String) -> void:
 	if _server_players.has(peer_id):
 		_server_players[peer_id].global_position = Vector3(0, 1.5, 6)
 		_server_players[peer_id].velocity = Vector3.ZERO
+		_server_players[peer_id].score = 0
+		_server_players[peer_id].match_xp = 0
+		_server_players[peer_id].collection_counts.clear()
+		_server_players[peer_id].secret_404_found = false
 
 func _server_remove_from_room(user_id: String) -> void:
 	var old_code := str(_user_rooms.get(user_id, ""))
@@ -517,9 +534,24 @@ func _server_process_rooms(delta: float) -> void:
 							xp_gain *= 2
 						player.score += points
 						player.xp += xp_gain
-						if orb_index == 11:
+						player.match_xp += xp_gain
+						var collection_id := "orb_%02d" % orb_index
+						player.collection_counts[collection_id] = int(player.collection_counts.get(collection_id, 0)) + 1
+						if orb_index == 11 and not player.secret_404_found:
+							player.secret_404_found = true
 							player.xp += 100
+							player.match_xp += 100
+							player.collection_counts["secret_404"] = 1
 						break
+		if float(room.round_left) <= 0.0 and not bool(room.round_finished):
+			room.round_finished = true
+			for uid in room.members.keys():
+				var finished_peer := int(room.members[uid])
+				if finished_peer > 0 and _server_players.has(finished_peer):
+					var finished_player: CharacterBody3D = _server_players[finished_peer]
+					finished_player.input_vector = Vector2.ZERO
+					finished_player.velocity = Vector3.ZERO
+					_persist_user_result(str(uid), finished_player)
 		_rooms[code] = room
 		_snapshot_accumulator += delta
 	if _snapshot_accumulator >= SNAPSHOT_INTERVAL:
@@ -528,6 +560,38 @@ func _server_process_rooms(delta: float) -> void:
 			_broadcast_snapshot(str(code))
 	if int(now / 1000) % 10 == 0:
 		pass
+
+func _collection_list(player: CharacterBody3D) -> Array[String]:
+	var result: Array[String] = []
+	for collection_id in player.collection_counts.keys():
+		var quantity := mini(512 - result.size(), int(player.collection_counts[collection_id]))
+		for i in range(maxi(0, quantity)):
+			result.append(str(collection_id))
+	return result
+
+func _persist_user_result(user_id: String, player: CharacterBody3D) -> void:
+	if user_id.is_empty() or player.score <= 0 and player.match_xp <= 0:
+		return
+	var token := str(_tokens.get(user_id, ""))
+	if token.is_empty():
+		return
+	if _server_secret.is_empty():
+		push_warning("OXENWAR_SERVER_SECRET is not configured; match results remain server-side for this session.")
+		return
+	var payload := {
+		"score": clampi(player.score, 0, 20000),
+		"xp": clampi(player.match_xp, 0, 50000),
+		"collections": _collection_list(player)
+	}
+	var headers := PackedStringArray([
+		"apikey: " + SUPABASE_KEY,
+		"Authorization: Bearer " + token,
+		"Content-Type: application/json",
+		"x-oxenwar-server-secret: " + _server_secret
+	])
+	var result := await _http_json(HTTPClient.METHOD_POST, SUPABASE_URL + "/functions/v1/oxenwar-server-sync", headers, payload)
+	if not result.get("ok", false):
+		push_warning("OxenWar result sync failed with HTTP status %d" % int(result.get("status", 0)))
 
 func _broadcast_snapshot(code: String) -> void:
 	if not _rooms.has(code):
