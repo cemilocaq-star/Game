@@ -208,6 +208,9 @@ func _physics_process(delta: float) -> void:
 		pitch = clampf(pitch - gyro.x * look_sensitivity * 70.0 * delta, deg_to_rad(-82.0), deg_to_rad(82.0))
 		_camera.rotation.x = pitch
 
+func apply_server_slide(enabled: bool) -> void:
+	_set_sliding(enabled)
+
 func _set_sliding(enabled: bool) -> void:
 	if _is_sliding == enabled:
 		return
