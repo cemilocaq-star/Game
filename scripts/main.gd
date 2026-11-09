@@ -182,7 +182,10 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 
 func _on_network_room_state(state: Dictionary) -> void:
 	if state.has("event_id"):
-		active_event = str(state.get("event_id", ""))
+		var next_event := str(state.get("event_id", ""))
+		if next_event != active_event:
+			active_event = next_event
+			_on_server_event_changed(active_event)
 		event_left = float(state.get("event_left", 0.0))
 		round_left = float(state.get("round_left", ROUND_SECONDS))
 		var available: Dictionary = state.get("orb_available", {})
@@ -201,6 +204,32 @@ func _on_network_room_state(state: Dictionary) -> void:
 				", ".join(names)
 			]
 	_update_hud()
+
+func _on_server_event_changed(event_id: String) -> void:
+	if is_instance_valid(player):
+		player.apply_event(event_id)
+	if event_id.is_empty():
+		RenderingServer.set_default_clear_color(Color(0.015, 0.025, 0.055))
+		return
+	if event_id == "PINK_SKY":
+		RenderingServer.set_default_clear_color(Color(0.20, 0.045, 0.18))
+	if event_id == "DUCK_PARADE" or event_id == "DUCK_EXE":
+		_spawn_duck_mascot()
+	if event_id == "METEOR_SHOWER":
+		_spawn_meteor_shower()
+	var messages := {
+		"METEOR_SHOWER": "LOOK UP! DECORATIVE METEORS",
+		"ICE_WORLD": "ICE WORLD: SERVER-SIMULATED SLIPPERY MOVEMENT",
+		"DOUBLE_XP": "DOUBLE XP IS ACTIVE",
+		"BONK_MODE": "BONK MODE: SERVER SPEED BOOST",
+		"NPC_MODE": "NPC MODE: MOVEMENT MODIFIER",
+		"GOLDEN_ORB_RUSH": "GOLDEN ORB RUSH: BONUS REWARDS",
+		"CONFETTI_STORM": "CONFETTI STORM!",
+		"DUCK_PARADE": "DUCK PARADE!",
+		"DUCK_EXE": "DUCK.EXE HAS STOPPED RESPONDING"
+	}
+	if messages.has(event_id):
+		_show_meme_toast(str(messages[event_id]))
 
 func _on_room_invite_received(owner_name: String, room_code: String) -> void:
 	if is_instance_valid(room_status_label):
