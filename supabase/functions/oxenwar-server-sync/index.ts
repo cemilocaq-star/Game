@@ -218,7 +218,7 @@ Deno.serve(async (request: Request) => {
   }
 
   if (action === "sync_result") {
-    const { score, xp, collections, kills, deaths, damage_dealt, shots_fired, shots_hit, playtime_seconds, outcome } = body;
+    const { score, xp, collections, kills, deaths, damage_dealt, shots_fired, shots_hit, playtime_seconds, outcome, blaster_mastery_xp, grenade_mastery_xp } = body;
     if (typeof score !== "number" || !Number.isInteger(score) || score < 0 || score > 20000 ||
         typeof xp !== "number" || !Number.isInteger(xp) || xp < 0 || xp > 50000 ||
         typeof kills !== "number" || !Number.isInteger(kills) || kills < 0 || kills > 5000 ||
@@ -229,7 +229,9 @@ Deno.serve(async (request: Request) => {
         typeof playtime_seconds !== "number" || !Number.isInteger(playtime_seconds) || playtime_seconds < 0 || playtime_seconds > 7200 ||
         !["win", "loss", "draw", "abandoned"].includes(String(outcome)) ||
         !Array.isArray(collections) || collections.length > 512 ||
-        !collections.every((id) => typeof id === "string" && /^(orb_(0[0-9]|1[01])|secret_404)$/.test(id))) {
+        !collections.every((id) => typeof id === "string" && /^(orb_(0[0-9]|1[01])|secret_404)$/.test(id)) ||
+        typeof blaster_mastery_xp !== "number" || !Number.isInteger(blaster_mastery_xp) || blaster_mastery_xp < 0 || blaster_mastery_xp > 100000 ||
+        typeof grenade_mastery_xp !== "number" || !Number.isInteger(grenade_mastery_xp) || grenade_mastery_xp < 0 || grenade_mastery_xp > 100000) {
       return json(400, { error: "invalid_match_result" });
     }
     const { error } = await admin.rpc("oxenwar_apply_server_result", {
@@ -246,6 +248,12 @@ Deno.serve(async (request: Request) => {
       p_outcome: outcome,
     });
     if (error) return json(500, { error: "result_persistence_failed" });
+    const { error: masteryError } = await admin.rpc("oxenwar_apply_weapon_mastery", {
+      p_user_id: session.userId,
+      p_blaster_xp: blaster_mastery_xp,
+      p_grenade_xp: grenade_mastery_xp,
+    });
+    if (masteryError) return json(500, { error: "weapon_mastery_persistence_failed" });
     return json(200, { ok: true });
   }
 
