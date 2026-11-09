@@ -109,7 +109,7 @@ Local and remote characters now share a lightweight procedural limb rig with sep
 The arena includes a shallow, non-blocking pool. Entering its marked swim zone switches the character to a modest beach outfit (shirt, swim shorts and sunglasses); leaving restores the regular appearance. The server derives the swim-zone state from player position and replicates it in snapshots so remote players see the same outfit. This is a visual zone only; it does not yet implement swimming physics or water movement.
 
 ## Emotes
-Players can trigger the original Griddy dance with **B** or the mobile **GRIDDY** button, and a goofy dance with **N** or **GOOFY**. Emotes animate the character while normal movement continues; selecting the same emote again stops it. Griddy plays a short, original synthesized looping beat. Emote state is replicated in multiplayer snapshots so other players can see the dance. No third-party dance audio or character animation assets are bundled.
+Players can trigger four distinct emotes: Griddy (**B** / mobile **GRIDDY**), Goofy (**N** / **GOOFY**), Robot (**M** / **ROBOT**) and Wave (**J** / **WAVE**). Each has a different procedural limb/body pattern; selecting the active emote again stops it and sends the stopped state to the server. The server replicates all four states to other players. Griddy retains its short original synthesized beat; no third-party dance audio or character animation assets are bundled.
 
 ## HUD visual pass
 The in-game HUD now uses restrained translucent panels for combat status, vitals and lobby controls, with cyan accent borders and custom health, stamina and XP progress-bar styling. The health label changes to a warning tint at low health. HUD presentation is client-side only; gameplay values and authoritative state are unchanged.
@@ -160,3 +160,8 @@ The Android preset exports an **ARM64 debug APK**. GitHub Actions now checks the
 5. For an online LAN test, run the dedicated server on a PC connected to the same Wi-Fi and enter that PC's LAN IP in the game's server field. The server listens on UDP port 2456. Ticket-based multiplayer also requires the same server-only `OXENWAR_SERVER_SECRET` on the server and Supabase Edge Function; never put it in the client.
 
 **Important:** the uploaded build is a debug build for device testing, not a Play Store release. CI creates a temporary debug signing key each run, so uninstall an older CI-installed OxenWar build before installing a newer APK if Android reports a signature conflict. A successful APK export proves packaging/signing, not that the app has been exercised on a real phone. Touch responsiveness, frame rate, device thermals, login and live multiplayer still require physical-device testing.
+
+
+## Collectibles and the 404 secret
+
+Gold orbs are match collectibles that award score and XP; they are **not spendable coins or a currency wallet**. The HUD shows how many orbs were collected in the current session and whether the hidden 404 orb has been found. In online matches, these values are taken from the dedicated server snapshot; the secret is once per match. Offline progression keeps the local 404 discovery in the local save.

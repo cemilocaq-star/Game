@@ -36,8 +36,14 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 	var frequency := 8.5 + intensity * 3.5
 	var phase := clock * frequency
 	var swing := sin(phase) * 0.62 * intensity if grounded and not sliding else 0.0
-	if emote != "":
-		swing = sin(clock * TAU * (2.0 if emote == "griddy" else 1.35)) * 0.42
+	if emote == "griddy":
+		swing = sin(clock * TAU * 2.0) * 0.48
+	elif emote == "goofy":
+		swing = sin(clock * TAU * 1.35) * 0.34
+	elif emote == "robot":
+		swing = sin(clock * TAU * 1.8) * 0.08
+	elif emote == "wave":
+		swing = sin(clock * TAU * 1.5) * 0.16
 	for side in [-1.0, 1.0]:
 		var arm_name := "ArmPivot_L" if side < 0.0 else "ArmPivot_R"
 		var leg_name := "LegPivot_L" if side < 0.0 else "LegPivot_R"
@@ -45,11 +51,26 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 		var leg := rig.get_node_or_null(leg_name) as Node3D
 		if is_instance_valid(arm):
 			var arm_target: float = -swing * side
+			var arm_twist := 0.0
+			if emote == "robot":
+				arm_target = -0.82 if side < 0.0 else -0.42
+				arm_twist = 0.18 if side < 0.0 else -0.18
+			elif emote == "wave":
+				arm_target = -1.35 if side > 0.0 else -swing * side
+				arm_twist = sin(clock * TAU * 2.6) * 0.34 if side > 0.0 else 0.0
+			elif emote == "goofy":
+				arm_target += 0.24 if side > 0.0 else -0.24
 			if sliding:
 				arm_target = -0.72
+				arm_twist = 0.0
 			arm.rotation.x = move_toward(arm.rotation.x, arm_target, delta * 9.0)
+			arm.rotation.z = move_toward(arm.rotation.z, arm_twist, delta * 9.0)
 		if is_instance_valid(leg):
 			var leg_target: float = swing * side
+			if emote == "robot":
+				leg_target = sin(clock * TAU * 1.8) * 0.20 * side
+			elif emote == "wave":
+				leg_target = sin(clock * TAU * 1.5) * 0.10 * side
 			if sliding:
 				leg_target = -0.55
 			leg.rotation.x = move_toward(leg.rotation.x, leg_target, delta * 10.0)

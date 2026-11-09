@@ -18,6 +18,10 @@ const EVENT_DURATION := 12.0
 var player: ArcadePlayer
 var score_label: Label
 var event_label: Label
+var collectibles_label: Label
+var local_orb_collections := 0
+var online_orb_collections := 0
+var online_secret_found := false
 var stamina_bar: ProgressBar
 var health_bar: ProgressBar
 var health_label: Label
@@ -101,6 +105,8 @@ func _ready() -> void:
 	if OS.get_cmdline_user_args().has("--server"):
 		_start_dedicated_server()
 		return
+	if OS.has_feature("mobile"):
+		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_LANDSCAPE)
 	rng.randomize()
 	await _request_player_identity()
 	progression = ProgressionManager.new()
@@ -236,6 +242,12 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 	var team_label := hud_layer.get_node_or_null("Control/TeamLabel") if is_instance_valid(hud_layer) else null
 	if team_label:
 		team_label.text = "TEAM " + str(state.get("team_id", "FREE")).to_upper()
+	var collections: Dictionary = state.get("collections", {})
+	online_orb_collections = 0
+	for collection_id in collections.keys():
+		if str(collection_id).begins_with("orb_"):
+			online_orb_collections += int(collections[collection_id])
+	online_secret_found = bool(state.get("secret_404_found", false))
 	if is_instance_valid(progression):
 		progression.sync_server_total_xp(int(state.get("xp", progression.total_xp)))
 	_update_hud()
@@ -647,6 +659,8 @@ func _setup_input() -> void:
 	_add_key_action("weapon_prev", KEY_R)
 	_add_key_action("emote_griddy", KEY_B)
 	_add_key_action("emote_goofy", KEY_N)
+	_add_key_action("emote_robot", KEY_M)
+	_add_key_action("emote_wave", KEY_J)
 	_add_key_action("move_forward", KEY_W)
 	_add_key_action("move_back", KEY_S)
 	_add_key_action("move_left", KEY_A)
@@ -891,6 +905,7 @@ func _on_orb_body_entered(body: Node3D, orb: Area3D, index: int) -> void:
 		return
 	if body != player or not is_instance_valid(orb):
 		return
+	local_orb_collections += 1
 	var points := 20 if active_event == "GOLDEN_ORB_RUSH" else 10
 	var xp_gain := (25 if active_event == "GOLDEN_ORB_RUSH" else 15) * (2 if active_event == "DOUBLE_XP" else 1)
 	player.add_score(points)
@@ -899,6 +914,7 @@ func _on_orb_body_entered(body: Node3D, orb: Area3D, index: int) -> void:
 	if index == 11 and progression.discover_secret():
 		round_match_xp += 100
 		_show_meme_toast("SECRET FOUND: 404 SKILL NOT FOUND  •  +100 XP")
+	_update_hud()
 	orb.set_deferred("monitoring", false)
 	orb.visible = false
 	await get_tree().create_timer(8.0).timeout
@@ -976,6 +992,8 @@ func _build_hud() -> void:
 
 	score_label = _make_label(root, "SCORE 0000", Vector2(22, 16), 26)
 	event_label = _make_label(root, "COLLECT THE ORBS • PARKOUR ARENA", Vector2(22, 52), 18)
+	collectibles_label = _make_label(root, "GOLD ORBS (XP ONLY): 0  •  404 SECRET: NOT FOUND", Vector2(500, 145), 14)
+	collectibles_label.add_theme_color_override("font_color", Color("#F5D27A"))
 	status_label = _make_label(root, "WASD move • Space jump • Shift sprint • Ctrl slide • Q dash • Esc mouse", Vector2(22, 84), 14)
 	network_status_label = _make_label(root, "MULTIPLAYER • Connecting...", Vector2(22, 245), 14)
 	network_host_input = LineEdit.new()
@@ -1609,10 +1627,12 @@ func _build_touch_controls(root: Control) -> void:
 	_add_touch_button(root, "SLIDE", "slide", Vector2(-150, -48), Vector2(88, 54), true)
 	_add_touch_button(root, "PULSE", "fire", Vector2(-255, -270), Vector2(96, 64), false)
 	_add_touch_button(root, "GRENADE", "throw_grenade", Vector2(-150, -270), Vector2(88, 64), false)
-	_add_touch_button(root, "WEAPON +", "weapon_next", Vector2(-255, -430), Vector2(96, 54), false)
-	_add_touch_button(root, "WEAPON -", "weapon_prev", Vector2(-150, -430), Vector2(88, 54), false)
+	_add_touch_button(root, "WEAPON +", "weapon_next", Vector2(-255, -500), Vector2(96, 54), false)
+	_add_touch_button(root, "WEAPON -", "weapon_prev", Vector2(-150, -500), Vector2(88, 54), false)
 	_add_touch_button(root, "GRIDDY", "emote_griddy", Vector2(-255, -350), Vector2(96, 56), false)
 	_add_touch_button(root, "GOOFY", "emote_goofy", Vector2(-150, -350), Vector2(88, 56), false)
+	_add_touch_button(root, "ROBOT", "emote_robot", Vector2(-255, -410), Vector2(96, 54), false)
+	_add_touch_button(root, "WAVE", "emote_wave", Vector2(-150, -410), Vector2(88, 54), false)
 
 func _add_touch_button(root: Control, text_value: String, action: String, offset: Vector2, button_size: Vector2, hold_action: bool) -> void:
 	var button := Button.new()
@@ -1887,6 +1907,14 @@ func _refresh_graphics_materials(_new_quality: String = "") -> void:
 func _on_collected(_points: int) -> void:
 	_update_hud()
 
+func _update_collectibles_hud() -> void:
+	if not is_instance_valid(collectibles_label):
+		return
+	var is_online := is_instance_valid(network) and network.is_authenticated
+	var orb_count := online_orb_collections if is_online else local_orb_collections
+	var secret_found := online_secret_found if is_online else (is_instance_valid(progression) and progression.secret_404_found)
+	collectibles_label.text = "GOLD ORBS (XP ONLY): %d  •  404 SECRET: %s" % [orb_count, "FOUND" if secret_found else "NOT FOUND"]
+
 func _update_hud() -> void:
 	if not is_instance_valid(player) or not is_instance_valid(score_label):
 		return
@@ -1913,3 +1941,4 @@ func _update_hud() -> void:
 		round_label.text = "ROUND %02d:%02d" % [int(int(round_left) / 60), int(round_left) % 60]
 	if status_label:
 		status_label.text = "STAMINA %d%%  •  %s" % [int(player.stamina), "LOW GRAVITY ACTIVE" if active_event == "LOW_GRAVITY" else "PARKOUR ARENA"]
+	_update_collectibles_hud()

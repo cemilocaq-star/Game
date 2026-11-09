@@ -302,6 +302,10 @@ func _process(delta: float) -> void:
 		play_emote("griddy")
 	elif Input.is_action_just_pressed("emote_goofy"):
 		play_emote("goofy")
+	elif Input.is_action_just_pressed("emote_robot"):
+		play_emote("robot")
+	elif Input.is_action_just_pressed("emote_wave"):
+		play_emote("wave")
 	_motion_clock += delta
 	if active_emote != "":
 		_emote_clock += delta
@@ -323,7 +327,7 @@ func _process(delta: float) -> void:
 		_fire_blaster()
 
 func play_emote(emote_id: String) -> void:
-	if emote_id not in ["griddy", "goofy"]:
+	if emote_id not in ["griddy", "goofy", "robot", "wave"]:
 		return
 	if active_emote == emote_id:
 		stop_emote()
@@ -346,21 +350,44 @@ func stop_emote() -> void:
 		_body_mesh.position.y = 0.9
 	if is_instance_valid(_emote_music):
 		_emote_music.stop()
+	var net := get_parent().get_node_or_null("OxenWarNet")
+	if is_instance_valid(net) and net.is_authenticated:
+		net.request_emote("")
 
 func apply_remote_emote(emote_id: String) -> void:
 	if emote_id == active_emote:
 		return
-	active_emote = emote_id if emote_id in ["griddy", "goofy"] else ""
+	active_emote = emote_id if emote_id in ["griddy", "goofy", "robot", "wave"] else ""
 	_emote_clock = 0.0
 
 func _update_emote_visual() -> void:
 	if not is_instance_valid(_body_mesh):
 		return
-	var phase := _emote_clock * (TAU * (2.0 if active_emote == "griddy" else 1.35))
-	var bounce := absf(sin(phase)) * (0.12 if active_emote == "griddy" else 0.08)
-	_body_mesh.position.y = 0.9 + bounce
-	_body_mesh.rotation.z = sin(phase) * (0.24 if active_emote == "griddy" else 0.34)
-	_body_mesh.rotation.x = sin(phase * 0.5) * 0.12
+	var rate := 2.0
+	var bounce_scale := 0.12
+	var roll_scale := 0.24
+	var pitch_scale := 0.12
+	var turn_scale := 0.0
+	match active_emote:
+		"goofy":
+			rate = 1.35
+			bounce_scale = 0.08
+			roll_scale = 0.34
+			pitch_scale = 0.18
+		"robot":
+			rate = 1.8
+			bounce_scale = 0.025
+			roll_scale = 0.07
+			pitch_scale = 0.035
+			turn_scale = 0.28
+		"wave":
+			rate = 2.5
+			bounce_scale = 0.035
+			roll_scale = 0.06
+			pitch_scale = 0.05
+	var phase := _emote_clock * TAU * rate
+	_body_mesh.position.y = 0.9 + absf(sin(phase)) * bounce_scale
+	_body_mesh.rotation = Vector3(sin(phase * 0.5) * pitch_scale, sin(phase * 0.5) * turn_scale, sin(phase) * roll_scale)
 
 func _start_emote_music() -> void:
 	if not is_instance_valid(_emote_music):

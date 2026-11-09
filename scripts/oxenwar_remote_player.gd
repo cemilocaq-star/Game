@@ -107,7 +107,7 @@ func apply_network_state(position_value: Vector3, yaw_value: float, sliding: boo
 	if is_instance_valid(_character_detail_root):
 		_character_detail_root.visible = not swimming
 	if emote_id != _emote_id:
-		_emote_id = emote_id if emote_id in ["griddy", "goofy"] else ""
+		_emote_id = emote_id if emote_id in ["griddy", "goofy", "robot", "wave"] else ""
 		_emote_clock = 0.0
 	if is_instance_valid(_name_tag):
 		_name_tag.text = "%s  •  K.O." % display_name if dead else "%s  •  HP %d" % [display_name, int(ceil(health))]
@@ -129,15 +129,40 @@ func apply_network_state(position_value: Vector3, yaw_value: float, sliding: boo
 func _process(delta: float) -> void:
 	if _emote_id != "":
 		_emote_clock += delta
-		var rate := 2.0 if _emote_id == "griddy" else 1.35
+		var rate := 2.0
+		var bounce := 0.12
+		var roll := 0.24
+		var pitch := 0.12
+		var turn := 0.0
+		match _emote_id:
+			"goofy":
+				rate = 1.35
+				bounce = 0.08
+				roll = 0.34
+				pitch = 0.18
+			"robot":
+				rate = 1.8
+				bounce = 0.025
+				roll = 0.07
+				pitch = 0.035
+				turn = 0.28
+			"wave":
+				rate = 2.5
+				bounce = 0.035
+				roll = 0.06
+				pitch = 0.05
 		var phase := _emote_clock * TAU * rate
-		_visual.position.y = 0.9 + absf(sin(phase)) * 0.12
-		_visual.rotation.z = sin(phase) * (0.24 if _emote_id == "griddy" else 0.34)
+		_visual.position.y = 0.9 + absf(sin(phase)) * bounce
+		_visual.rotation = Vector3(sin(phase * 0.5) * pitch, sin(phase * 0.5) * turn, sin(phase) * roll)
 	elif _sliding:
 		_visual.position.y = move_toward(_visual.position.y, 0.5, delta * 8.0)
+		_visual.rotation.x = move_toward(_visual.rotation.x, 0.0, delta * 2.0)
+		_visual.rotation.y = move_toward(_visual.rotation.y, 0.0, delta * 2.0)
 		_visual.rotation.z = move_toward(_visual.rotation.z, 0.0, delta * 2.0)
 	else:
 		_visual.position.y = move_toward(_visual.position.y, 0.9, delta * 4.0)
+		_visual.rotation.x = move_toward(_visual.rotation.x, 0.0, delta * 2.0)
+		_visual.rotation.y = move_toward(_visual.rotation.y, 0.0, delta * 2.0)
 		_visual.rotation.z = move_toward(_visual.rotation.z, 0.0, delta * 2.0)
 	global_position = global_position.lerp(target_position, minf(1.0, delta * 14.0))
 	rotation.y = lerp_angle(rotation.y, target_yaw, minf(1.0, delta * 14.0))

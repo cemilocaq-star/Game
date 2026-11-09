@@ -183,6 +183,16 @@ checks = [
     ("emote_id", read("scripts/oxenwar_network.gd"), "replicated emote state"),
     ("GRIDDY", main, "mobile Griddy emote control"),
     ("GOOFY", main, "mobile goofy emote control"),
+    ("ROBOT", main, "mobile robot emote control"),
+    ("WAVE", main, "mobile wave emote control"),
+    ("emote_robot", player, "robot emote input"),
+    ("emote_wave", player, "wave emote input"),
+    ('net.request_emote("")', player, "server receives emote stop state"),
+    ('"robot"', read("scripts/oxenwar_network.gd"), "server validates robot emote"),
+    ('"wave"', read("scripts/oxenwar_network.gd"), "server validates wave emote"),
+    ('"collections": player.collection_counts.duplicate(true)', read("scripts/oxenwar_network.gd"), "authoritative collectible count snapshot"),
+    ('"secret_404_found": player.secret_404_found', read("scripts/oxenwar_network.gd"), "authoritative secret discovery snapshot"),
+    ("GOLD ORBS (XP ONLY)", main, "clear non-currency orb counter"));
     ("_server_throw_grenade", read("scripts/oxenwar_network.gd"), "server-validated grenade throw"),
     ("_server_detonate_grenade", read("scripts/oxenwar_network.gd"), "server-authoritative grenade blast"),
     ("_server_step_grenades", read("scripts/oxenwar_network.gd"), "server grenade fuse and movement"),
@@ -222,7 +232,8 @@ checks = [
 ]
 checks.extend([
     ('window/stretch/aspect="expand"', project, "mobile ultrawide aspect expansion"),
-    ("window/handheld/orientation=0", project, "landscape mobile orientation"),
+    ("window/handheld/orientation=4", project, "sensor-locked landscape mobile orientation"),
+    ("DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_LANDSCAPE)", main, "runtime landscape orientation lock"),
     ("window/energy_saving/keep_screen_on=true", project, "keep phone display awake during play"),
     ("window/frame_pacing/android/enable_frame_pacing=true", project, "Android frame pacing"),
     ('Verify Android package, architecture and debug signature', workflow, "post-export Android APK verification"),

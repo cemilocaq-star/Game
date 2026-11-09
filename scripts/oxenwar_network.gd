@@ -187,12 +187,12 @@ func _sanitize_mode(mode: String) -> String:
 	return "ffa"
 
 func request_emote(emote_id: String) -> void:
-	if is_authenticated and not is_dedicated_server and emote_id in ["griddy", "goofy"]:
+	if is_authenticated and not is_dedicated_server and emote_id in ["griddy", "goofy", "robot", "wave", ""]:
 		rpc_id(1, "_server_set_emote", emote_id)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _server_set_emote(emote_id: String) -> void:
-	if not multiplayer.is_server() or emote_id not in ["griddy", "goofy", ""]:
+	if not multiplayer.is_server() or emote_id not in ["griddy", "goofy", "robot", "wave", ""]:
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
 	if not _peer_users.has(peer_id) or not _server_players.has(peer_id):
@@ -1218,7 +1218,8 @@ func _broadcast_snapshot(code: String) -> void:
 			"outfit_id": str(_profiles.get(user_id, {}).get("outfit_id", "outfit_default")),
 			"team_id": str(player.team_id), "emote_id": str(player.emote_id), "is_swimming": bool(player.is_swimming),
 			"score": player.score, "kills": player.kills, "deaths": player.deaths, "kill_streak": player.kill_streak, "best_kill_streak": player.best_kill_streak, "equipped_weapon_id": player.equipped_weapon_id, "blaster_mastery_xp": player.blaster_mastery_xp, "grenade_mastery_xp": player.grenade_mastery_xp, "shots_fired": player.shots_fired, "shots_hit": player.shots_hit, "damage_dealt": player.damage_dealt, "damage_received": player.damage_received, "xp": player.xp, "match_xp": player.match_xp, "stamina": player.stamina, "sliding": player.sliding_active,
-			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left
+			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left,
+			"collections": player.collection_counts.duplicate(true), "secret_404_found": player.secret_404_found
 		}
 	for user_id in room.members.keys():
 		var peer_id := int(room.members[user_id])
