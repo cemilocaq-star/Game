@@ -259,17 +259,25 @@ checks.extend([
     ("_render_play_tab()", menu, "pre-game lobby and matchmaking menu"),
     ("_is_server_address_valid", menu, "server address validation before matchmaking"),
     ("_is_valid_room_code", menu, "room code alphabet and length validation"),
+    ('_t("start_match")', menu, "localized start-match action label"),
+    ('_t("create_room")', menu, "localized room creation action label"),
+    ('_t("join_room")', menu, "localized room joining action label"),
+    ('_launch_game.bind("quick_match")', menu, "start action launches public quick matchmaking"),
+    ('_launch_game.bind("create_room")', menu, "create room reaches the room creation flow"),
+    ('_launch_game.bind("join_room")', menu, "join room reaches the room joining flow"),
+    ('_t("server_missing")', menu, "menu explicitly reports missing public server configuration"),
+
     ('_t("mode_ffa")', menu, "localized matchmaking game mode"),
     ('_t("server_missing")', menu, "localized missing-server state"),
 
-    ('"START  •  FIND MATCH"', menu, "start action launches public quick matchmaking"),
-    ('"CREATE ROOM"', menu, "create room is available in the main menu"),
-    ('"JOIN ROOM"', menu, "join room is available in the main menu"),
+
+
+
     ("_launch_game.bind(\"quick_match\")", menu, "menu quick-match intent is passed into gameplay"),
     ("pending_launch_action", main, "game applies the selected menu matchmaking action after server authentication"),
     ("network.request_create_room(true, selected_game_mode)", main, "main menu room creation reaches the authoritative server"),
     ("network.request_quick_match(selected_game_mode)", main, "main menu matchmaking reaches the authoritative server"),
-    ("PUBLIC SERVER NOT DEPLOYED", menu, "menu explicitly reports missing public server configuration"),
+
 
     ("class MobileJoystick extends Control", main, "custom circular analog movement joystick"),
     ("StandoffStyleMovementJoystick", main, "Standoff-style joystick UI"),
