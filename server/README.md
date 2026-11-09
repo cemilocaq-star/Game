@@ -1,35 +1,63 @@
-# OxenWar dedicated server
+# OxenWar authoritative dedicated server
 
-## Run locally
+## Local run
 
-Install Godot 4.4.1, then from the repository root run:
+Install Godot 4.4.1 Standard, then run from the repository root:
 
 ```bash
 godot --headless --path . -- --server
 ```
 
-The server listens on UDP port **2456** and accepts up to 32 peers.
+The dedicated server listens on UDP **2456** and accepts up to 32 ENet connections. Each room supports up to 8 players.
 
-## Connect a client
+## What the server owns
 
-Start the game normally. In the multiplayer field enter the server's public hostname or IP address. The default `127.0.0.1` is only for a server running on the same device/network.
+- Supabase access-token verification through `/auth/v1/user`; identity and profile are fetched using the verified token.
+- CharacterBody3D movement, gravity, jump, sprint, slide, dash, stamina and arena collision. Clients submit input, never positions or scores.
+- Public quick-match assignment and private six-character room codes.
+- Private-room admission based on the Supabase friendship row between the joining player and room owner.
+- Lobby roster, room membership and 30-second reconnect reservations.
+- Round timer, event selection/effect timers, collectible availability/respawn, score and XP awards.
+- Match-result persistence through the `oxenwar-server-sync` Edge Function.
 
-## Deploy a dedicated UDP host
+## Connect clients
 
-The included `Dockerfile` and `fly.toml` are a deployment template for a host that supports public UDP services. Review the provider's current pricing and networking limits before deploying. From a machine with the provider CLI authenticated:
+Run the game normally and sign in. Enter the server's LAN/public hostname in the server field, then press **CONNECT**. The client authenticates with its Supabase access token. After successful authentication it enters quick match automatically.
+
+- **CREATE ROOM** creates a private room.
+- Share its six-character code with an existing friend.
+- The friend enters that code and presses **JOIN**. The server checks the friendship relation.
+- **QUICK MATCH** joins or creates a public room.
+- A reconnect within 30 seconds restores the player's room and movement/session state.
+
+The default `127.0.0.1` is only valid when the game client and server run on the same device.
+
+## Required server secret
+
+The Supabase Edge Function is deployed with JWT verification enabled, but it also requires a second secret shared only by the game server and the Edge Function.
+
+1. Generate a random secret locally (for example, `openssl rand -hex 32`). Do not paste it into chat, source files, or GitHub.
+2. In Supabase Dashboard → Edge Functions → Secrets, set `OXENWAR_SERVER_SECRET`.
+3. On the game-server host, set the exact same value as `OXENWAR_SERVER_SECRET`.
+4. Restart/redeploy the server after setting it.
+
+Without this secret, players can still authenticate and play on the server, but match stats and collection totals will not be persisted; the Edge Function deliberately rejects the sync request.
+
+## Deploy template
+
+`Dockerfile` and `fly.toml` describe a Fly.io UDP service. Deployment is not performed by this repository change and no public server is online yet. From an authenticated host CLI, after reviewing the provider's current price, UDP support and account terms:
 
 ```bash
-fly launch --no-deploy --copy-config
+fly secrets set OXENWAR_SERVER_SECRET="<same-secret-as-Supabase>"
 fly deploy
 ```
 
-This repository change does **not** create a hosted instance or incur hosting charges. Deployment requires an account and explicit approval by the project owner.
+Hosting may incur charges. Do not create a paid instance without the account owner's/guardian's approval. After deployment, copy the public hostname into the game's server field. Keep UDP port 2456 open.
 
-## Current multiplayer scope and limitations
+## Operational limitations
 
-- One shared session; no matchmaking, room browser, parties, or friend-only invites yet.
-- ENet/UDP relays player position, facing direction, display name, and avatar color.
-- The server rejects out-of-bounds and implausibly fast position updates.
-- This first pass is a **server-relayed movement prototype**, not fully authoritative simulation. Client-side collision, jump, dash, score, pickups, and round events are not server-authoritative yet.
-- Supabase account JWTs are not verified by this game server yet. Do not treat the client-supplied display name or cosmetics as trusted identity.
-- Use a trusted private test server until JWT authentication, authoritative movement/physics, rate limits, and abuse controls are completed.
+- Room state and reconnect reservations live in memory. A process restart closes rooms and drops active sessions.
+- The server uses the existing arena geometry for collision; adding/changing maps requires updating the dedicated-server collision world too.
+- Private room code sharing is supported; direct friend invite notifications are not yet connected to the friends-page UI.
+- The server runs a single match round per room. At round completion, results are synced and the room stops accepting movement; use quick match/create room for a new round.
+- Real multi-device latency, reconnect and exploit testing remain required before public release.
