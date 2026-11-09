@@ -430,10 +430,11 @@ func _server_blaster_fire(direction: Vector3) -> void:
 	if not hit.is_empty():
 		endpoint = hit.position
 		var target: Object = hit.get("collider")
-		if target is CharacterBody3D and target != shooter:
+		if target is CharacterBody3D and target != shooter and target.has_method("apply_damage") and not bool(target.get("is_dead")):
 			for target_peer in _server_players.keys():
 				if _server_players[target_peer] == target:
-					shooter.score += 10
+					var was_killed: bool = target.apply_damage(34.0)
+					shooter.score += 10 + (50 if was_killed else 0)
 					break
 	var room: Dictionary = _rooms[room_code]
 	for member_user in room.members.keys():
@@ -582,6 +583,9 @@ func _assign_user_to_room(user_id: String, peer_id: int, code: String) -> void:
 		_server_players[peer_id].global_position = Vector3(0, 1.5, 6)
 		_server_players[peer_id].velocity = Vector3.ZERO
 		_server_players[peer_id].score = 0
+		_server_players[peer_id].health = 100.0
+		_server_players[peer_id].is_dead = false
+		_server_players[peer_id].respawn_left = 0.0
 		_server_players[peer_id].match_xp = 0
 		_server_players[peer_id].collection_counts.clear()
 		_server_players[peer_id].secret_404_found = false
@@ -662,6 +666,16 @@ func _server_process_rooms(delta: float) -> void:
 				var pid := int(room.members[uid])
 				if pid > 0 and _server_players.has(pid):
 					_server_players[pid].apply_event(str(room.event_id))
+		for uid in room.members.keys():
+			var respawn_peer := int(room.members[uid])
+			if respawn_peer <= 0 or not _server_players.has(respawn_peer):
+				continue
+			var respawn_player = _server_players[respawn_peer]
+			if respawn_player.is_dead:
+				respawn_player.respawn_left = maxf(0.0, respawn_player.respawn_left - delta)
+				if respawn_player.respawn_left <= 0.0:
+					var spawn_offset := Vector3(float(respawn_peer % 4) * 1.6 - 2.4, 0.0, float((respawn_peer / 4) % 4) * 1.6)
+					respawn_player.respawn_at(Vector3(0, 1.5, 6) + spawn_offset)
 		for orb_index in range(ORB_POSITIONS.size()):
 			if not bool(room.orb_available[orb_index]) and now >= int(room.orb_respawn[orb_index]):
 				room.orb_available[orb_index] = true
@@ -671,6 +685,8 @@ func _server_process_rooms(delta: float) -> void:
 					if pid <= 0 or not _server_players.has(pid):
 						continue
 					var player = _server_players[pid]
+					if player.is_dead:
+						continue
 					if player.global_position.distance_to(ORB_POSITIONS[orb_index]) <= 1.15:
 						room.orb_available[orb_index] = false
 						room.orb_respawn[orb_index] = now + 8000
@@ -784,7 +800,8 @@ func _broadcast_snapshot(code: String) -> void:
 			"position": player.global_position, "yaw": player.rotation.y,
 			"display_name": str(_profiles.get(user_id, {}).get("display_name", "Player")),
 			"color": _color_for_profile(_profiles.get(user_id, {})),
-			"score": player.score, "xp": player.xp, "stamina": player.stamina, "sliding": player.sliding_active
+			"score": player.score, "xp": player.xp, "stamina": player.stamina, "sliding": player.sliding_active,
+			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left
 		}
 	for user_id in room.members.keys():
 		var peer_id := int(room.members[user_id])
