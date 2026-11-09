@@ -219,14 +219,14 @@ Deno.serve(async (request: Request) => {
 
   if (action === "sync_result") {
     const { score, xp, collections, kills, deaths, damage_dealt, shots_fired, shots_hit, playtime_seconds, outcome } = body;
-    if (!Number.isInteger(score) || score < 0 || score > 20000 ||
-        !Number.isInteger(xp) || xp < 0 || xp > 50000 ||
-        !Number.isInteger(kills) || kills < 0 || kills > 5000 ||
-        !Number.isInteger(deaths) || deaths < 0 || deaths > 5000 ||
+    if (typeof score !== "number" || !Number.isInteger(score) || score < 0 || score > 20000 ||
+        typeof xp !== "number" || !Number.isInteger(xp) || xp < 0 || xp > 50000 ||
+        typeof kills !== "number" || !Number.isInteger(kills) || kills < 0 || kills > 5000 ||
+        typeof deaths !== "number" || !Number.isInteger(deaths) || deaths < 0 || deaths > 5000 ||
         typeof damage_dealt !== "number" || !Number.isFinite(damage_dealt) || damage_dealt < 0 || damage_dealt > 10000000 ||
-        !Number.isInteger(shots_fired) || shots_fired < 0 || shots_fired > 20000 ||
-        !Number.isInteger(shots_hit) || shots_hit < 0 || shots_hit > shots_fired ||
-        !Number.isInteger(playtime_seconds) || playtime_seconds < 0 || playtime_seconds > 7200 ||
+        typeof shots_fired !== "number" || !Number.isInteger(shots_fired) || shots_fired < 0 || shots_fired > 20000 ||
+        typeof shots_hit !== "number" || !Number.isInteger(shots_hit) || shots_hit < 0 || shots_hit > shots_fired ||
+        typeof playtime_seconds !== "number" || !Number.isInteger(playtime_seconds) || playtime_seconds < 0 || playtime_seconds > 7200 ||
         !["win", "loss", "draw", "abandoned"].includes(String(outcome)) ||
         !Array.isArray(collections) || collections.length > 512 ||
         !collections.every((id) => typeof id === "string" && /^(orb_(0[0-9]|1[01])|secret_404)$/.test(id))) {
