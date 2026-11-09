@@ -280,7 +280,7 @@ func _server_authenticate(ticket: String) -> void:
 	_user_peers[user_id] = peer_id
 	_profiles[user_id] = profile
 	_session_tokens[user_id] = str(identity.get("session_token", ""))
-	var player := _create_server_player(peer_id, profile, identity.get("stats", {}))
+	var player = _create_server_player(peer_id, profile, identity.get("stats", {}))
 	var restored: Dictionary = _sessions.get(user_id, {})
 	var restored_room := str(restored.get("room_code", ""))
 	var restored_room_active := _rooms.has(restored_room) and not bool(_rooms[restored_room].get("round_finished", false))
