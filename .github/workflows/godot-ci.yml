@@ -117,6 +117,11 @@ jobs:
       - name: Run structural project validation
         run: python3 tests/validate_project.py
 
+      - name: Test Render health endpoint and WebSocket tunnel
+        run: |
+          python3 -m py_compile server/render_entrypoint.py tests/test_render_entrypoint.py
+          python3 tests/test_render_entrypoint.py
+
       - name: Import project and parse resources
         run: godot --headless --editor --path . --quit
 
