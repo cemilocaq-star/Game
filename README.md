@@ -106,3 +106,6 @@ The arena includes a shallow, non-blocking pool. Entering its marked swim zone s
 
 ## Emotes
 Players can trigger the original Griddy dance with **B** or the mobile **GRIDDY** button, and a goofy dance with **N** or **GOOFY**. Emotes animate the character while normal movement continues; selecting the same emote again stops it. Griddy plays a short, original synthesized looping beat. Emote state is replicated in multiplayer snapshots so other players can see the dance. No third-party dance audio or character animation assets are bundled.
+
+## HUD visual pass
+The in-game HUD now uses restrained translucent panels for combat status, vitals and lobby controls, with cyan accent borders and custom health, stamina and XP progress-bar styling. The health label changes to a warning tint at low health. HUD presentation is client-side only; gameplay values and authoritative state are unchanged.
