@@ -13,7 +13,8 @@ OxenWar is a free-to-play Godot 4.4.1 parkour arena project. Its visual directio
 - Server-owned score, XP awards, collectible inventory and event timers.
 - Event-specific procedural 3D centerpieces, animated particles, original synthesized motifs, and hash-verified CC0 event cues/music.
 - Local 3D footsteps with distinct generated sound profiles for stone, wood, metal, grass, dirt and ice; surfaces can be identified by `surface_type` metadata or `surface_<type>` groups.
-- Procedural first-person Aether Blaster model, original synthesized sci-fi pulse sound, short energy trail, desktop/mobile fire input, and server-validated multiplayer hit scoring.
+- Eight selectable arcade weapon archetypes: Aether Blaster, MiniCore rapid pulse, Nova Hand Cannon, Pulse Carbine, Star Piercer, Duck Launcher, Banana Boomerang and Confetti Cannon. Their visuals and balance are intentionally fictional/arcade-style rather than realistic firearm replicas.
+- Weapon selection is server-authoritative; desktop keys 1–8 or E/R cycle, with mobile WEAPON + / WEAPON - controls. All weapon hit validation and damage remain server-owned, and kill feed reports the selected weapon.
 - Server-authoritative health: players start with 100 HP, each confirmed pulse hit deals 34 damage, zero HP triggers a 4-second K.O. state, then automatic full-health respawn; a final hit grants a bonus score.
 - Consecutive-kill streaks are tracked by the server, reset when eliminated, and award milestone score bonuses at 3, 5, 7 and 10 kills with live HUD announcements.
 - Weapon mastery is awarded by the game server from accepted combat events. Match XP is synced through the authenticated server-sync function into `player_weapon_mastery`; the Career Stats page reads persistent Aether Blaster and Grenade totals and shows Recruit/Bronze/Silver/Gold progression (100/300/600 XP). The migration `20261109193000_oxenwar_weapon_mastery.sql` and updated `oxenwar-server-sync` Edge Function must be deployed before hosted persistence works. Weapon skin unlock/equip is not yet implemented.
@@ -56,7 +57,8 @@ For a private room, share its six-character code with an existing OxenWar friend
 - Shift: sprint
 - Ctrl: slide
 - Q: dash
-- Left mouse button / mobile PULSE: fire the Aether Blaster
+- Left mouse button / mobile PULSE: fire the selected arcade weapon
+- Number keys 1–8: select a weapon; E / R: cycle forward/backward (mobile has WEAPON + / WEAPON -)
 - G: throw a server-simulated grenade
 - Escape: release/capture mouse
 
@@ -94,7 +96,7 @@ The client arena receives a lightweight procedural art-detail pass with floor in
 The local player and replicated remote-player proxies now share a lightweight procedural equipment model: helmet/visor, layered vest and chest plate, shoulder pads, sleeves, forearm guards, gloves, utility belt and pouches, separate leg and knee pieces, boots, backpack and small accent panels. Outfit palettes are derived from the selected cosmetic, with dedicated Iron Vanguard and Web Sentinel colors. The detail meshes are visual-only, sit inside the existing movement capsule, and are hidden while the beach outfit is active. This pass does not add a skeletal rig, motion-captured animation, or change collision and server movement.
 
 ## Aether Blaster detail pass
-The first-person Aether Blaster now has a layered barrel shroud, receiver rails, cooling vents, grip inset, trigger guard, front/rear sights, muzzle ring and framed energy cell. Firing adds a small visual-only recoil offset that eases back to its resting position. The existing ray query, server-validated fire request, cooldown, damage and hit scoring are unchanged.
+The Aether Blaster retains its original procedural model. The selectable arcade weapon registry now adds distinct server-validated damage/cooldown/range profiles and color-coded impact effects for each fictional archetype. Duck Launcher, Banana Boomerang and Confetti Cannon use intentionally silly visual impact cues. Weapon models are currently represented by the shared first-person device; unique first-person meshes and per-weapon mastery are follow-up work.
 
 ## Combat visual effects pass
 Grenade detonations now use a client-only layered effect with an expanding shock ring, short orange light flash, rising smoke puffs and outward sparks. Remote Aether Blaster impacts receive a brief cyan energy flash and ring at the reported endpoint. These effects are cosmetic only: authoritative grenade movement, blast radius, damage, hit validation and score logic remain on the server.
