@@ -29,9 +29,18 @@ var gravity_scale := 1.0
 var _dash_left := 0.0
 var _dash_cooldown := 0.0
 var _dash_direction := Vector3.ZERO
+var _collider: CollisionShape3D
+var _capsule: CapsuleShape3D
+var _was_sliding := false
+
+func _ready() -> void:
+	_collider = get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if is_instance_valid(_collider):
+		_capsule = _collider.shape as CapsuleShape3D
 
 func _physics_process(delta: float) -> void:
 	rotation.y = look_yaw
+	_set_sliding(sliding)
 	_dash_left = maxf(0.0, _dash_left - delta)
 	_dash_cooldown = maxf(0.0, _dash_cooldown - delta)
 	if not is_on_floor():
@@ -71,6 +80,13 @@ func _physics_process(delta: float) -> void:
 		else:
 			stamina = minf(MAX_STAMINA, stamina + 20.0 * delta)
 	move_and_slide()
+
+func _set_sliding(enabled: bool) -> void:
+	if _was_sliding == enabled or not is_instance_valid(_collider) or not is_instance_valid(_capsule):
+		return
+	_was_sliding = enabled
+	_capsule.height = 1.0 if enabled else 1.8
+	_collider.position.y = 0.5 if enabled else 0.9
 
 func apply_event(next_event: String) -> void:
 	event_id = next_event
