@@ -808,6 +808,7 @@ func _broadcast_snapshot(code: String) -> void:
 			"position": player.global_position, "yaw": player.rotation.y,
 			"display_name": str(_profiles.get(user_id, {}).get("display_name", "Player")),
 			"color": _color_for_profile(_profiles.get(user_id, {})),
+			"outfit_id": str(_profiles.get(user_id, {}).get("outfit_id", "outfit_default")),
 			"score": player.score, "xp": player.xp, "stamina": player.stamina, "sliding": player.sliding_active,
 			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left
 		}
