@@ -26,6 +26,7 @@ var slide_requested := false
 var dash_requested := false
 var stamina := MAX_STAMINA
 var health := MAX_HEALTH
+var team_id := ""
 var is_dead := false
 var respawn_left := 0.0
 var score := 0
