@@ -116,7 +116,7 @@ func _add_hero_skin_details() -> void:
 	var primary := Color("#A92332") if iron else Color("#B52D3D")
 	var secondary := Color("#D9B45B") if iron else Color("#183D78")
 	var glow := Color("#66EFFF") if iron else Color("#E34A62")
-	var armor := _material(secondary, 0.55)
+	var armor := _blaster_material(secondary, 0.55)
 	var accent := _blaster_material(glow, 0.25, true)
 	var chest := MeshInstance3D.new()
 	var chest_mesh := BoxMesh.new()
