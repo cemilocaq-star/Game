@@ -2,6 +2,7 @@ extends Node3D
 ## Lightweight visual proxy for another connected player.
 
 const CharacterVisuals = preload("res://scripts/character_visuals.gd")
+const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
 
 var target_position := Vector3.ZERO
 var target_yaw := 0.0
@@ -15,6 +16,9 @@ var _emote_id := ""
 var _emote_clock := 0.0
 var _swimwear_root: Node3D
 var _character_detail_root: Node3D
+var _motion_rig: Node3D
+var _motion_clock := 0.0
+var _previous_position := Vector3.ZERO
 
 func _ready() -> void:
 	_visual = MeshInstance3D.new()
@@ -84,6 +88,10 @@ func _rebuild_remote_detail() -> void:
 	if is_instance_valid(_visual):
 		_character_detail_root = CharacterVisuals.build(_visual, _outfit_id, _base_color)
 		_character_detail_root.visible = not (is_instance_valid(_swimwear_root) and _swimwear_root.visible)
+	if is_instance_valid(_motion_rig):
+		_motion_rig.queue_free()
+	if is_instance_valid(_visual):
+		_motion_rig = CharacterMotionRig.build(_visual, _base_color)
 
 func _remote_material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -130,3 +138,9 @@ func _process(delta: float) -> void:
 		_visual.rotation.z = move_toward(_visual.rotation.z, 0.0, delta * 2.0)
 	global_position = global_position.lerp(target_position, minf(1.0, delta * 14.0))
 	rotation.y = lerp_angle(rotation.y, target_yaw, minf(1.0, delta * 14.0))
+	_motion_clock += delta
+	var estimated_speed := global_position.distance_to(_previous_position) / maxf(delta, 0.0001)
+	_previous_position = global_position
+	if not _sliding and _emote_id == "":
+		_visual.position.y = 0.9 + (absf(sin(_motion_clock * 10.0)) * 0.035 if estimated_speed > 0.5 else sin(_motion_clock * 1.8) * 0.012)
+	CharacterMotionRig.animate(_motion_rig, _motion_clock, estimated_speed, true, _sliding, _emote_id, delta)
