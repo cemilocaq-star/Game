@@ -76,7 +76,7 @@ func _run_tests() -> void:
 		"move_back": false
 	})
 
-	var menu_harness := Control.new()
+	var menu_harness := CanvasLayer.new()
 	menu_harness.set_script(MENU_SCRIPT)
 	_assert_true("valid WSS URL", bool(menu_harness.call("_is_server_address_valid", "wss://oxenwar.example.onrender.com")))
 	_assert_true("valid UDP hostname", bool(menu_harness.call("_is_server_address_valid", "game.example.com")))
@@ -95,7 +95,7 @@ func _run_tests() -> void:
 		Input.action_release(action)
 
 	if failures.is_empty():
-		print("PASS: mobile joystick left/right/forward/back reversals, analog strengths, diagonal and neutral states")
+		print("PASS: joystick reversals, analog strengths, diagonal/neutral input, server address validation and room-code validation")
 		quit(0)
 	else:
 		for failure in failures:

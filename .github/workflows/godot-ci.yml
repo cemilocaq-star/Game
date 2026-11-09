@@ -126,7 +126,7 @@ jobs:
         run: godot --headless --editor --path . --quit
 
       - name: Test mobile joystick input transitions
-        run: godot --headless --path . --script tests/test_mobile_joystick.gd
+        run: timeout 45s godot --headless --path . --script tests/test_mobile_joystick.gd
 
       - name: Verify dedicated server rejects missing secret
         shell: bash
