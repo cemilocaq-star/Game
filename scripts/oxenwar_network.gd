@@ -285,6 +285,8 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			"deaths": int(_server_players[peer_id].deaths) if _server_players.has(peer_id) else 0,
 			"blaster_mastery_xp": int(_server_players[peer_id].blaster_mastery_xp) if _server_players.has(peer_id) else 0,
 			"grenade_mastery_xp": int(_server_players[peer_id].grenade_mastery_xp) if _server_players.has(peer_id) else 0,
+			"blaster_mastery_xp": int(_server_players[peer_id].blaster_mastery_xp) if _server_players.has(peer_id) else 0,
+			"grenade_mastery_xp": int(_server_players[peer_id].grenade_mastery_xp) if _server_players.has(peer_id) else 0,
 			"damage_dealt": float(_server_players[peer_id].damage_dealt) if _server_players.has(peer_id) else 0.0,
 			"shots_fired": int(_server_players[peer_id].shots_fired) if _server_players.has(peer_id) else 0,
 			"shots_hit": int(_server_players[peer_id].shots_hit) if _server_players.has(peer_id) else 0,
@@ -349,6 +351,8 @@ func _server_authenticate(ticket: String) -> void:
 		player.respawn_left = maxf(0.0, float(restored.get("respawn_left", 0.0)))
 		player.kills = int(restored.get("kills", 0))
 		player.deaths = int(restored.get("deaths", 0))
+		player.blaster_mastery_xp = int(restored.get("blaster_mastery_xp", 0))
+		player.grenade_mastery_xp = int(restored.get("grenade_mastery_xp", 0))
 		player.blaster_mastery_xp = int(restored.get("blaster_mastery_xp", 0))
 		player.grenade_mastery_xp = int(restored.get("grenade_mastery_xp", 0))
 		player.damage_dealt = float(restored.get("damage_dealt", 0.0))
@@ -1085,7 +1089,8 @@ func _persist_session_result(user_id: String, session: Dictionary) -> void:
 		_collection_list_from_counts(counts), int(session.get("kills", 0)),
 		int(session.get("deaths", 0)), float(session.get("damage_dealt", 0.0)),
 		int(session.get("shots_fired", 0)), int(session.get("shots_hit", 0)),
-		int(session.get("playtime_seconds", 0)), str(session.get("outcome", "abandoned"))
+		int(session.get("playtime_seconds", 0)), str(session.get("outcome", "abandoned")),
+		int(session.get("blaster_mastery_xp", 0)), int(session.get("grenade_mastery_xp", 0))
 	)
 
 func _persist_room_member_result(room_code: String, user_id: String, player) -> void:
@@ -1110,10 +1115,11 @@ func _persist_user_result(user_id: String, player) -> bool:
 		user_id, str(_session_tokens.get(user_id, "")), int(player.score),
 		int(player.match_xp), _collection_list(player), int(player.kills),
 		int(player.deaths), float(player.damage_dealt), int(player.shots_fired),
-		int(player.shots_hit), playtime, str(player.match_outcome)
+		int(player.shots_hit), playtime, str(player.match_outcome),
+		int(player.blaster_mastery_xp), int(player.grenade_mastery_xp)
 	)
 
-func _persist_result_values(user_id: String, session_token: String, score: int, xp: int, collections: Array, kills: int, deaths: int, damage_dealt: float, shots_fired: int, shots_hit: int, playtime_seconds: int, outcome: String) -> bool:
+func _persist_result_values(user_id: String, session_token: String, score: int, xp: int, collections: Array, kills: int, deaths: int, damage_dealt: float, shots_fired: int, shots_hit: int, playtime_seconds: int, outcome: String, mastery_blaster_xp: int, mastery_grenade_xp: int) -> bool:
 	if user_id.is_empty():
 		return true
 	if session_token.is_empty() or _server_secret.is_empty():
@@ -1131,7 +1137,9 @@ func _persist_result_values(user_id: String, session_token: String, score: int, 
 		"shots_fired": clampi(shots_fired, 0, 20000),
 		"shots_hit": clampi(shots_hit, 0, 20000),
 		"playtime_seconds": clampi(playtime_seconds, 0, 7200),
-		"outcome": outcome if ["win", "loss", "draw", "abandoned"].has(outcome) else "abandoned"
+		"outcome": outcome if ["win", "loss", "draw", "abandoned"].has(outcome) else "abandoned",
+		"blaster_mastery_xp": clampi(mastery_blaster_xp, 0, 100000),
+		"grenade_mastery_xp": clampi(mastery_grenade_xp, 0, 100000)
 	}
 	var headers := PackedStringArray([
 		"apikey: " + SUPABASE_KEY,
