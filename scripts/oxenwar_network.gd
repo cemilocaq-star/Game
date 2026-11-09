@@ -13,6 +13,7 @@ signal invite_received(owner_name: String, room_code: String)
 signal blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Vector3)
 signal grenade_spawn_received(grenade_id: int, origin: Vector3, velocity: Vector3)
 signal grenade_exploded_received(grenade_id: int, position: Vector3)
+signal kill_feed_received(killer_name: String, victim_name: String, weapon_name: String)
 
 const PORT := 2456
 const MAX_CLIENTS := 32
@@ -474,6 +475,8 @@ func _server_blaster_fire(direction: Vector3) -> void:
 					var was_killed: bool = target.apply_damage(34.0)
 					if was_killed:
 						shooter.kills += 1
+						target.deaths += 1
+						_broadcast_kill_feed(room_code, peer_id, int(target_peer), "AETHER")
 					shooter.score += 10 + (50 if was_killed else 0)
 					break
 	var room: Dictionary = _rooms[room_code]
@@ -578,15 +581,36 @@ func _server_detonate_grenade(room_code: String, grenade: Dictionary) -> void:
 		if damage >= 8.0:
 			var killed: bool = target.apply_damage(damage)
 			damaged[target_peer] = true
+			if killed:
+				target.deaths += 1
 			if _server_players.has(owner_peer) and target_peer != owner_peer:
 				if killed:
 					_server_players[owner_peer].kills += 1
+					_broadcast_kill_feed(room_code, owner_peer, target_peer, "GRENADE")
 				_server_players[owner_peer].score += 8 + (45 if killed else 0)
 	var room: Dictionary = _rooms.get(room_code, {})
 	for member_uid in room.get("members", {}).keys():
 		var member_peer := int(room.members[member_uid])
 		if member_peer > 0:
 			rpc_id(member_peer, "_client_grenade_explode", int(grenade.get("id", 0)), blast_position)
+
+func _broadcast_kill_feed(room_code: String, killer_peer: int, victim_peer: int, weapon_name: String) -> void:
+	if not _rooms.has(room_code):
+		return
+	var killer_uid := str(_peer_users.get(killer_peer, ""))
+	var victim_uid := str(_peer_users.get(victim_peer, ""))
+	var killer_name := str(_profiles.get(killer_uid, {}).get("display_name", "Player"))
+	var victim_name := str(_profiles.get(victim_uid, {}).get("display_name", "Player"))
+	var room: Dictionary = _rooms[room_code]
+	for member_uid in room.members.keys():
+		var member_peer := int(room.members[member_uid])
+		if member_peer > 0:
+			rpc_id(member_peer, "_client_kill_feed", killer_name, victim_name, weapon_name)
+
+@rpc("authority", "call_remote", "reliable")
+func _client_kill_feed(killer_name: String, victim_name: String, weapon_name: String) -> void:
+	if not multiplayer.is_server():
+		kill_feed_received.emit(killer_name, victim_name, weapon_name)
 
 @rpc("authority", "call_remote", "unreliable")
 func _client_grenade_spawn(grenade_id: int, origin: Vector3, launch_velocity: Vector3) -> void:
@@ -974,7 +998,7 @@ func _broadcast_snapshot(code: String) -> void:
 			"color": _color_for_profile(_profiles.get(user_id, {})),
 			"outfit_id": str(_profiles.get(user_id, {}).get("outfit_id", "outfit_default")),
 			"team_id": str(player.team_id), "emote_id": str(player.emote_id), "is_swimming": bool(player.is_swimming),
-			"score": player.score, "kills": player.kills, "xp": player.xp, "stamina": player.stamina, "sliding": player.sliding_active,
+			"score": player.score, "kills": player.kills, "deaths": player.deaths, "xp": player.xp, "stamina": player.stamina, "sliding": player.sliding_active,
 			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left
 		}
 	for user_id in room.members.keys():
