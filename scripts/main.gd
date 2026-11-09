@@ -184,7 +184,7 @@ func _on_network_room_state(state: Dictionary) -> void:
 			var orb := get_node_or_null("GoldenOrb_%02d" % index)
 			if is_instance_valid(orb) and available.has(index):
 				orb.visible = bool(available[index])
-	if state.has("code"):
+	if state.has("members"):
 		var members: Array = state.get("members", [])
 		var names: Array[String] = []
 		for member in members:
