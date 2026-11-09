@@ -1,0 +1,17 @@
+app = "oxenwar-game-server"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[[services]]
+  protocol = "udp"
+  internal_port = 2456
+
+  [[services.ports]]
+    port = 2456
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "512mb"

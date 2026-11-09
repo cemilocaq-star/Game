@@ -61,3 +61,8 @@ GitHub Actions validates the structure, imports/parses the project with Godot he
 - Never commit a secret/service-role key.
 - Keep RLS enabled on every exposed table.
 - Do not trust client-side admin flags, player names, scores or movement for competitive multiplayer. Authoritative game logic requires a trusted game server.
+
+
+## Multiplayer server
+
+OxenWar now includes an ENet/UDP dedicated-server entry point and a basic shared-session movement relay. See [server/README.md](server/README.md) for local startup and deployment-template instructions. This is not yet authoritative physics or production matchmaking.

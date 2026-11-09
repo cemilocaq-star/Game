@@ -3,6 +3,8 @@ extends Node3D
 const PLAYER_SCRIPT = preload("res://scripts/player.gd")
 const BACKEND_SCRIPT = preload("res://scripts/oxenwar_supabase.gd")
 const MENU_SCRIPT = preload("res://scripts/oxenwar_menu.gd")
+const NETWORK_SCRIPT = preload("res://scripts/oxenwar_network.gd")
+const REMOTE_PLAYER_SCRIPT = preload("res://scripts/oxenwar_remote_player.gd")
 var local_player_name := "Player"
 var local_admin_authorized := false
 var player_profile: Dictionary = {}
@@ -36,6 +38,10 @@ var active_map_index := 0
 var admin_available := false
 var admin_panel: PanelContainer
 var admin_hint: Label
+var network: Node
+var network_status_label: Label
+var network_host_input: LineEdit
+var remote_players: Dictionary = {}
 
 const EVENT_NAMES := {
 	"DUCK_PARADE": "DUCK PARADE!",
@@ -52,6 +58,9 @@ const EVENT_NAMES := {
 }
 
 func _ready() -> void:
+	if OS.get_cmdline_user_args().has("--server"):
+		_start_dedicated_server()
+		return
 	rng.randomize()
 	await _request_player_identity()
 	progression = ProgressionManager.new()
@@ -64,6 +73,7 @@ func _ready() -> void:
 	_build_environment()
 	_build_arena()
 	_spawn_player()
+	_start_multiplayer_client()
 	_build_hud()
 	_build_collectibles()
 	_update_hud()
@@ -93,6 +103,50 @@ func _request_player_identity() -> void:
 func _send_presence_heartbeat() -> void:
 	if is_instance_valid(backend) and not str(backend.user_id).is_empty():
 		await backend.update_presence()
+
+func _start_dedicated_server() -> void:
+	network = NETWORK_SCRIPT.new()
+	network.name = "OxenWarNet"
+	add_child(network)
+	if not network.start_server():
+		get_tree().quit(1)
+
+func _start_multiplayer_client() -> void:
+	network = NETWORK_SCRIPT.new()
+	network.name = "OxenWarNet"
+	add_child(network)
+	network.player_state_received.connect(_on_remote_player_state)
+	network.player_disconnected.connect(_on_remote_player_left)
+	network.connection_status_changed.connect(_on_network_status_changed)
+	network.set_local_player(player, local_player_name, player.cosmetic_color)
+	var host := OS.get_environment("OXENWAR_SERVER_HOST")
+	if host.is_empty():
+		host = str(ProjectSettings.get_setting("oxenwar/server_host", "127.0.0.1"))
+	network.connect_to_server(host)
+
+func _on_network_status_changed(message: String) -> void:
+	if is_instance_valid(network_status_label):
+		network_status_label.text = "MULTIPLAYER • " + message
+
+func _on_network_connect_pressed() -> void:
+	if is_instance_valid(network) and is_instance_valid(network_host_input):
+		network.connect_to_server(network_host_input.text)
+
+func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
+	var remote: Node3D = remote_players.get(peer_id)
+	if not is_instance_valid(remote):
+		remote = REMOTE_PLAYER_SCRIPT.new()
+		remote.name = "RemotePlayer_%d" % peer_id
+		add_child(remote)
+		remote_players[peer_id] = remote
+		remote.set_identity(str(state.get("display_name", "Player")), Color.from_string(str(state.get("color", "#27D7E7")), Color("#27D7E7")))
+	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)))
+
+func _on_remote_player_left(peer_id: int) -> void:
+	var remote: Node = remote_players.get(peer_id)
+	if is_instance_valid(remote):
+		remote.queue_free()
+	remote_players.erase(peer_id)
 
 func _process(delta: float) -> void:
 	if _round_finished:
@@ -344,6 +398,19 @@ func _build_hud() -> void:
 	score_label = _make_label(root, "SCORE 0000", Vector2(22, 16), 26)
 	event_label = _make_label(root, "COLLECT THE ORBS • PARKOUR ARENA", Vector2(22, 52), 18)
 	status_label = _make_label(root, "WASD move • Space jump • Shift sprint • Ctrl slide • Q dash • Esc mouse", Vector2(22, 84), 14)
+	network_status_label = _make_label(root, "MULTIPLAYER • Connecting...", Vector2(22, 198), 14)
+	network_host_input = LineEdit.new()
+	network_host_input.position = Vector2(22, 226)
+	network_host_input.size = Vector2(240, 36)
+	network_host_input.placeholder_text = "Server IP / hostname"
+	network_host_input.text = OS.get_environment("OXENWAR_SERVER_HOST") if not OS.get_environment("OXENWAR_SERVER_HOST").is_empty() else "127.0.0.1"
+	root.add_child(network_host_input)
+	var connect_button := Button.new()
+	connect_button.text = "CONNECT"
+	connect_button.position = Vector2(270, 226)
+	connect_button.size = Vector2(112, 36)
+	connect_button.pressed.connect(_on_network_connect_pressed)
+	root.add_child(connect_button)
 	stamina_bar = ProgressBar.new()
 	stamina_bar.position = Vector2(22, 114)
 	stamina_bar.size = Vector2(220, 20)
