@@ -8,7 +8,7 @@ Install Godot 4.4.1 Standard, then run from the repository root:
 godot --headless --path . -- --server
 ```
 
-The dedicated server listens on UDP **2456** and accepts up to 32 ENet connections. Each room supports up to 8 players.
+The dedicated server listens on UDP **2456** and accepts up to 32 ENet connections. Each room supports up to 8 players. Game tickets expire after 60 seconds and can be redeemed once; the server-only session lasts 12 hours.
 
 ## What the server owns
 
@@ -48,6 +48,7 @@ Without this secret, the one-time ticket handshake is disabled, so players canno
 `Dockerfile` and `fly.toml` describe a Fly.io UDP service. Deployment is not performed by this repository change and no public server is online yet. From an authenticated host CLI, after reviewing the provider's current price, UDP support and account terms:
 
 ```bash
+fly launch --no-deploy --copy-config
 fly secrets set OXENWAR_SERVER_SECRET="<same-secret-as-Supabase>"
 fly deploy
 ```
