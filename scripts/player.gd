@@ -35,6 +35,10 @@ var _capsule: CapsuleShape3D
 var _jump_buffer_left := 0.0
 var _coyote_left := 0.0
 var _is_sliding := false
+var admin_fly_enabled := false
+var admin_god_mode := false
+var admin_hammer_equipped := false
+var _admin_hammer: Node3D
 
 func _ready() -> void:
 	_build_visuals()
@@ -73,6 +77,15 @@ func _build_visuals() -> void:
 		add_child(halo)
 
 func _physics_process(delta: float) -> void:
+	if admin_fly_enabled:
+		var fly_input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+		var fly_forward := -global_transform.basis.z
+		var fly_right := global_transform.basis.x
+		var fly_direction := (fly_right * fly_input.x + fly_forward * -fly_input.y).normalized()
+		var vertical := float(Input.is_action_pressed("jump")) - float(Input.is_action_pressed("slide"))
+		velocity = fly_direction * 14.0 + Vector3.UP * vertical * 10.0
+		move_and_slide()
+		return
 	dash_cooldown = maxf(0.0, dash_cooldown - delta)
 	dash_left = maxf(0.0, dash_left - delta)
 	_jump_buffer_left = maxf(0.0, _jump_buffer_left - delta)
@@ -175,6 +188,46 @@ func try_dash(direction: Vector3 = Vector3.ZERO) -> void:
 	dash_cooldown = DASH_COOLDOWN
 	stamina -= 20.0
 
+func set_admin_fly(enabled: bool) -> void:
+	admin_fly_enabled = enabled
+	if not enabled:
+		velocity = Vector3.ZERO
+
+func toggle_admin_hammer() -> void:
+	admin_hammer_equipped = not admin_hammer_equipped
+	if admin_hammer_equipped:
+		_admin_hammer = Node3D.new()
+		_admin_hammer.name = "AdminThorHammer"
+		_admin_hammer.position = Vector3(0.48, -0.42, -0.82)
+		_admin_hammer.rotation_degrees = Vector3(0, 0, -24)
+		var handle := MeshInstance3D.new()
+		var handle_mesh := CylinderMesh.new()
+		handle_mesh.top_radius = 0.055
+		handle_mesh.bottom_radius = 0.075
+		handle_mesh.height = 0.9
+		handle.mesh = handle_mesh
+		var gold := StandardMaterial3D.new()
+		gold.albedo_color = Color(0.72, 0.55, 0.27)
+		gold.metallic = 0.8
+		handle.material_override = gold
+		_admin_hammer.add_child(handle)
+		var head := MeshInstance3D.new()
+		var head_mesh := BoxMesh.new()
+		head_mesh.size = Vector3(0.72, 0.36, 0.42)
+		head.mesh = head_mesh
+		head.position.y = 0.42
+		var silver := StandardMaterial3D.new()
+		silver.albedo_color = Color(0.55, 0.72, 0.86)
+		silver.metallic = 0.95
+		silver.roughness = 0.2
+		head.material_override = silver
+		_admin_hammer.add_child(head)
+		_camera.add_child(_admin_hammer)
+	else:
+		if is_instance_valid(_admin_hammer):
+			_admin_hammer.queue_free()
+		_admin_hammer = null
+
 func add_score(points: int) -> void:
 	score += points
 	collected.emit(points)
@@ -186,6 +239,8 @@ func apply_event(event_id: String) -> void:
 			event_speed_scale = 1.3
 		"NPC_MODE":
 			event_speed_scale = 0.78
+		"ICE_WORLD":
+			event_speed_scale = 0.82
 		_:
 			event_speed_scale = 1.0
 

@@ -58,6 +58,15 @@ for needle, text, label in [
     ("LOW", graphics_script, "low graphics preset"),
     ("ULTRA", graphics_script, "ultra graphics preset"),
     ("effect_strength", shader_script, "adjustable neon shader"),
+    ("ADMIN POWER PANEL", main_script, "editor-only admin panel"),
+    ("OS.has_feature(\"editor\")", main_script, "admin editor-only gate"),
+    ("_admin_lightning_show", main_script, "admin lightning effect"),
+    ("_admin_ufo_troll", main_script, "admin UFO troll"),
+    ("_admin_cycle_map", main_script, "admin map switching"),
+    ("METEOR_SHOWER", main_script, "meteor random event"),
+    ("DOUBLE_XP", main_script, "double XP event"),
+    ("set_admin_fly", player_script, "admin fly mode"),
+    ("toggle_admin_hammer", player_script, "admin hammer prop"),
 ]:
     if needle not in text:
         errors.append(f"missing {label}")

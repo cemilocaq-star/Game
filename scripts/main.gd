@@ -25,6 +25,11 @@ var xp_bar: ProgressBar
 var graphics_option: OptionButton
 var arena_meshes: Array[MeshInstance3D] = []
 var arena_colors: Array[Color] = []
+var map_extras: Array[Node3D] = []
+var active_map_index := 0
+var admin_available := false
+var admin_panel: PanelContainer
+var admin_hint: Label
 
 const EVENT_NAMES := {
 	"DUCK_PARADE": "DUCK PARADE!",
@@ -34,11 +39,16 @@ const EVENT_NAMES := {
 	"LOW_GRAVITY": "LOW GRAVITY!",
 	"BONK_MODE": "BONK MODE — SPEED BOOST!",
 	"NPC_MODE": "NPC MODE — SIDE QUEST ENERGY",
-	"DUCK_EXE": "DUCK.EXE HAS STOPPED RESPONDING"
+	"DUCK_EXE": "DUCK.EXE HAS STOPPED RESPONDING",
+	"METEOR_SHOWER": "METEOR SHOWER!",
+	"ICE_WORLD": "ICE WORLD!",
+	"DOUBLE_XP": "DOUBLE XP!"
 }
 
 func _ready() -> void:
 	rng.randomize()
+	# Admin tools are deliberately editor-only until the game has server-side accounts/roles.
+	admin_available = OS.has_feature("editor")
 	progression = ProgressionManager.new()
 	add_child(progression)
 	progression.level_up.connect(_on_level_up)
@@ -71,6 +81,19 @@ func _process(delta: float) -> void:
 		if event_left <= 0.0:
 			_end_event()
 	_update_hud()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not admin_available or not event is InputEventKey or not event.pressed or event.echo:
+		return
+	if event.keycode == KEY_F8:
+		_toggle_admin_panel()
+		get_viewport().set_input_as_handled()
+
+func _toggle_admin_panel() -> void:
+	if not admin_available or not is_instance_valid(admin_panel):
+		return
+	admin_panel.visible = not admin_panel.visible
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if admin_panel.visible else Input.MOUSE_MODE_CAPTURED
 
 func _setup_input() -> void:
 	_add_key_action("move_forward", KEY_W)
@@ -133,6 +156,7 @@ func _build_arena() -> void:
 	_make_box("NorthHop", Vector3(2.2, 1.3, 2.2), Vector3(5.2, 0.65, 3.8), Color(0.22, 0.29, 0.39))
 	_make_box("WestRampBlock", Vector3(7, 0.7, 3.0), Vector3(-8.3, 0.55, 0.8), Color(0.96, 0.62, 0.12))
 	_make_box("EastRampBlock", Vector3(7, 0.7, 3.0), Vector3(8.3, 0.55, 0.8), Color(0.96, 0.62, 0.12))
+	_apply_map_variant()
 
 func _make_box(node_name: String, size: Vector3, position: Vector3, color: Color) -> void:
 	var body := StaticBody3D.new()
@@ -202,7 +226,7 @@ func _on_orb_body_entered(body: Node3D, orb: Area3D, index: int) -> void:
 		return
 	var points := 20 if active_event == "GOLDEN_ORB_RUSH" else 10
 	player.add_score(points)
-	progression.add_xp(25 if active_event == "GOLDEN_ORB_RUSH" else 15)
+	progression.add_xp((25 if active_event == "GOLDEN_ORB_RUSH" else 15) * (2 if active_event == "DOUBLE_XP" else 1))
 	if index == 11 and progression.discover_secret():
 		_show_meme_toast("SECRET FOUND: 404 SKILL NOT FOUND  •  +100 XP")
 	orb.set_deferred("monitoring", false)
@@ -214,7 +238,7 @@ func _on_orb_body_entered(body: Node3D, orb: Area3D, index: int) -> void:
 		_spawn_orb(index)
 
 func _start_random_event() -> void:
-	var choices: Array[String] = ["DUCK_PARADE", "PINK_SKY", "GOLDEN_ORB_RUSH", "CONFETTI_STORM", "LOW_GRAVITY", "BONK_MODE", "NPC_MODE", "DUCK_EXE"]
+	var choices: Array[String] = ["DUCK_PARADE", "PINK_SKY", "GOLDEN_ORB_RUSH", "CONFETTI_STORM", "LOW_GRAVITY", "BONK_MODE", "NPC_MODE", "DUCK_EXE", "METEOR_SHOWER", "ICE_WORLD", "DOUBLE_XP"]
 	active_event = choices[rng.randi_range(0, choices.size() - 1)]
 	event_left = EVENT_DURATION
 	event_clock = EVENT_INTERVAL
@@ -223,6 +247,14 @@ func _start_random_event() -> void:
 		RenderingServer.set_default_clear_color(Color(0.20, 0.045, 0.18))
 	if active_event == "DUCK_PARADE" or active_event == "DUCK_EXE":
 		_spawn_duck_mascot()
+	if active_event == "METEOR_SHOWER":
+		_spawn_meteor_shower()
+	if active_event == "METEOR_SHOWER":
+		_show_meme_toast("LOOK UP! SPACE ROCKS ARE FALLING (DECORATIVE)")
+	if active_event == "ICE_WORLD":
+		_show_meme_toast("ICE WORLD: SLIPPERY SPEED MODE")
+	if active_event == "DOUBLE_XP":
+		_show_meme_toast("DOUBLE XP IS ACTIVE")
 	if active_event == "BONK_MODE":
 		_show_meme_toast("BONK! THE LAWS OF PHYSICS TOOK A BREAK.")
 	if active_event == "NPC_MODE":
@@ -303,6 +335,254 @@ func _build_hud() -> void:
 
 	if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available():
 		_build_touch_controls(root)
+	if admin_available:
+		_build_admin_panel(root)
+
+func _build_admin_panel(root: Control) -> void:
+	admin_hint = _make_label(root, "F8  •  ADMIN DEV MODE", Vector2(22, 198), 13)
+	admin_hint.add_theme_color_override("font_color", Color(1.0, 0.72, 0.25))
+	admin_panel = PanelContainer.new()
+	admin_panel.name = "AdminPowerPanel"
+	admin_panel.anchor_left = 0.69
+	admin_panel.anchor_right = 0.985
+	admin_panel.anchor_top = 0.16
+	admin_panel.anchor_bottom = 0.91
+	admin_panel.offset_left = 0
+	admin_panel.offset_right = 0
+	admin_panel.offset_top = 0
+	admin_panel.offset_bottom = 0
+	admin_panel.custom_minimum_size = Vector2(330, 0)
+	admin_panel.visible = false
+	root.add_child(admin_panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 7)
+	admin_panel.add_child(column)
+	var title := Label.new()
+	title.text = "⚡ ADMIN POWER PANEL"
+	title.add_theme_font_size_override("font_size", 21)
+	title.add_theme_color_override("font_color", Color(0.45, 0.95, 1.0))
+	column.add_child(title)
+	var note := Label.new()
+	note.text = "EDITOR TEST MODE • F8 TO CLOSE"
+	note.add_theme_font_size_override("font_size", 10)
+	note.add_theme_color_override("font_color", Color(0.7, 0.78, 0.9))
+	column.add_child(note)
+	_admin_button(column, "Toggle Fly Mode", _admin_toggle_fly)
+	_admin_button(column, "Toggle God Mode Flag", _admin_toggle_god_mode)
+	_admin_button(column, "Equip / Remove Thor Hammer", _admin_toggle_hammer)
+	_admin_button(column, "Lightning Show", _admin_lightning_show)
+	_admin_button(column, "UFO Abduction Troll", _admin_ufo_troll)
+	_admin_button(column, "Duck Army", _admin_duck_army)
+	_admin_button(column, "Bounce Player (Troll)", _admin_bounce_player)
+	_admin_button(column, "Reset Player Position", _admin_reset_player)
+	_admin_button(column, "Cycle Map: %s" % _map_name(), _admin_cycle_map)
+	_admin_button(column, "Event: LOW GRAVITY", func(): _admin_trigger_event("LOW_GRAVITY"))
+	_admin_button(column, "Event: BONK MODE", func(): _admin_trigger_event("BONK_MODE"))
+	_admin_button(column, "Event: METEOR SHOWER", func(): _admin_trigger_event("METEOR_SHOWER"))
+	_admin_button(column, "Event: DOUBLE XP", func(): _admin_trigger_event("DOUBLE_XP"))
+	_admin_button(column, "Stop Current Event", _end_event)
+	_admin_button(column, "Close Panel", _toggle_admin_panel)
+
+func _admin_button(parent: VBoxContainer, caption: String, action: Callable) -> void:
+	var button := Button.new()
+	button.text = caption
+	button.custom_minimum_size = Vector2(0, 32)
+	button.pressed.connect(action)
+	parent.add_child(button)
+
+func _admin_toggle_fly() -> void:
+	if not admin_available or not is_instance_valid(player):
+		return
+	player.set_admin_fly(not player.admin_fly_enabled)
+	_show_meme_toast("ADMIN FLY: %s" % ("ON" if player.admin_fly_enabled else "OFF"))
+
+func _admin_toggle_god_mode() -> void:
+	if not admin_available or not is_instance_valid(player):
+		return
+	player.admin_god_mode = not player.admin_god_mode
+	_show_meme_toast("GOD MODE FLAG: %s" % ("ON" if player.admin_god_mode else "OFF"))
+
+func _admin_toggle_hammer() -> void:
+	if admin_available and is_instance_valid(player):
+		player.toggle_admin_hammer()
+		_show_meme_toast("THOR HAMMER %s" % ("EQUIPPED" if player.admin_hammer_equipped else "REMOVED"))
+
+func _admin_lightning_show() -> void:
+	if not admin_available or not is_instance_valid(player):
+		return
+	var bolt := ImmediateMesh.new()
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Color(0.35, 0.8, 1.0)
+	material.emission_enabled = true
+	material.emission = Color(0.18, 0.65, 1.0)
+	material.emission_energy_multiplier = 5.0
+	bolt.surface_begin(Mesh.PRIMITIVE_LINES, material)
+	var points := [Vector3(0, 8, 0), Vector3(0.8, 6.4, 0.2), Vector3(-0.5, 4.7, -0.2), Vector3(0.35, 2.8, 0.25), Vector3(0, 0.1, 0)]
+	for i in range(points.size() - 1):
+		bolt.surface_add_vertex(points[i])
+		bolt.surface_add_vertex(points[i + 1])
+	bolt.surface_end()
+	var visual := MeshInstance3D.new()
+	visual.mesh = bolt
+	visual.global_position = player.global_position - player.global_basis.z * 5.0
+	add_child(visual)
+	var flash := OmniLight3D.new()
+	flash.light_color = Color(0.25, 0.65, 1.0)
+	flash.light_energy = 5.0
+	flash.omni_range = 12.0
+	visual.add_child(flash)
+	var tween := create_tween()
+	tween.tween_interval(0.22)
+	tween.tween_property(visual, "modulate:a", 0.0, 0.35)
+	tween.tween_callback(visual.queue_free)
+	_show_meme_toast("THUNDER STRIKE! ⚡ (VISUAL EFFECT)")
+
+func _admin_ufo_troll() -> void:
+	if not admin_available or not is_instance_valid(player):
+		return
+	var ufo := Node3D.new()
+	ufo.name = "AdminUFO"
+	var disc := MeshInstance3D.new()
+	var disc_mesh := CylinderMesh.new()
+	disc_mesh.top_radius = 1.35
+	disc_mesh.bottom_radius = 1.0
+	disc_mesh.height = 0.22
+	disc.mesh = disc_mesh
+	var metal := StandardMaterial3D.new()
+	metal.albedo_color = Color(0.25, 0.72, 0.9)
+	metal.metallic = 0.8
+	disc.material_override = metal
+	ufo.add_child(disc)
+	var dome := MeshInstance3D.new()
+	var dome_mesh := SphereMesh.new()
+	dome_mesh.radius = 0.62
+	dome_mesh.height = 0.7
+	dome.mesh = dome_mesh
+	dome.position.y = 0.28
+	var glass := StandardMaterial3D.new()
+	glass.albedo_color = Color(0.35, 0.9, 1.0, 0.72)
+	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dome.material_override = glass
+	ufo.add_child(dome)
+	ufo.global_position = player.global_position + Vector3(0, 10, 0)
+	add_child(ufo)
+	var tween := create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(ufo, "global_position", player.global_position + Vector3(0, 3.5, 0), 1.0)
+	tween.tween_interval(1.0)
+	tween.tween_property(ufo, "global_position", player.global_position + Vector3(0, 10, 0), 1.0)
+	tween.tween_callback(ufo.queue_free)
+	_show_meme_toast("UFO HAS ACQUIRED THE MAIN CHARACTER 🛸")
+
+func _admin_duck_army() -> void:
+	if not admin_available or not is_instance_valid(player):
+		return
+	var packed: PackedScene = load("res://assets/DuckBeacon_Mascot.glb")
+	if not packed:
+		return
+	for i in range(6):
+		var duck := packed.instantiate()
+		duck.name = "AdminDuck_%02d" % i
+		duck.scale = Vector3.ONE * 0.008
+		var angle := TAU * float(i) / 6.0
+		duck.global_position = player.global_position + Vector3(cos(angle) * 3.0, 1.0 + float(i % 2), sin(angle) * 3.0)
+		add_child(duck)
+		var tween := create_tween().set_loops(3)
+		tween.tween_property(duck, "rotation:y", TAU, 1.5)
+		_remove_mascot_later(duck)
+	_show_meme_toast("THE DUCK ARMY HAS ARRIVED 🦆")
+
+func _admin_bounce_player() -> void:
+	if admin_available and is_instance_valid(player):
+		player.velocity.y = 14.0
+		_show_meme_toast("BONK! UP YOU GO.")
+
+func _admin_reset_player() -> void:
+	if admin_available and is_instance_valid(player):
+		player.global_position = Vector3(0, 1.5, 6)
+		player.velocity = Vector3.ZERO
+		_show_meme_toast("PLAYER RESET")
+
+func _admin_trigger_event(event_id: String) -> void:
+	if not admin_available or not is_instance_valid(player):
+		return
+	active_event = event_id
+	event_left = EVENT_DURATION * 2.0
+	event_clock = EVENT_INTERVAL
+	player.apply_event(event_id)
+	if event_id == "DUCK_EXE" or event_id == "DUCK_PARADE":
+		_spawn_duck_mascot()
+	if event_id == "METEOR_SHOWER":
+		_spawn_meteor_shower()
+	if event_id == "PINK_SKY":
+		RenderingServer.set_default_clear_color(Color(0.20, 0.045, 0.18))
+	_show_meme_toast("ADMIN EVENT: %s" % EVENT_NAMES.get(event_id, event_id))
+
+func _admin_cycle_map() -> void:
+	if not admin_available:
+		return
+	active_map_index = (active_map_index + 1) % 4
+	for extra in map_extras:
+		if is_instance_valid(extra):
+			extra.queue_free()
+	map_extras.clear()
+	_apply_map_variant()
+	if is_instance_valid(admin_panel):
+		for child in admin_panel.find_children("Button", "Button", true, false):
+			if child.text.begins_with("Cycle Map:"):
+				child.text = "Cycle Map: %s" % _map_name()
+	_show_meme_toast("MAP: %s" % _map_name())
+
+func _map_name() -> String:
+	return ["LOST MALL", "NEON CITY", "SPACE ISLANDS", "CANDY WORLD"][active_map_index]
+
+func _apply_map_variant() -> void:
+	if active_map_index == 0:
+		return
+	var tint := Color(0.1, 0.9, 0.78) if active_map_index == 1 else (Color(0.55, 0.35, 1.0) if active_map_index == 2 else Color(1.0, 0.35, 0.62))
+	var layouts := {
+		1: [[Vector3(5, 1, 5), Vector3(-12, 1.4, -7)], [Vector3(5, 1, 5), Vector3(12, 2.4, -7)], [Vector3(8, 0.8, 2), Vector3(0, 3.4, -10)], [Vector3(4, 2, 4), Vector3(-13, 3.0, 8)], [Vector3(4, 2, 4), Vector3(13, 3.0, 8)]],
+		2: [[Vector3(5, 1, 5), Vector3(-12, 2.0, -8)], [Vector3(5, 1, 5), Vector3(12, 3.0, -8)], [Vector3(4, 1, 4), Vector3(-8, 4.0, 5)], [Vector3(4, 1, 4), Vector3(8, 5.0, 5)], [Vector3(7, 0.8, 2), Vector3(0, 6.0, 0)]],
+		3: [[Vector3(7, 1, 5), Vector3(-11, 1.5, -7)], [Vector3(7, 1, 5), Vector3(11, 1.5, -7)], [Vector3(5, 1, 5), Vector3(-10, 2.8, 8)], [Vector3(5, 1, 5), Vector3(10, 2.8, 8)], [Vector3(9, 0.8, 2), Vector3(0, 3.6, 0)]]
+	}
+	for i in range(layouts[active_map_index].size()):
+		var entry: Array = layouts[active_map_index][i]
+		var platform := StaticBody3D.new()
+		platform.name = "AdminMapPlatform_%d" % i
+		platform.position = entry[1]
+		var collider := CollisionShape3D.new()
+		var shape := BoxShape3D.new()
+		shape.size = entry[0]
+		collider.shape = shape
+		platform.add_child(collider)
+		var mesh_node := MeshInstance3D.new()
+		var mesh := BoxMesh.new()
+		mesh.size = entry[0]
+		mesh_node.mesh = mesh
+		mesh_node.material_override = graphics.make_material(tint)
+		platform.add_child(mesh_node)
+		add_child(platform)
+		map_extras.append(platform)
+
+func _spawn_meteor_shower() -> void:
+	for i in range(7):
+		var meteor := MeshInstance3D.new()
+		var mesh := SphereMesh.new()
+		mesh.radius = 0.32
+		mesh.height = 0.64
+		meteor.mesh = mesh
+		var material := StandardMaterial3D.new()
+		material.albedo_color = Color(1.0, 0.42, 0.12)
+		material.emission_enabled = true
+		material.emission = Color(1.0, 0.18, 0.04)
+		material.emission_energy_multiplier = 2.2
+		meteor.material_override = material
+		meteor.position = Vector3(rng.randf_range(-14, 14), 13 + i * 0.7, rng.randf_range(-11, 11))
+		add_child(meteor)
+		var target := Vector3(meteor.position.x + rng.randf_range(-2, 2), 0.2, meteor.position.z + rng.randf_range(-2, 2))
+		var tween := create_tween()
+		tween.tween_property(meteor, "position", target, rng.randf_range(1.0, 1.8))
+		tween.tween_callback(meteor.queue_free)
 
 func _make_label(parent: Control, text_value: String, pos: Vector2, font_size: int) -> Label:
 	var label := Label.new()
