@@ -75,7 +75,12 @@ func _build_visuals() -> void:
 	body.radius = 0.38
 	body.height = 1.8
 	_body_mesh.mesh = body
-	_body_mesh.material_override = _material(cosmetic_color)
+	var suit_color := cosmetic_color
+	if cosmetic_outfit == "outfit_iron_vanguard":
+		suit_color = Color("#A92332")
+	elif cosmetic_outfit == "outfit_web_sentinel":
+		suit_color = Color("#B52D3D")
+	_body_mesh.material_override = _material(suit_color)
 	if cosmetic_outfit == "outfit_neon":
 		var neon_material := _material(cosmetic_color)
 		neon_material.emission_enabled = true
@@ -84,9 +89,12 @@ func _build_visuals() -> void:
 		_body_mesh.material_override = neon_material
 	elif cosmetic_outfit == "outfit_runner":
 		_body_mesh.scale = Vector3(0.94, 1.0, 0.94)
-	_add_selected_accessory()
+	if cosmetic_outfit != "outfit_iron_vanguard" and cosmetic_outfit != "outfit_web_sentinel":
+		_add_selected_accessory()
 	_body_mesh.position.y = 0.9
 	add_child(_body_mesh)
+	if cosmetic_outfit == "outfit_iron_vanguard" or cosmetic_outfit == "outfit_web_sentinel":
+		_add_hero_skin_details()
 
 	_camera = Camera3D.new()
 	_camera.position = Vector3(0, 1.55, 0)
@@ -100,6 +108,64 @@ func _build_visuals() -> void:
 		halo.scale = Vector3.ONE * 0.003
 		halo.position = Vector3(0, 2.0, 0)
 		add_child(halo)
+
+
+func _add_hero_skin_details() -> void:
+	# Original hero-inspired silhouettes; no copied movie/game meshes or logos.
+	var iron := cosmetic_outfit == "outfit_iron_vanguard"
+	var primary := Color("#A92332") if iron else Color("#B52D3D")
+	var secondary := Color("#D9B45B") if iron else Color("#183D78")
+	var glow := Color("#66EFFF") if iron else Color("#E34A62")
+	var armor := _material(secondary, 0.55)
+	var accent := _blaster_material(glow, 0.25, true)
+	var chest := MeshInstance3D.new()
+	var chest_mesh := BoxMesh.new()
+	chest_mesh.size = Vector3(0.48, 0.42, 0.16)
+	chest.mesh = chest_mesh
+	chest.position = Vector3(0, 0.05, -0.34)
+	chest.material_override = armor
+	_body_mesh.add_child(chest)
+	var core := MeshInstance3D.new()
+	var core_mesh := SphereMesh.new()
+	core_mesh.radius = 0.105 if iron else 0.075
+	core_mesh.height = 0.10 if iron else 0.08
+	core.mesh = core_mesh
+	core.position = Vector3(0, 0.08, -0.435)
+	core.material_override = accent
+	_body_mesh.add_child(core)
+	for side in [-1.0, 1.0]:
+		var shoulder := MeshInstance3D.new()
+		var shoulder_mesh := SphereMesh.new()
+		shoulder_mesh.radius = 0.19
+		shoulder_mesh.height = 0.25
+		shoulder.mesh = shoulder_mesh
+		shoulder.position = Vector3(side * 0.32, 0.43, 0)
+		shoulder.material_override = armor
+		_body_mesh.add_child(shoulder)
+	var helmet := MeshInstance3D.new()
+	var helmet_mesh := SphereMesh.new()
+	helmet_mesh.radius = 0.31
+	helmet_mesh.height = 0.42
+	helmet.mesh = helmet_mesh
+	helmet.position = Vector3(0, 0.72, 0)
+	helmet.material_override = _material(primary, 0.42)
+	_body_mesh.add_child(helmet)
+	var visor := MeshInstance3D.new()
+	var visor_mesh := BoxMesh.new()
+	visor_mesh.size = Vector3(0.34, 0.09, 0.055)
+	visor.mesh = visor_mesh
+	visor.position = Vector3(0, 0.73, -0.285)
+	visor.material_override = accent
+	_body_mesh.add_child(visor)
+	if not iron:
+		for side in [-1.0, 1.0]:
+			var web_line := MeshInstance3D.new()
+			var line_mesh := BoxMesh.new()
+			line_mesh.size = Vector3(0.025, 0.48, 0.018)
+			web_line.mesh = line_mesh
+			web_line.position = Vector3(side * 0.12, 0.05, -0.432)
+			web_line.material_override = _material(Color("#DDEBFF"))
+			_body_mesh.add_child(web_line)
 
 func _add_selected_accessory() -> void:
 	var accessory_root := Node3D.new()
