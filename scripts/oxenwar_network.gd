@@ -458,6 +458,7 @@ func _server_blaster_fire(direction: Vector3) -> void:
 	if safe_direction.dot(facing) < 0.12:
 		return
 	_last_blaster_ms[peer_id] = now
+	shooter.shots_fired += 1
 	var origin: Vector3 = shooter.global_position + Vector3.UP * 1.45
 	var endpoint := origin + safe_direction * 65.0
 	var query := PhysicsRayQueryParameters3D.create(origin, endpoint)
@@ -473,6 +474,9 @@ func _server_blaster_fire(direction: Vector3) -> void:
 					if str(shooter.team_id) != "" and str(shooter.team_id) == str(target.get("team_id")):
 						break
 					var was_killed: bool = target.apply_damage(34.0)
+					shooter.shots_hit += 1
+					shooter.damage_dealt += 34.0
+					target.damage_received += 34.0
 					if was_killed:
 						shooter.kills += 1
 						target.deaths += 1
@@ -580,6 +584,9 @@ func _server_detonate_grenade(room_code: String, grenade: Dictionary) -> void:
 		var damage := 85.0 * (1.0 - clampf(distance / 5.0, 0.0, 1.0))
 		if damage >= 8.0:
 			var killed: bool = target.apply_damage(damage)
+			target.damage_received += damage
+			if _server_players.has(owner_peer) and target_peer != owner_peer:
+				_server_players[owner_peer].damage_dealt += damage
 			damaged[target_peer] = true
 			if killed:
 				target.deaths += 1
@@ -998,7 +1005,7 @@ func _broadcast_snapshot(code: String) -> void:
 			"color": _color_for_profile(_profiles.get(user_id, {})),
 			"outfit_id": str(_profiles.get(user_id, {}).get("outfit_id", "outfit_default")),
 			"team_id": str(player.team_id), "emote_id": str(player.emote_id), "is_swimming": bool(player.is_swimming),
-			"score": player.score, "kills": player.kills, "deaths": player.deaths, "xp": player.xp, "stamina": player.stamina, "sliding": player.sliding_active,
+			"score": player.score, "kills": player.kills, "deaths": player.deaths, "shots_fired": player.shots_fired, "shots_hit": player.shots_hit, "damage_dealt": player.damage_dealt, "damage_received": player.damage_received, "xp": player.xp, "stamina": player.stamina, "sliding": player.sliding_active,
 			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left
 		}
 	for user_id in room.members.keys():
