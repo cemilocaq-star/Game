@@ -61,6 +61,10 @@ var scoreboard_rows: VBoxContainer
 var scoreboard_local_stats: Label
 var active_room_mode := "ffa"
 var round_match_xp := 0
+var hill_points_red := 0.0
+var hill_points_blue := 0.0
+var hill_control := 0.0
+var objective_label: Label
 
 const RANK_THRESHOLDS := [
 	{"id":"bronze", "xp":0, "color":Color("#B87945")},
@@ -224,6 +228,13 @@ func _on_network_room_state(state: Dictionary) -> void:
 		event_left = float(state.get("event_left", 0.0))
 		round_left = float(state.get("round_left", ROUND_SECONDS))
 		active_room_mode = str(state.get("mode", active_room_mode))
+		hill_control = float(state.get("hill_control", hill_control))
+		hill_points_red = float(state.get("hill_points_red", hill_points_red))
+		hill_points_blue = float(state.get("hill_points_blue", hill_points_blue))
+		if is_instance_valid(objective_label):
+			objective_label.visible = active_room_mode == "king_of_the_hill"
+			var hill_owner := "RED" if hill_control >= 100.0 else ("BLUE" if hill_control <= -100.0 else ("CONTESTED" if absf(hill_control) > 0.1 else "NEUTRAL"))
+			objective_label.text = "HILL %s  •  RED %02d / BLUE %02d  •  CAPTURE %d%%" % [hill_owner, int(hill_points_red), int(hill_points_blue), int(absf(hill_control))]
 		if round_left <= 0.0 and not _round_finished:
 			_finish_round()
 		var available: Dictionary = state.get("orb_available", {})
@@ -637,6 +648,10 @@ func _build_arena_detail_pass() -> void:
 	_add_detail_box(root, "A_Site_Inlay", Vector3(2.2, 0.018, 0.08), Vector3(-11.0, 0.205, -13.0), Color("#FFB45C"), 0.3)
 	_add_detail_box(root, "B_Site_Inlay", Vector3(2.2, 0.018, 0.08), Vector3(11.0, 0.205, 13.0), Color("#64B7FF"), 0.3)
 	_add_detail_box(root, "Mid_Inlay", Vector3(0.08, 0.018, 2.2), Vector3(0, 0.205, -4.0), pale, 0.25)
+	_add_detail_box(root, "Hill_North_Beam", Vector3(10.0, 0.045, 0.12), Vector3(0, 0.24, -5.0), Color("#F5C65D"), 1.2)
+	_add_detail_box(root, "Hill_South_Beam", Vector3(10.0, 0.045, 0.12), Vector3(0, 0.24, 5.0), Color("#F5C65D"), 1.2)
+	_add_detail_box(root, "Hill_East_Beam", Vector3(0.12, 0.045, 10.0), Vector3(5.0, 0.24, 0), Color("#F5C65D"), 1.2)
+	_add_detail_box(root, "Hill_West_Beam", Vector3(0.12, 0.045, 10.0), Vector3(-5.0, 0.24, 0), Color("#F5C65D"), 1.2)
 
 func _add_detail_box(parent: Node3D, node_name: String, size: Vector3, position: Vector3, color: Color, emission_strength: float) -> MeshInstance3D:
 	var mesh_node := MeshInstance3D.new()
@@ -909,9 +924,14 @@ func _build_hud() -> void:
 	mode_select.set_item_metadata(0, "ffa")
 	mode_select.add_item("TEAM DEATHMATCH")
 	mode_select.set_item_metadata(1, "team_deathmatch")
+	mode_select.add_item("KING OF THE HILL")
+	mode_select.set_item_metadata(2, "king_of_the_hill")
 	mode_select.item_selected.connect(func(index: int): selected_game_mode = str(mode_select.get_item_metadata(index)))
 	root.add_child(mode_select)
 	health_label = _make_label(root, "HEALTH 100 / 100", Vector2(22, 108), 14)
+	objective_label = _make_label(root, "HILL NEUTRAL", Vector2(500, 18), 17)
+	objective_label.visible = false
+	objective_label.add_theme_color_override("font_color", Color("#F5D27A"))
 	var team_label := _make_label(root, "TEAM FREE", Vector2(22, 148), 14)
 	team_label.name = "TeamLabel"
 	health_bar = ProgressBar.new()
@@ -1440,7 +1460,10 @@ func _finish_round() -> void:
 	var winner_kills := int(standings[0].kills) if not standings.is_empty() else 0
 	var mvp_name := str(mvp_rows[0].name) if not mvp_rows.is_empty() else local_player_name
 	var team_winner := ""
-	if active_room_mode == "team_deathmatch":
+	if active_room_mode == "king_of_the_hill":
+		team_totals.red = int(round(hill_points_red))
+		team_totals.blue = int(round(hill_points_blue))
+	if active_room_mode in ["team_deathmatch", "king_of_the_hill"]:
 		if int(team_totals.red) > int(team_totals.blue):
 			team_winner = "RED TEAM WINS  •  %d - %d" % [int(team_totals.red), int(team_totals.blue)]
 		elif int(team_totals.blue) > int(team_totals.red):
@@ -1522,9 +1545,9 @@ func _finish_round() -> void:
 		]
 		row_label.add_theme_color_override("font_color", Color("#FFFFFF") if str(entry.name) == local_player_name else Color("#AFC4D4"))
 		board.add_child(row_label)
-	if active_room_mode == "team_deathmatch":
+	if active_room_mode in ["team_deathmatch", "king_of_the_hill"]:
 		var teams := Label.new()
-		teams.text = "RED TEAM  %d KILLS     •     BLUE TEAM  %d KILLS" % [int(team_totals.red), int(team_totals.blue)]
+		teams.text = ("RED CONTROL  %d SEC     •     BLUE CONTROL  %d SEC" if active_room_mode == "king_of_the_hill" else "RED TEAM  %d KILLS     •     BLUE TEAM  %d KILLS") % [int(team_totals.red), int(team_totals.blue)]
 		teams.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		teams.add_theme_color_override("font_color", Color("#F0B8C0"))
 		column.add_child(teams)
