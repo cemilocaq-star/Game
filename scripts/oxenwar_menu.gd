@@ -311,10 +311,12 @@ func _render_stats() -> void:
 		loading.text = _t("stats_unavailable")
 		return
 	var stats: Dictionary = result.get("data", {})
-	if stats.is_empty():
-		loading.text = _t("stats_empty")
-		return
 	loading.queue_free()
+	var total_xp := maxi(0, int(stats.get("total_xp", 0)))
+	_render_rank_progress(total_xp)
+	if stats.is_empty():
+		content.add_child(_label(_t("stats_empty")))
+		return
 	var kills := int(stats.get("total_kills", 0))
 	var deaths := int(stats.get("total_deaths", 0))
 	var matches := int(stats.get("matches_played", 0))
@@ -346,6 +348,90 @@ func _render_stats() -> void:
 		value_label.add_theme_color_override("font_color", ACCENT)
 		row.add_child(value_label)
 		content.add_child(row)
+
+const RANKS := [
+	{"id":"bronze", "minimum":0, "color":Color("#B87945")},
+	{"id":"silver", "minimum":500, "color":Color("#B9C5D1")},
+	{"id":"gold", "minimum":1500, "color":Color("#F0C65A")},
+	{"id":"platinum", "minimum":3500, "color":Color("#58D6D0")},
+	{"id":"diamond", "minimum":7000, "color":Color("#65AFFF")},
+	{"id":"master", "minimum":12000, "color":Color("#C18AFF")}
+]
+
+func _rank_for_xp(total_xp: int) -> Dictionary:
+	var current: Dictionary = RANKS[0]
+	var next_rank: Dictionary = {}
+	for index in range(RANKS.size()):
+		var candidate: Dictionary = RANKS[index]
+		if total_xp >= int(candidate.minimum):
+			current = candidate
+			next_rank = RANKS[index + 1] if index + 1 < RANKS.size() else {}
+		else:
+			break
+	var floor_xp := int(current.minimum)
+	var ceiling_xp := int(next_rank.minimum) if not next_rank.is_empty() else floor_xp
+	var progress := 1.0 if next_rank.is_empty() else clampf(float(total_xp - floor_xp) / float(maxi(1, ceiling_xp - floor_xp)), 0.0, 1.0)
+	return {"current":current, "next":next_rank, "progress":progress, "remaining":maxi(0, ceiling_xp - total_xp)}
+
+func _render_rank_progress(total_xp: int) -> void:
+	var rank_data := _rank_for_xp(total_xp)
+	var current: Dictionary = rank_data.current
+	var next_rank: Dictionary = rank_data.next
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _panel_style())
+	content.add_child(panel)
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 8)
+	panel.add_child(stack)
+	var header := HBoxContainer.new()
+	stack.add_child(header)
+	var rank_label := _large_label(_t("rank_" + str(current.id)))
+	rank_label.add_theme_color_override("font_color", current.color)
+	rank_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(rank_label)
+	var xp_label := _label("%s XP" % _format_number(total_xp))
+	xp_label.add_theme_color_override("font_color", ACCENT)
+	header.add_child(xp_label)
+	var bar := ProgressBar.new()
+	bar.min_value = 0.0
+	bar.max_value = 100.0
+	bar.value = float(rank_data.progress) * 100.0
+	bar.show_percentage = false
+	bar.custom_minimum_size.y = 16
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color("#1B2D42")
+	track.corner_radius_top_left = 8
+	track.corner_radius_top_right = 8
+	track.corner_radius_bottom_left = 8
+	track.corner_radius_bottom_right = 8
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = current.color
+	fill.corner_radius_top_left = 8
+	fill.corner_radius_top_right = 8
+	fill.corner_radius_bottom_left = 8
+	fill.corner_radius_bottom_right = 8
+	bar.add_theme_stylebox_override("background", track)
+	bar.add_theme_stylebox_override("fill", fill)
+	stack.add_child(bar)
+	var footer := HBoxContainer.new()
+	stack.add_child(footer)
+	var progress_label := _label("%s XP" % _format_number(total_xp - int(current.minimum)))
+	progress_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(progress_label)
+	if next_rank.is_empty():
+		footer.add_child(_label(_t("rank_max")))
+	else:
+		footer.add_child(_label("%s: %s XP" % [_t("rank_next"), _format_number(int(next_rank.minimum) - total_xp)]))
+	stack.add_child(_label(_t("rank_total") + ": %s XP" % _format_number(total_xp)))
+
+func _format_number(value: int) -> String:
+	var raw := str(maxi(0, value))
+	var formatted := ""
+	for index in range(raw.length()):
+		if index > 0 and (raw.length() - index) % 3 == 0:
+			formatted += ","
+		formatted += raw.substr(index, 1)
+	return formatted
 
 func _render_friends() -> void:
 	content.add_child(_large_label(_t("friends")))
