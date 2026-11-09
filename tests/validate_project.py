@@ -256,6 +256,15 @@ checks.extend([
     ("_build_remote_swimwear", read("scripts/oxenwar_remote_player.gd"), "remote beach outfit visual"),
 ])
 
+checks.extend([
+    ("func inspect_weapon() -> void:", player, "weapon inspect animation action"),
+    ("_make_weapon_stream(weapon_id: String)", player, "weapon-specific synthetic audio generator"),
+    ('"rubber_chicken":[390.0, 720.0, 1170.0, 0.42]', player, "Rubber Chicken distinct audio profile"),
+    ('"star_piercer":[780.0, 620.0, 1560.0, 0.08]', player, "Star Piercer distinct audio profile"),
+    ("KEY_H", main, "keyboard weapon inspect shortcut"),
+    ("INSPECT  [H]", main, "arsenal weapon inspect control"),
+    ("_inspect_current_weapon", main, "inspect UI action routing"),
+])
 new_weapon_ids = ["prism_scepter", "vortex_orbiter", "comet_bow", "bubble_burst", "glitch_ray", "meteor_mallet", "frost_wand", "solar_lance", "slime_slinger", "pixel_storm", "thunder_drum", "moon_disc", "jellyfish_staff", "portal_popper", "rubber_chicken"]
 if len(new_weapon_ids) != 15:
     errors.append("expected exactly 15 new arcade weapon archetypes")
