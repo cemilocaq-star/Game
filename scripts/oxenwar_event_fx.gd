@@ -70,82 +70,82 @@ func _build_event_artifact(event_id: String) -> void:
 				var colors := [Color(1.0,0.3,0.6), Color(1.0,0.75,0.2), Color(0.25,0.8,1.0), Color(0.45,1.0,0.45), Color(0.7,0.4,1.0)]
 				_artifact_part(artifact, tile, colors[i], Vector3(cos(float(i) * TAU / 5.0), sin(float(i) * TAU / 5.0), 0.0))
 		"LOW_GRAVITY":
-			var core := SphereMesh.new()
-			core.radius = 0.58
-			core.height = 1.16
-			_artifact_part(artifact, core, color, Vector3.ZERO)
+			var low_core := SphereMesh.new()
+			low_core.radius = 0.58
+			low_core.height = 1.16
+			_artifact_part(artifact, low_core, color, Vector3.ZERO)
 			for i in range(3):
-				var ring := TorusMesh.new()
-				ring.inner_radius = 0.72 + float(i) * 0.18
-				ring.outer_radius = ring.inner_radius + 0.055
-				var part := _artifact_part(artifact, ring, color.lightened(float(i) * 0.12), Vector3.ZERO)
-				part.rotation_degrees.x = 55.0 + float(i) * 35.0
+				var low_ring := TorusMesh.new()
+				low_ring.inner_radius = 0.72 + float(i) * 0.18
+				low_ring.outer_radius = low_ring.inner_radius + 0.055
+				var low_part := _artifact_part(artifact, low_ring, color.lightened(float(i) * 0.12), Vector3.ZERO)
+				low_part.rotation_degrees.x = 55.0 + float(i) * 35.0
 		"GOLDEN_ORB_RUSH", "DOUBLE_XP":
 			color = Color(1.0, 0.72, 0.16) if event_id == "GOLDEN_ORB_RUSH" else Color(0.35, 1.0, 0.68)
-			var orb := SphereMesh.new()
-			orb.radius = 0.68
-			orb.height = 1.36
-			_artifact_part(artifact, orb, color, Vector3.ZERO)
+			var reward_orb := SphereMesh.new()
+			reward_orb.radius = 0.68
+			reward_orb.height = 1.36
+			_artifact_part(artifact, reward_orb, color, Vector3.ZERO)
 			for i in range(2):
-				var halo := TorusMesh.new()
-				halo.inner_radius = 0.86 + float(i) * 0.18
-				halo.outer_radius = halo.inner_radius + 0.06
-				var part := _artifact_part(artifact, halo, color.lightened(0.12), Vector3.ZERO)
-				part.rotation_degrees.x = 65.0 if i == 0 else -65.0
+				var reward_halo := TorusMesh.new()
+				reward_pink_halo.inner_radius = 0.86 + float(i) * 0.18
+				reward_halo.outer_radius = reward_halo.inner_radius + 0.06
+				var reward_part := _artifact_part(artifact, reward_halo, color.lightened(0.12), Vector3.ZERO)
+				reward_part.rotation_degrees.x = 65.0 if i == 0 else -65.0
 		"METEOR_SHOWER":
 			color = Color(1.0, 0.38, 0.12)
 			var core := SphereMesh.new()
 			core.radius = 0.55
 			core.height = 1.1
 			_artifact_part(artifact, core, color, Vector3.ZERO)
-			var tail := CylinderMesh.new()
-			tail.top_radius = 0.04
-			tail.bottom_radius = 0.36
-			tail.height = 1.8
-			var tail_part := _artifact_part(artifact, tail, Color(1.0, 0.68, 0.2), Vector3(0.0, 0.9, 0.0))
+			var meteor_tail := CylinderMesh.new()
+			meteor_tail.top_radius = 0.04
+			meteor_tail.bottom_radius = 0.36
+			meteor_tail.height = 1.8
+			var tail_part := _artifact_part(artifact, meteor_tail, Color(1.0, 0.68, 0.2), Vector3(0.0, 0.9, 0.0))
 			tail_part.rotation_degrees.z = 22.0
 		"BONK_MODE":
 			color = Color(1.0, 0.56, 0.12)
-			var handle := CylinderMesh.new()
-			handle.top_radius = 0.07
-			handle.bottom_radius = 0.09
-			handle.height = 1.55
-			var h := _artifact_part(artifact, handle, Color(0.62, 0.42, 0.22), Vector3(0.0, -0.25, 0.0))
-			h.rotation_degrees.z = -25.0
-			var head := BoxMesh.new()
-			head.size = Vector3(1.15, 0.58, 0.62)
-			_artifact_part(artifact, head, color, Vector3(0.3, 0.5, 0.0))
+			var bonk_handle := CylinderMesh.new()
+			bonk_handle.top_radius = 0.07
+			bonk_handle.bottom_radius = 0.09
+			bonk_handle.height = 1.55
+			var bonk_handle_part := _artifact_part(artifact, bonk_handle, Color(0.62, 0.42, 0.22), Vector3(0.0, -0.25, 0.0))
+			bonk_handle_part.rotation_degrees.z = -25.0
+			var bonk_head := BoxMesh.new()
+			bonk_head.size = Vector3(1.15, 0.58, 0.62)
+			_artifact_part(artifact, bonk_head, color, Vector3(0.3, 0.5, 0.0))
 		"NPC_MODE":
 			color = Color(0.3, 1.0, 0.52)
-			var stem := CylinderMesh.new()
-			stem.top_radius = 0.08
-			stem.bottom_radius = 0.08
-			stem.height = 1.2
-			_artifact_part(artifact, stem, color, Vector3(0.0, -0.15, 0.0))
-			var marker := SphereMesh.new()
-			marker.radius = 0.42
-			marker.height = 0.84
-			_artifact_part(artifact, marker, Color(1.0, 0.9, 0.25), Vector3(0.0, 0.65, 0.0))
+			var npc_stem := CylinderMesh.new()
+			npc_stem.top_radius = 0.08
+			npc_stem.bottom_radius = 0.08
+			npc_stem.height = 1.2
+			_artifact_part(artifact, npc_stem, color, Vector3(0.0, -0.15, 0.0))
+			var npc_marker := SphereMesh.new()
+			npc_marker.radius = 0.42
+			npc_marker.height = 0.84
+			_artifact_part(artifact, npc_marker, Color(1.0, 0.9, 0.25), Vector3(0.0, 0.65, 0.0))
 		"PINK_SKY":
 			color = Color(1.0, 0.28, 0.72)
 			var core := SphereMesh.new()
 			core.radius = 0.48
 			core.height = 0.96
 			_artifact_part(artifact, core, color, Vector3.ZERO)
-			var halo := TorusMesh.new()
+			var pink_halo := TorusMesh.new()
 			halo.inner_radius = 0.8
-			halo.outer_radius = 0.88
-			var ring_part := _artifact_part(artifact, halo, Color(1.0, 0.68, 0.9), Vector3.ZERO)
+			pink_halo.outer_radius = 0.88
+			var ring_part := _artifact_part(artifact, pink_halo, Color(1.0, 0.68, 0.9), Vector3.ZERO)
 			ring_part.rotation_degrees.x = 62.0
 		"DUCK_PARADE", "DUCK_EXE":
 			color = Color(1.0, 0.82, 0.24)
-			var duck_body := SphereMesh.new()
-			duck_body.radius = 0.55
-			duck_body.height = 0.85
-			_artifact_part(artifact, duck_body, color, Vector3.ZERO, Vector3(1.25, 0.9, 0.9))
-			var beak := PrismMesh.new()
-			beak.size = Vector3(0.36, 0.22, 0.28)
-			_artifact_part(artifact, beak, Color(1.0, 0.42, 0.08), Vector3(0.0, 0.0, -0.52))
+			var duck_body_mesh := SphereMesh.new()
+			duck_body_mesh.radius = 0.55
+			duck_body_mesh.height = 0.85
+			_artifact_part(artifact, duck_body_mesh, color, Vector3.ZERO, Vector3(1.25, 0.9, 0.9))
+			var duck_beak := PrismMesh.new()
+			duck_beak.size = Vector3(0.36, 0.22, 0.28)
+			_artifact_part(artifact, duck_beak, Color(1.0, 0.42, 0.08), Vector3(0.0, 0.0, -0.52))
 	var motion := create_tween().set_loops()
 	motion.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	motion.tween_property(artifact, "position:y", 3.55, 0.85)
