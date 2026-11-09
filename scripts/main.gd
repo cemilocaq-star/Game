@@ -28,10 +28,10 @@ class MobileJoystick extends Control:
 
 	func _gui_input(event: InputEvent) -> void:
 		if event is InputEventScreenTouch:
-			if event.pressed and _finger_index == -1:
+			if event.pressed and not event.canceled and _finger_index == -1:
 				_finger_index = event.index
 				_update_stick(event.position)
-			elif not event.pressed and event.index == _finger_index:
+			elif event.index == _finger_index and (not event.pressed or event.canceled):
 				_finger_index = -1
 				_set_stick(Vector2.ZERO)
 		elif event is InputEventScreenDrag and event.index == _finger_index:
@@ -60,6 +60,14 @@ class MobileJoystick extends Control:
 		_value = value
 		vector_changed.emit(_value)
 		queue_redraw()
+
+	func _exit_tree() -> void:
+		_finger_index = -1
+		_value = Vector2.ZERO
+		Input.action_release("move_left")
+		Input.action_release("move_right")
+		Input.action_release("move_forward")
+		Input.action_release("move_back")
 
 	func _draw() -> void:
 		var center := size * 0.5
@@ -1730,13 +1738,24 @@ func _build_touch_controls(root: Control) -> void:
 func _set_mobile_move_input(value: Vector2) -> void:
 	var x := clampf(value.x, -1.0, 1.0)
 	var y := clampf(value.y, -1.0, 1.0)
-	if absf(x) > 0.01:
-		Input.action_press("move_left" if x < 0.0 else "move_right", absf(x))
+	# Always release the opposite direction before pressing the new one.
+	# Otherwise a direct left-to-right (or forward-to-back) drag can leave
+	# both actions held and cancel movement in Input.get_vector().
+	if x < -0.01:
+		Input.action_release("move_right")
+		Input.action_press("move_left", -x)
+	elif x > 0.01:
+		Input.action_release("move_left")
+		Input.action_press("move_right", x)
 	else:
 		Input.action_release("move_left")
 		Input.action_release("move_right")
-	if absf(y) > 0.01:
-		Input.action_press("move_forward" if y < 0.0 else "move_back", absf(y))
+	if y < -0.01:
+		Input.action_release("move_back")
+		Input.action_press("move_forward", -y)
+	elif y > 0.01:
+		Input.action_release("move_forward")
+		Input.action_press("move_back", y)
 	else:
 		Input.action_release("move_forward")
 		Input.action_release("move_back")

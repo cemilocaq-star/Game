@@ -269,6 +269,12 @@ checks.extend([
     ("class MobileJoystick extends Control", main, "custom circular analog movement joystick"),
     ("StandoffStyleMovementJoystick", main, "Standoff-style joystick UI"),
     ("_set_mobile_move_input", main, "analog joystick maps to analog movement actions"),
+    ('Input.action_release("move_right")', main, "joystick releases old horizontal direction before reversing"),
+    ('Input.action_release("move_left")', main, "joystick releases opposite horizontal direction before pressing"),
+    ('Input.action_release("move_back")', main, "joystick releases old vertical direction before reversing"),
+    ('func _exit_tree() -> void:', main, "joystick releases movement actions when removed from scene"),
+    ('event.canceled', main, "joystick handles cancelled touch input without sticking"),
+
     ("func _build_emote_wheel", main, "mobile radial emote menu"),
     ("EmoteRadialWheel", main, "radial emote wheel instead of separate square buttons"),
     ("func _add_touch_button", main, "rounded mobile action button construction"),
