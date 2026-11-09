@@ -60,7 +60,8 @@ const EVENT_NAMES := {
 	"METEOR_SHOWER": "METEOR SHOWER!",
 	"ICE_WORLD": "ICE WORLD!",
 	"FREEZE_FRAME": "FREEZE FRAME — DON'T BLINK!",
-	"DOUBLE_XP": "DOUBLE XP!"
+	"DOUBLE_XP": "DOUBLE XP!",
+	"FREEZE_FRAME": "FREEZE FRAME — MOVEMENT PAUSED"
 }
 
 func _ready() -> void:
@@ -227,7 +228,8 @@ func _on_server_event_changed(event_id: String) -> void:
 		"GOLDEN_ORB_RUSH": "GOLDEN ORB RUSH: BONUS REWARDS",
 		"CONFETTI_STORM": "CONFETTI STORM!",
 		"DUCK_PARADE": "DUCK PARADE!",
-		"DUCK_EXE": "DUCK.EXE HAS STOPPED RESPONDING"
+		"DUCK_EXE": "DUCK.EXE HAS STOPPED RESPONDING",
+		"FREEZE_FRAME": "FREEZE FRAME: ALL MOVEMENT PAUSED"
 	}
 	if messages.has(event_id):
 		_show_meme_toast(str(messages[event_id]))
