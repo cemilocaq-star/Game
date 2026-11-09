@@ -84,6 +84,10 @@ GitHub Actions validates the structure, imports/parses the project with Godot he
 - The server owns movement, collision, scores, XP, event timing and collectible awards. Never re-enable client-side online movement or score awards.
 
 
+## Visual quality pass
+
+The client arena receives a lightweight procedural art-detail pass with floor inlays, perimeter trims, site markers, corner beacon housings and quality-scaled fill lights. The shared surface shader adds subtle procedural material variation, while the graphics manager applies filmic tonemapping, color grading and quality-scaled glow/fog. These are visual-only additions; the dedicated server skips the art-detail pass and collision/gameplay geometry is unchanged.
+
 ## Beach / swimwear
 
 The arena includes a shallow, non-blocking pool. Entering its marked swim zone switches the character to a modest beach outfit (shirt, swim shorts and sunglasses); leaving restores the regular appearance. The server derives the swim-zone state from player position and replicates it in snapshots so remote players see the same outfit. This is a visual zone only; it does not yet implement swimming physics or water movement.
