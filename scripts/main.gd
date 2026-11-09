@@ -764,6 +764,9 @@ func _build_hud() -> void:
 	var root := Control.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud_layer.add_child(root)
+	_add_hud_panel(root, "CombatStatusPanel", Vector2(12, 8), Vector2(472, 112), Color(0.025, 0.055, 0.09, 0.84), Color("#27D7E7"))
+	_add_hud_panel(root, "VitalsPanel", Vector2(12, 112), Vector2(252, 122), Color(0.025, 0.055, 0.09, 0.88), Color("#3D8FA8"))
+	_add_hud_panel(root, "LobbyPanel", Vector2(12, 238), Vector2(472, 252), Color(0.025, 0.055, 0.09, 0.78), Color("#34566A"))
 
 	score_label = _make_label(root, "SCORE 0000", Vector2(22, 16), 26)
 	event_label = _make_label(root, "COLLECT THE ORBS • PARKOUR ARENA", Vector2(22, 52), 18)
@@ -861,6 +864,10 @@ func _build_hud() -> void:
 	xp_bar.show_percentage = false
 	root.add_child(xp_bar)
 
+	_style_progress_bar(health_bar, Color("#FF536B"), Color("#401C2B"))
+	_style_progress_bar(stamina_bar, Color("#39D9D0"), Color("#153C4B"))
+	_style_progress_bar(xp_bar, Color("#B18CFF"), Color("#2D244D"))
+
 	graphics_option = OptionButton.new()
 	graphics_option.anchor_left = 0.78
 	graphics_option.anchor_right = 0.98
@@ -896,6 +903,38 @@ func _build_hud() -> void:
 		admin_button.offset_bottom = 38
 		admin_button.pressed.connect(_toggle_admin_panel)
 		root.add_child(admin_button)
+
+func _add_hud_panel(root: Control, panel_name: String, panel_position: Vector2, panel_size: Vector2, fill: Color, accent: Color) -> Panel:
+	var panel := Panel.new()
+	panel.name = panel_name
+	panel.position = panel_position
+	panel.size = panel_size
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_color = accent
+	style.set_border_width_all(1)
+	style.border_width_left = 3
+	style.set_corner_radius_all(9)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	panel.add_theme_stylebox_override("panel", style)
+	root.add_child(panel)
+	return panel
+
+func _style_progress_bar(bar: ProgressBar, fill: Color, background: Color) -> void:
+	if not is_instance_valid(bar):
+		return
+	var track := StyleBoxFlat.new()
+	track.bg_color = background
+	track.set_corner_radius_all(5)
+	var progress := StyleBoxFlat.new()
+	progress.bg_color = fill
+	progress.set_corner_radius_all(5)
+	bar.add_theme_stylebox_override("background", track)
+	bar.add_theme_stylebox_override("fill", progress)
 
 func _build_admin_panel(root: Control) -> void:
 	admin_hint = _make_label(root, "F8  •  FIXERPLY ADMIN", Vector2(22, 198), 13)
@@ -1346,6 +1385,7 @@ func _update_hud() -> void:
 		health_bar.value = player.health
 	if is_instance_valid(health_label):
 		health_label.text = "HEALTH %d / 100" % int(ceil(player.health))
+		health_label.add_theme_color_override("font_color", Color("#FF7285") if player.health <= 30.0 else Color("#E8F8FF"))
 	if is_instance_valid(death_label):
 		death_label.visible = player.is_dead
 		death_label.text = "K.O.  •  RESPAWNING IN %d" % ceili(player.respawn_left) if player.is_dead else ""
