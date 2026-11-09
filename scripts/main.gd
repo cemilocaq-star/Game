@@ -1854,12 +1854,20 @@ func _add_touch_button(root: Control, text_value: String, action: String, offset
 	pressed_style.bg_color = Color("#176C70")
 	button.add_theme_stylebox_override("pressed", pressed_style)
 	root.add_child(button)
-	if hold_action:
+	if action == "weapon_next":
+		button.pressed.connect(_cycle_weapon.bind(1))
+	elif action == "weapon_prev":
+		button.pressed.connect(_cycle_weapon.bind(-1))
+	elif action == "throw_grenade":
+		button.pressed.connect(_throw_grenade_from_touch)
+	else:
 		button.button_down.connect(func(): Input.action_press(action))
 		button.button_up.connect(func(): Input.action_release(action))
 		button.tree_exiting.connect(func(): Input.action_release(action))
-	else:
-		button.pressed.connect(func(): Input.action_press(action); Input.action_release(action))
+
+func _throw_grenade_from_touch() -> void:
+	if is_instance_valid(network) and network.is_authenticated and is_instance_valid(player):
+		network.request_grenade_throw(-player.global_basis.z + Vector3.UP * 0.12)
 
 
 func _finish_round() -> void:

@@ -364,6 +364,14 @@ func _render_play_tab() -> void:
 	join.pressed.connect(_launch_game.bind("join_room"))
 	join_row.add_child(join)
 	content.add_child(join_row)
+	server_host_field.text_changed.connect(func(value: String):
+		var ready := not value.strip_edges().is_empty()
+		start.disabled = not ready
+		create.disabled = not ready
+		join.disabled = not ready
+		lobby_notice_label.text = "SERVER ADDRESS SET  •  connection will be verified when you enter a match" if ready else "PUBLIC SERVER NOT DEPLOYED — enter a live UDP server address to enable online play."
+		lobby_notice_label.add_theme_color_override("font_color", ACCENT if ready else Color("#FFC36B"))
+	)
 
 	var logout := _button(_t("logout"), false)
 	logout.pressed.connect(_on_logout)

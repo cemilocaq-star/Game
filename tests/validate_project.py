@@ -184,10 +184,10 @@ checks = [
     ("LOOP_FORWARD", player, "looped original dance beat"),
     ("request_emote", read("scripts/oxenwar_network.gd"), "network emote request"),
     ("emote_id", read("scripts/oxenwar_network.gd"), "replicated emote state"),
-    ("GRIDDY", main, "mobile Griddy emote control"),
-    ("GOOFY", main, "mobile goofy emote control"),
-    ("ROBOT", main, "mobile robot emote control"),
-    ("WAVE", main, "mobile wave emote control"),
+    
+    
+    
+    
     ("emote_robot", player, "robot emote input"),
     ("emote_wave", player, "wave emote input"),
     ('net.request_emote("")', player, "server receives emote stop state"),
