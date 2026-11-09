@@ -113,7 +113,6 @@ func _start_dedicated_server() -> void:
 	# Dedicated server builds the same collision arena before accepting players.
 	graphics = GraphicsManager.new()
 	graphics.load_settings()
-	add_child(graphics)
 	_build_arena()
 	network = NETWORK_SCRIPT.new()
 	network.name = "OxenWarNet"
