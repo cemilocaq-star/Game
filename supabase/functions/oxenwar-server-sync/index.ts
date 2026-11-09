@@ -218,11 +218,16 @@ Deno.serve(async (request: Request) => {
   }
 
   if (action === "sync_result") {
-    const score = body.score;
-    const xp = body.xp;
-    const collections = body.collections;
-    if (!Number.isInteger(score) || (score as number) < 0 || (score as number) > 20000 ||
-        !Number.isInteger(xp) || (xp as number) < 0 || (xp as number) > 50000 ||
+    const { score, xp, collections, kills, deaths, damage_dealt, shots_fired, shots_hit, playtime_seconds, outcome } = body;
+    if (!Number.isInteger(score) || score < 0 || score > 20000 ||
+        !Number.isInteger(xp) || xp < 0 || xp > 50000 ||
+        !Number.isInteger(kills) || kills < 0 || kills > 5000 ||
+        !Number.isInteger(deaths) || deaths < 0 || deaths > 5000 ||
+        typeof damage_dealt !== "number" || !Number.isFinite(damage_dealt) || damage_dealt < 0 || damage_dealt > 10000000 ||
+        !Number.isInteger(shots_fired) || shots_fired < 0 || shots_fired > 20000 ||
+        !Number.isInteger(shots_hit) || shots_hit < 0 || shots_hit > shots_fired ||
+        !Number.isInteger(playtime_seconds) || playtime_seconds < 0 || playtime_seconds > 7200 ||
+        !["win", "loss", "draw", "abandoned"].includes(String(outcome)) ||
         !Array.isArray(collections) || collections.length > 512 ||
         !collections.every((id) => typeof id === "string" && /^(orb_(0[0-9]|1[01])|secret_404)$/.test(id))) {
       return json(400, { error: "invalid_match_result" });
@@ -232,6 +237,13 @@ Deno.serve(async (request: Request) => {
       p_score: score,
       p_xp: xp,
       p_collection_ids: collections,
+      p_kills: kills,
+      p_deaths: deaths,
+      p_damage_dealt: damage_dealt,
+      p_shots_fired: shots_fired,
+      p_shots_hit: shots_hit,
+      p_playtime_seconds: playtime_seconds,
+      p_outcome: outcome,
     });
     if (error) return json(500, { error: "result_persistence_failed" });
     return json(200, { ok: true });
