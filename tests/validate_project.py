@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 errors = []
 
 required = [
-    "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/character_visuals.gd",
+    "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/character_visuals.gd", "scripts/combat_fx.gd",
     "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd",
     "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "scripts/oxenwar_server_player.gd", "server/README.md", "Dockerfile", "fly.toml",
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
@@ -159,6 +159,11 @@ checks.extend([
     ("TacticalVest", read("scripts/character_visuals.gd"), "layered tactical vest mesh"),
     ("BootSole", read("scripts/character_visuals.gd"), "separate boot and sole geometry"),
     ("Backpack", read("scripts/character_visuals.gd"), "backpack silhouette detail"),
+    ("grenade_explosion", read("scripts/combat_fx.gd"), "layered grenade explosion visual"),
+    ("ExpandingShockRing", read("scripts/combat_fx.gd"), "grenade shockwave ring"),
+    ("AetherHitImpactFX", read("scripts/combat_fx.gd"), "Aether blaster impact visual"),
+    ("COMBAT_FX_SCRIPT.grenade_explosion", main, "grenade explosion FX integration"),
+    ("COMBAT_FX_SCRIPT.hit_impact", main, "remote blaster impact FX integration"),
     ("_build_swimming_pool", main, "visible beach pool area"),
     ("_build_arena_detail_pass", main, "procedural arena art detail pass"),
     ("FloorGridX_", main, "floor inlay detail"),
