@@ -5,6 +5,7 @@ const BACKEND_SCRIPT = preload("res://scripts/oxenwar_supabase.gd")
 const MENU_SCRIPT = preload("res://scripts/oxenwar_menu.gd")
 const NETWORK_SCRIPT = preload("res://scripts/oxenwar_network.gd")
 const EVENT_FX_SCRIPT = preload("res://scripts/oxenwar_event_fx.gd")
+const COMBAT_FX_SCRIPT = preload("res://scripts/combat_fx.gd")
 const REMOTE_PLAYER_SCRIPT = preload("res://scripts/oxenwar_remote_player.gd")
 var local_player_name := "Player"
 var local_admin_authorized := false
@@ -357,6 +358,8 @@ func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Ve
 	beam.look_at(endpoint, up)
 	beam.scale.z = maxf(0.05, origin.distance_to(endpoint))
 	get_tree().create_timer(0.085).timeout.connect(beam.queue_free)
+	if origin.distance_to(endpoint) < 64.0:
+		COMBAT_FX_SCRIPT.hit_impact(self, endpoint)
 
 func _on_grenade_spawn_received(grenade_id: int, origin: Vector3, launch_velocity: Vector3) -> void:
 	var grenade := MeshInstance3D.new()
@@ -380,33 +383,7 @@ func _on_grenade_exploded_received(grenade_id: int, position_value: Vector3) -> 
 	if is_instance_valid(grenade):
 		grenade.queue_free()
 	_client_grenade_visuals.erase(grenade_id)
-	var flash := OmniLight3D.new()
-	flash.light_color = Color("#FF9B45")
-	flash.light_energy = 4.0
-	flash.omni_range = 8.0
-	add_child(flash)
-	flash.global_position = position_value
-	var burst := MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = 0.45
-	burst.mesh = sphere
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = Color(1.0, 0.42, 0.12, 0.72)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.emission_enabled = true
-	mat.emission = Color("#FF6A24")
-	mat.emission_energy_multiplier = 3.0
-	burst.material_override = mat
-	add_child(burst)
-	burst.global_position = position_value
-	var tween := create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(burst, "scale", Vector3.ONE * 9.0, 0.32)
-	tween.tween_property(mat, "albedo_color:a", 0.0, 0.32)
-	tween.tween_property(flash, "light_energy", 0.0, 0.28)
-	tween.chain().tween_callback(burst.queue_free)
-	tween.tween_callback(flash.queue_free)
+	COMBAT_FX_SCRIPT.grenade_explosion(self, position_value)
 
 func _on_remote_player_left(peer_id: int) -> void:
 	var remote: Node = remote_players.get(peer_id)
