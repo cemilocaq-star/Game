@@ -66,6 +66,7 @@ var hill_points_blue := 0.0
 var hill_control := 0.0
 var objective_label: Label
 var killstreak_label: Label
+var weapon_mastery_label: Label
 
 const RANK_THRESHOLDS := [
 	{"id":"bronze", "xp":0, "color":Color("#B87945")},
@@ -210,6 +211,10 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 		var streak_now := int(state.get("kill_streak", 0))
 		killstreak_label.text = "KILL STREAK  x%d" % streak_now if streak_now >= 2 else ""
 		killstreak_label.visible = streak_now >= 2
+	if is_instance_valid(weapon_mastery_label):
+		var blaster_xp := int(state.get("blaster_mastery_xp", 0))
+		var grenade_xp := int(state.get("grenade_mastery_xp", 0))
+		weapon_mastery_label.text = "WEAPON MASTERY  •  BLASTER %s  •  GRENADE %s" % [_weapon_mastery_rank(blaster_xp), _weapon_mastery_rank(grenade_xp)]
 	match_killboard[local_player_name] = int(state.get("kills", 0))
 	_update_player_match_stats(local_player_name, state)
 	player.stamina = float(state.get("stamina", player.stamina))
@@ -478,6 +483,16 @@ func _on_kill_feed_received(killer_name: String, victim_name: String, weapon_nam
 	fade.tween_property(entry, "modulate:a", 0.0, 0.45)
 	fade.tween_callback(entry.queue_free)
 
+
+
+func _weapon_mastery_rank(xp_value: int) -> String:
+	if xp_value >= 600:
+		return "GOLD"
+	if xp_value >= 300:
+		return "SILVER"
+	if xp_value >= 100:
+		return "BRONZE"
+	return "LEVEL 0"
 
 func _on_killstreak_received(player_name: String, streak: int, bonus: int) -> void:
 	var title := "DOMINATING" if streak >= 10 else ("UNSTOPPABLE" if streak >= 7 else ("RAMPAGE" if streak >= 5 else "KILL STREAK"))
@@ -946,6 +961,8 @@ func _build_hud() -> void:
 	killstreak_label = _make_label(root, "", Vector2(500, 52), 21)
 	killstreak_label.visible = false
 	killstreak_label.add_theme_color_override("font_color", Color("#FFB84D"))
+	weapon_mastery_label = _make_label(root, "WEAPON MASTERY  •  BLASTER LEVEL 0  •  GRENADE LEVEL 0", Vector2(500, 84), 15)
+	weapon_mastery_label.add_theme_color_override("font_color", Color("#83D6FF"))
 	var team_label := _make_label(root, "TEAM FREE", Vector2(22, 148), 14)
 	team_label.name = "TeamLabel"
 	health_bar = ProgressBar.new()
