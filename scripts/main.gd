@@ -304,7 +304,7 @@ func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
 		add_child(remote)
 		remote_players[peer_id] = remote
 		remote.set_player_identity(str(state.get("display_name", "Player")), Color.from_string(str(state.get("color", "#27D7E7")), Color("#27D7E7")), str(state.get("outfit_id", "outfit_default")) )
-	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)), bool(state.get("sliding", false)), float(state.get("health", 100.0)), bool(state.get("dead", false)), str(state.get("team_id", "")))
+	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)), bool(state.get("sliding", false)), float(state.get("health", 100.0)), bool(state.get("dead", false)), str(state.get("team_id", "")), str(state.get("emote_id", "")))
 
 func _make_remote_blaster_stream() -> AudioStreamWAV:
 	const sample_rate := 22050
@@ -468,6 +468,8 @@ func _toggle_admin_panel() -> void:
 
 func _setup_input() -> void:
 	_add_key_action("throw_grenade", KEY_G)
+	_add_key_action("emote_griddy", KEY_B)
+	_add_key_action("emote_goofy", KEY_N)
 	_add_key_action("move_forward", KEY_W)
 	_add_key_action("move_back", KEY_S)
 	_add_key_action("move_left", KEY_A)
@@ -1129,6 +1131,8 @@ func _build_touch_controls(root: Control) -> void:
 	_add_touch_button(root, "SLIDE", "slide", Vector2(-150, -48), Vector2(88, 54), true)
 	_add_touch_button(root, "PULSE", "fire", Vector2(-255, -270), Vector2(96, 64), false)
 	_add_touch_button(root, "GRENADE", "throw_grenade", Vector2(-150, -270), Vector2(88, 64), false)
+	_add_touch_button(root, "GRIDDY", "emote_griddy", Vector2(-255, -350), Vector2(96, 56), false)
+	_add_touch_button(root, "GOOFY", "emote_goofy", Vector2(-150, -350), Vector2(88, 56), false)
 
 func _add_touch_button(root: Control, text_value: String, action: String, offset: Vector2, button_size: Vector2, hold_action: bool) -> void:
 	var button := Button.new()
