@@ -557,6 +557,7 @@ func _physics_process(delta: float) -> void:
 		try_dash(direction)
 
 	move_and_slide()
+	set_swimming(global_position.x >= -16.0 and global_position.x <= -8.0 and global_position.z >= -13.0 and global_position.z <= -5.0 and global_position.y <= 3.5)
 	_update_footsteps(delta)
 	if _camera:
 		var target_camera_height := 1.05 if _is_sliding else 1.55
