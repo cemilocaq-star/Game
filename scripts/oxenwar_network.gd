@@ -160,14 +160,14 @@ func _process(delta: float) -> void:
 		return
 	if multiplayer.multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
 		return
+	_pending_jump = _pending_jump or Input.is_action_just_pressed("jump")
+	_pending_slide = _pending_slide or Input.is_action_just_pressed("slide")
+	_pending_dash = _pending_dash or Input.is_action_just_pressed("dash")
 	var now := Time.get_ticks_msec()
 	if now - _last_send_ms < 50:
 		return
 	_last_send_ms = now
 	var move := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	_pending_jump = _pending_jump or Input.is_action_just_pressed("jump")
-	_pending_slide = _pending_slide or Input.is_action_just_pressed("slide")
-	_pending_dash = _pending_dash or Input.is_action_just_pressed("dash")
 	var sprint := Input.is_action_pressed("sprint")
 	rpc_id(1, "_server_submit_input", move, local_player.rotation.y, _pending_jump, sprint, _pending_slide, _pending_dash)
 	_pending_jump = false
