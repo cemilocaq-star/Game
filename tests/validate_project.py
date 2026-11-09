@@ -237,7 +237,7 @@ checks.extend([
     ("damage_dealt", read("scripts/oxenwar_network.gd"), "server-authoritative damage statistics"),
     ("shots_fired", read("scripts/oxenwar_network.gd"), "authoritative combat statistics snapshots"),
     ("MATCH RESULTS", main, "expanded end-of-match results screen"),
-    ("BLASTER ACCURACY", main, "personal accuracy calculation"),
+    ("WEAPON ACCURACY", main, "personal accuracy calculation across the expanded weapon roster"),
     ("MVP  •", main, "match MVP announcement"),
     ("RED TEAM WINS", main, "team deathmatch team result"),
     ("CharacterMotionRig.animate", read("scripts/oxenwar_remote_player.gd"), "remote procedural movement animation"),
