@@ -5,7 +5,7 @@ OxenWar is a free-to-play Godot 4.4.1 parkour arena project. Its visual directio
 ## Current features
 
 - Godot 4.4.1 parkour arena, server-owned movement physics, dash, slide, collectibles, rounds and gameplay events.
-- Supabase email/password accounts; the dedicated server verifies each access token against Supabase Auth before spawning a player.
+- Supabase email/password accounts; Supabase Auth verifies the player's token over HTTPS and issues a one-time game ticket; the dedicated server redeems that ticket before spawning a player.
 - Friend search, friend requests, friend list and online presence.
 - Private friend rooms with six-character join codes; private-room joins are checked against the Supabase friendship table.
 - Public quick-match rooms, lobby roster and 8-player room capacity.
@@ -59,7 +59,7 @@ GitHub Actions validates the structure, imports/parses the project with Godot he
 ## Important limitations
 
 - The server code and Supabase database/Edge Function are deployed in the repository/project, but **no public game server instance has been launched yet**. The Fly.io configuration is a template until the owner deploys it.
-- The Edge Function returns 403 until the same `OXENWAR_SERVER_SECRET` is set in Supabase Edge Function secrets and the game-server host environment. Do not put this secret in the client or GitHub.
+- Multiplayer authentication and match-result persistence require the same `OXENWAR_SERVER_SECRET` in Supabase Edge Function secrets and the game-server host environment. Without it, the secure ticket handshake is disabled. Do not put this secret in the client or GitHub.
 - Rooms and active matches are held in server memory. Reconnect reservations last 30 seconds; a server process restart ends active rooms.
 - Match results are written at match completion, room leave, or reconnect-reservation expiry. An unexpected host shutdown before one of those points can lose the in-progress match.
 - Online friends can be invited by username from the in-game lobby; the invite sends a private room code. Offline friends can join later using the shared code.
