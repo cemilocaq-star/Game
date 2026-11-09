@@ -67,6 +67,9 @@ var hill_control := 0.0
 var objective_label: Label
 var killstreak_label: Label
 var weapon_mastery_label: Label
+var equipped_weapon_label: Label
+const WEAPON_ORDER := ["aether", "minicore", "hand_cannon", "pulse_carbine", "star_piercer", "duck_launcher", "banana_boomerang", "confetti_cannon"]
+const WEAPON_DISPLAY := {"aether":"AETHER BLASTER", "minicore":"MINICORE", "hand_cannon":"NOVA HAND CANNON", "pulse_carbine":"PULSE CARBINE", "star_piercer":"STAR PIERCER", "duck_launcher":"DUCK LAUNCHER", "banana_boomerang":"BANANA BOOMERANG", "confetti_cannon":"CONFETTI CANNON"}
 
 const RANK_THRESHOLDS := [
 	{"id":"bronze", "xp":0, "color":Color("#B87945")},
@@ -541,6 +544,20 @@ func _process(delta: float) -> void:
 	_update_hud()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("weapon_next"):
+		_cycle_weapon(1)
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed("weapon_prev"):
+		_cycle_weapon(-1)
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		var number_to_weapon := {KEY_1:"aether", KEY_2:"minicore", KEY_3:"hand_cannon", KEY_4:"pulse_carbine", KEY_5:"star_piercer", KEY_6:"duck_launcher", KEY_7:"banana_boomerang", KEY_8:"confetti_cannon"}
+		if number_to_weapon.has(event.keycode):
+			_select_weapon(str(number_to_weapon[event.keycode]))
+			get_viewport().set_input_as_handled()
+			return
 	if event.is_action_pressed("throw_grenade") and is_instance_valid(network) and network.is_authenticated and is_instance_valid(player):
 		network.request_grenade_throw(-player.global_basis.z + Vector3.UP * 0.12)
 		get_viewport().set_input_as_handled()
@@ -555,6 +572,22 @@ func _unhandled_input(event: InputEvent) -> void:
 		_toggle_admin_panel()
 		get_viewport().set_input_as_handled()
 
+func _cycle_weapon(direction: int) -> void:
+	if not is_instance_valid(player):
+		return
+	var current_index := WEAPON_ORDER.find(player.selected_weapon_id)
+	current_index = posmod(current_index + direction, WEAPON_ORDER.size())
+	_select_weapon(WEAPON_ORDER[current_index])
+
+func _select_weapon(weapon_id: String) -> void:
+	if not WEAPON_ORDER.has(weapon_id) or not is_instance_valid(player):
+		return
+	player.selected_weapon_id = weapon_id
+	if is_instance_valid(network) and network.is_authenticated:
+		network.request_select_weapon(weapon_id)
+	if is_instance_valid(equipped_weapon_label):
+		equipped_weapon_label.text = "EQUIPPED  •  " + str(WEAPON_DISPLAY.get(weapon_id, weapon_id.to_upper())) + "   [1–8 / E / R]"
+
 func _toggle_admin_panel() -> void:
 	if not admin_available or not is_instance_valid(admin_panel):
 		return
@@ -563,6 +596,8 @@ func _toggle_admin_panel() -> void:
 
 func _setup_input() -> void:
 	_add_key_action("throw_grenade", KEY_G)
+	_add_key_action("weapon_next", KEY_E)
+	_add_key_action("weapon_prev", KEY_R)
 	_add_key_action("emote_griddy", KEY_B)
 	_add_key_action("emote_goofy", KEY_N)
 	_add_key_action("move_forward", KEY_W)
@@ -963,6 +998,8 @@ func _build_hud() -> void:
 	killstreak_label.add_theme_color_override("font_color", Color("#FFB84D"))
 	weapon_mastery_label = _make_label(root, "WEAPON MASTERY  •  BLASTER LEVEL 0  •  GRENADE LEVEL 0", Vector2(500, 84), 15)
 	weapon_mastery_label.add_theme_color_override("font_color", Color("#83D6FF"))
+	equipped_weapon_label = _make_label(root, "EQUIPPED  •  AETHER BLASTER   [1–8 / E / R]", Vector2(500, 112), 15)
+	equipped_weapon_label.add_theme_color_override("font_color", Color("#FFE6A1"))
 	var team_label := _make_label(root, "TEAM FREE", Vector2(22, 148), 14)
 	team_label.name = "TeamLabel"
 	health_bar = ProgressBar.new()
@@ -1436,6 +1473,8 @@ func _build_touch_controls(root: Control) -> void:
 	_add_touch_button(root, "SLIDE", "slide", Vector2(-150, -48), Vector2(88, 54), true)
 	_add_touch_button(root, "PULSE", "fire", Vector2(-255, -270), Vector2(96, 64), false)
 	_add_touch_button(root, "GRENADE", "throw_grenade", Vector2(-150, -270), Vector2(88, 64), false)
+	_add_touch_button(root, "WEAPON +", "weapon_next", Vector2(-255, -430), Vector2(96, 54), false)
+	_add_touch_button(root, "WEAPON -", "weapon_prev", Vector2(-150, -430), Vector2(88, 54), false)
 	_add_touch_button(root, "GRIDDY", "emote_griddy", Vector2(-255, -350), Vector2(96, 56), false)
 	_add_touch_button(root, "GOOFY", "emote_goofy", Vector2(-150, -350), Vector2(88, 56), false)
 
