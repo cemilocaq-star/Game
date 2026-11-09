@@ -127,6 +127,10 @@ func _connect_now() -> void:
 		multiplayer.server_disconnected.connect(_on_server_disconnected)
 	connection_status_changed.emit("Connecting to " + _last_host + ":" + str(PORT))
 
+func update_access_token(token: String) -> void:
+	if not token.is_empty():
+		_access_token = token
+
 func set_local_player(player: Node3D, display_name: String, color: Color) -> void:
 	local_player = player
 	local_player_name = display_name.substr(0, 24)
