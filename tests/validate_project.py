@@ -218,7 +218,7 @@ checks = [
     ("_make_weapon_stream(weapon_id: String)", player, "original weapon-specific synthesized audio"),
     ("_fire_blaster", player, "local blaster firing"),
     ("MOUSE_BUTTON_LEFT", main, "desktop blaster input"),
-    ('"PULSE"', main, "mobile blaster control"),
+    ('"FIRE"', main, "mobile primary-action control"),
     ("_server_blaster_fire", read("scripts/oxenwar_network.gd"), "server-validated blaster fire"),
     ("_client_blaster_fx", read("scripts/oxenwar_network.gd"), "multiplayer blaster visual replication"),
     ("_last_blaster_ms", read("scripts/oxenwar_network.gd"), "server fire-rate validation"),
