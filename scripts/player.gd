@@ -85,6 +85,7 @@ var _blaster_model: Node3D
 var _blaster_cooldown := 0.0
 var _blaster_recoil := 0.0
 var _weapon_inspect_tween: Tween
+var _weapon_fire_tween: Tween
 var _weapon_idle_clock := 0.0
 var selected_weapon_id := "aether"
 var arsenal_open := false
@@ -315,7 +316,7 @@ func _process(delta: float) -> void:
 	_weapon_idle_clock += delta
 	if is_instance_valid(_blaster_model):
 		_blaster_model.position.z = -0.48 + _blaster_recoil
-		if _weapon_inspect_tween == null or not _weapon_inspect_tween.is_running():
+		if (_weapon_inspect_tween == null or not _weapon_inspect_tween.is_running()) and (_weapon_fire_tween == null or not _weapon_fire_tween.is_running()):
 			_blaster_model.rotation.z = sin(_weapon_idle_clock * 1.35) * 0.012
 			_blaster_model.position.y = -0.24 + sin(_weapon_idle_clock * 1.7) * 0.006
 	if Input.is_action_pressed("fire") and _blaster_cooldown <= 0.0 and not arsenal_open:
@@ -524,11 +525,53 @@ func inspect_weapon() -> void:
 	_weapon_inspect_tween.tween_property(_blaster_model, "scale", Vector3.ONE, 0.30)
 
 
+func _animate_weapon_fire() -> void:
+	if not is_instance_valid(_blaster_model):
+		return
+	if _weapon_fire_tween != null and _weapon_fire_tween.is_running():
+		_weapon_fire_tween.kill()
+	var kick := Vector3.ZERO
+	var tilt := Vector3.ZERO
+	var squash := Vector3.ONE
+	match selected_weapon_id:
+		"hand_cannon", "meteor_mallet", "thunder_drum":
+			kick = Vector3(0.0, -0.035, 0.0)
+			tilt = Vector3(deg_to_rad(-9.0), 0.0, deg_to_rad(-4.0))
+			squash = Vector3(0.96, 1.04, 0.94)
+		"comet_bow", "star_piercer", "solar_lance":
+			kick = Vector3(0.0, 0.025, 0.0)
+			tilt = Vector3(deg_to_rad(5.0), 0.0, deg_to_rad(3.0))
+			squash = Vector3(1.04, 0.96, 1.06)
+		"prism_scepter", "frost_wand", "jellyfish_staff":
+			tilt = Vector3(0.0, 0.0, deg_to_rad(-13.0))
+			kick = Vector3(0.0, -0.045, 0.0)
+		"vortex_orbiter", "moon_disc", "banana_boomerang":
+			tilt = Vector3(0.0, deg_to_rad(12.0), deg_to_rad(7.0))
+			squash = Vector3(1.08, 0.94, 1.0)
+		"rubber_chicken", "duck_launcher", "bubble_burst", "slime_slinger":
+			tilt = Vector3(deg_to_rad(-5.0), 0.0, deg_to_rad(8.0))
+			kick = Vector3(0.0, -0.025, 0.0)
+		_:
+			kick = Vector3(0.0, 0.012, 0.055)
+			tilt = Vector3(deg_to_rad(-3.0), 0.0, 0.0)
+			squash = Vector3(0.98, 1.02, 0.96)
+	_weapon_fire_tween = create_tween()
+	_weapon_fire_tween.set_parallel(true)
+	_weapon_fire_tween.tween_property(_blaster_model, "rotation", tilt, 0.055).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_weapon_fire_tween.tween_property(_blaster_model, "position:y", -0.24 + kick.y, 0.055)
+	_weapon_fire_tween.tween_property(_blaster_model, "scale", squash, 0.055)
+	_weapon_fire_tween.chain().set_parallel(true)
+	_weapon_fire_tween.tween_property(_blaster_model, "rotation", Vector3.ZERO, 0.12).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_weapon_fire_tween.tween_property(_blaster_model, "position:y", -0.24, 0.12)
+	_weapon_fire_tween.tween_property(_blaster_model, "scale", Vector3.ONE, 0.12)
+
+
 func _fire_blaster() -> void:
 	if not is_instance_valid(_camera) or _blaster_cooldown > 0.0:
 		return
 	_blaster_cooldown = float(ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"]).get("cooldown", 0.24))
 	_blaster_recoil = 0.055
+	_animate_weapon_fire()
 	var origin := _camera.global_position
 	var direction := -_camera.global_basis.z.normalized()
 	var weapon_data: Dictionary = ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"])
@@ -546,7 +589,7 @@ func _fire_blaster() -> void:
 	else:
 		_show_blaster_beam(origin, endpoint)
 	if is_instance_valid(_blaster_audio):
-				_blaster_audio.pitch_scale = randf_range(0.985, 1.015)
+		_blaster_audio.pitch_scale = randf_range(0.985, 1.015)
 		_blaster_audio.play()
 	var flash := MeshInstance3D.new()
 	var flash_mesh := SphereMesh.new()
