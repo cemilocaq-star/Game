@@ -181,7 +181,7 @@ func _on_network_room_state(state: Dictionary) -> void:
 		round_left = float(state.get("round_left", ROUND_SECONDS))
 		var available: Dictionary = state.get("orb_available", {})
 		for index in range(orb_spawns.size()):
-			var orb := get_node_or_null("GoldenOrb_%02d" % index)
+			var orb = get_node_or_null("GoldenOrb_%02d" % index)
 			if is_instance_valid(orb) and available.has(index):
 				orb.visible = bool(available[index])
 	if state.has("members"):
