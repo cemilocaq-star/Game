@@ -279,7 +279,7 @@ func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
 		remote.name = "RemotePlayer_%d" % peer_id
 		add_child(remote)
 		remote_players[peer_id] = remote
-		remote.set_identity(str(state.get("display_name", "Player")), Color.from_string(str(state.get("color", "#27D7E7")), Color("#27D7E7")))
+		remote.set_player_identity(str(state.get("display_name", "Player")), Color.from_string(str(state.get("color", "#27D7E7")), Color("#27D7E7")))
 	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)), bool(state.get("sliding", false)))
 
 func _on_remote_player_left(peer_id: int) -> void:
