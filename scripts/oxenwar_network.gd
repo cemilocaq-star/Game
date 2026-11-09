@@ -39,6 +39,7 @@ var _access_token := ""
 var _last_send_ms := 0
 var _snapshot_accumulator := 0.0
 var _server_players: Dictionary = {} # peer id -> CharacterBody3D
+var _client_peer_ids: Dictionary = {}
 var _peer_users: Dictionary = {} # peer id -> Supabase user id
 var _user_peers: Dictionary = {} # Supabase user id -> peer id
 var _profiles: Dictionary = {}
@@ -465,6 +466,13 @@ func _server_remove_from_room(user_id: String) -> void:
 		_user_rooms.erase(user_id)
 		return
 	var room: Dictionary = _rooms[old_code]
+	var old_peer := int(room.members.get(user_id, 0))
+	if old_peer > 0 and _server_players.has(old_peer):
+		_persist_room_member_result(old_code, user_id, _server_players[old_peer])
+		for member_uid in room.members.keys():
+			var member_peer := int(room.members[member_uid])
+			if member_peer > 0 and member_peer != old_peer:
+				rpc_id(member_peer, "_client_peer_left", old_peer)
 	room.members.erase(user_id)
 	_rooms[old_code] = room
 	_user_rooms.erase(user_id)
@@ -497,8 +505,12 @@ func _server_process_rooms(delta: float) -> void:
 					_rooms.erase(code)
 				else:
 					_broadcast_room_state(code)
+	_snapshot_accumulator += delta
 	for code in _rooms.keys():
 		var room: Dictionary = _rooms[code]
+		if bool(room.round_finished):
+			_rooms[code] = room
+			continue
 		room.event_clock = float(room.event_clock) - delta
 		room.event_left = maxf(0.0, float(room.event_left) - delta)
 		room.round_left = maxf(0.0, float(room.round_left) - delta)
@@ -551,9 +563,8 @@ func _server_process_rooms(delta: float) -> void:
 					var finished_player: CharacterBody3D = _server_players[finished_peer]
 					finished_player.input_vector = Vector2.ZERO
 					finished_player.velocity = Vector3.ZERO
-					_persist_user_result(str(uid), finished_player)
+					_persist_room_member_result(str(code), str(uid), finished_player)
 		_rooms[code] = room
-		_snapshot_accumulator += delta
 	if _snapshot_accumulator >= SNAPSHOT_INTERVAL:
 		_snapshot_accumulator = 0.0
 		for code in _rooms.keys():
@@ -569,8 +580,20 @@ func _collection_list(player: CharacterBody3D) -> Array[String]:
 			result.append(str(collection_id))
 	return result
 
+func _persist_room_member_result(room_code: String, user_id: String, player: CharacterBody3D) -> void:
+	if not _rooms.has(room_code):
+		return
+	var room: Dictionary = _rooms[room_code]
+	var persisted: Dictionary = room.get("persisted", {})
+	if persisted.has(user_id):
+		return
+	persisted[user_id] = true
+	room.persisted = persisted
+	_rooms[room_code] = room
+	_persist_user_result(user_id, player)
+
 func _persist_user_result(user_id: String, player: CharacterBody3D) -> void:
-	if user_id.is_empty() or player.score <= 0 and player.match_xp <= 0:
+	if user_id.is_empty() or (player.score <= 0 and player.match_xp <= 0 and player.collection_counts.is_empty()):
 		return
 	var token := str(_tokens.get(user_id, ""))
 	if token.is_empty():
@@ -677,10 +700,14 @@ func _client_receive_snapshot(states: Dictionary, event_id: String, event_left: 
 			local_state_received.emit(state)
 		else:
 			player_state_received.emit(peer_id, state)
-	for peer_id in _server_players.keys():
+	for key in states.keys():
+		var incoming_peer := int(key)
+		if incoming_peer != multiplayer.get_unique_id():
+			_client_peer_ids[incoming_peer] = true
+	for peer_id in _client_peer_ids.keys():
 		if not states.has(peer_id):
 			player_disconnected.emit(int(peer_id))
-	_server_players.clear()
+			_client_peer_ids.erase(peer_id)
 	room_state_changed.emit({
 		"code": room_code, "event_id": event_id, "event_left": event_left,
 		"round_left": round_left, "orb_available": orb_available
