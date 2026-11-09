@@ -38,7 +38,9 @@ var graphics_option: OptionButton
 var arena_meshes: Array[MeshInstance3D] = []
 var arena_colors: Array[Color] = []
 var map_extras: Array[Node3D] = []
-var active_map_index := 0
+var active_map_index := 4
+var selected_game_mode := "ffa"
+var _client_grenade_visuals: Dictionary = {}
 var admin_available := false
 var admin_panel: PanelContainer
 var admin_hint: Label
@@ -139,6 +141,8 @@ func _start_multiplayer_client() -> void:
 	add_child(network)
 	network.player_state_received.connect(_on_remote_player_state)
 	network.blaster_fx_received.connect(_on_blaster_fx_received)
+	network.grenade_spawn_received.connect(_on_grenade_spawn_received)
+	network.grenade_exploded_received.connect(_on_grenade_exploded_received)
 	network.player_disconnected.connect(_on_remote_player_left)
 	network.connection_status_changed.connect(_on_network_status_changed)
 	network.authentication_changed.connect(_on_network_authentication_changed)
@@ -182,6 +186,9 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 	player.is_dead = bool(state.get("dead", false))
 	player.respawn_left = float(state.get("respawn_left", 0.0))
 	player.apply_server_slide(bool(state.get("sliding", false)))
+	var team_label := hud_layer.get_node_or_null("Control/TeamLabel") if is_instance_valid(hud_layer) else null
+	if team_label:
+		team_label.text = "TEAM " + str(state.get("team_id", "FREE")).to_upper()
 	if is_instance_valid(progression):
 		progression.sync_server_total_xp(int(state.get("xp", progression.total_xp)))
 	_update_hud()
@@ -205,8 +212,8 @@ func _on_network_room_state(state: Dictionary) -> void:
 		for member in members:
 			names.append(str(member.get("display_name", "Player")) + ("" if bool(member.get("online", false)) else " (offline)"))
 		if is_instance_valid(room_status_label):
-			room_status_label.text = "ROOM %s • %d/%d • %s" % [
-				str(state.get("code", "")), members.size(), int(state.get("max_players", 8)),
+			room_status_label.text = "ROOM %s • %s • %d/%d • %s" % [
+				str(state.get("code", "")), str(state.get("mode", "ffa")).to_upper(), members.size(), int(state.get("max_players", 8)),
 				", ".join(names)
 			]
 	_update_hud()
@@ -252,11 +259,11 @@ func _on_network_connect_pressed() -> void:
 
 func _on_create_room_pressed() -> void:
 	if is_instance_valid(network):
-		network.request_create_room(true)
+		network.request_create_room(true, selected_game_mode)
 
 func _on_quick_match_pressed() -> void:
 	if is_instance_valid(network):
-		network.request_quick_match()
+		network.request_quick_match(selected_game_mode)
 
 func _on_join_room_pressed() -> void:
 	if is_instance_valid(network) and is_instance_valid(room_code_input):
@@ -290,7 +297,7 @@ func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
 		add_child(remote)
 		remote_players[peer_id] = remote
 		remote.set_player_identity(str(state.get("display_name", "Player")), Color.from_string(str(state.get("color", "#27D7E7")), Color("#27D7E7")), str(state.get("outfit_id", "outfit_default")) )
-	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)), bool(state.get("sliding", false)), float(state.get("health", 100.0)), bool(state.get("dead", false)))
+	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)), bool(state.get("sliding", false)), float(state.get("health", 100.0)), bool(state.get("dead", false)), str(state.get("team_id", "")))
 
 func _make_remote_blaster_stream() -> AudioStreamWAV:
 	const sample_rate := 22050
@@ -343,6 +350,56 @@ func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Ve
 	beam.scale.z = maxf(0.05, origin.distance_to(endpoint))
 	get_tree().create_timer(0.085).timeout.connect(beam.queue_free)
 
+func _on_grenade_spawn_received(grenade_id: int, origin: Vector3, launch_velocity: Vector3) -> void:
+	var grenade := MeshInstance3D.new()
+	grenade.name = "NetworkGrenade_%d" % grenade_id
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.16
+	mesh.height = 0.32
+	grenade.mesh = mesh
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color("#E7A83E")
+	material.metallic = 0.55
+	material.roughness = 0.35
+	grenade.material_override = material
+	add_child(grenade)
+	grenade.global_position = origin
+	_client_grenade_visuals[grenade_id] = {"node": grenade, "velocity": launch_velocity}
+
+func _on_grenade_exploded_received(grenade_id: int, position_value: Vector3) -> void:
+	var entry: Dictionary = _client_grenade_visuals.get(grenade_id, {})
+	var grenade: Node = entry.get("node")
+	if is_instance_valid(grenade):
+		grenade.queue_free()
+	_client_grenade_visuals.erase(grenade_id)
+	var flash := OmniLight3D.new()
+	flash.light_color = Color("#FF9B45")
+	flash.light_energy = 4.0
+	flash.omni_range = 8.0
+	add_child(flash)
+	flash.global_position = position_value
+	var burst := MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = 0.45
+	burst.mesh = sphere
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(1.0, 0.42, 0.12, 0.72)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.emission_enabled = true
+	mat.emission = Color("#FF6A24")
+	mat.emission_energy_multiplier = 3.0
+	burst.material_override = mat
+	add_child(burst)
+	burst.global_position = position_value
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(burst, "scale", Vector3.ONE * 9.0, 0.32)
+	tween.tween_property(mat, "albedo_color:a", 0.0, 0.32)
+	tween.tween_property(flash, "light_energy", 0.0, 0.28)
+	tween.chain().tween_callback(burst.queue_free)
+	tween.tween_callback(flash.queue_free)
+
 func _on_remote_player_left(peer_id: int) -> void:
 	var remote: Node = remote_players.get(peer_id)
 	if is_instance_valid(remote):
@@ -352,6 +409,17 @@ func _on_remote_player_left(peer_id: int) -> void:
 func _process(delta: float) -> void:
 	if OS.get_cmdline_user_args().has("--server"):
 		return
+	for grenade_id in _client_grenade_visuals.keys():
+		var entry: Dictionary = _client_grenade_visuals[grenade_id]
+		var grenade_node: Node3D = entry.get("node")
+		if not is_instance_valid(grenade_node):
+			_client_grenade_visuals.erase(grenade_id)
+			continue
+		var velocity: Vector3 = entry.get("velocity", Vector3.ZERO)
+		velocity.y -= 9.8 * delta
+		grenade_node.global_position += velocity * delta
+		entry.velocity = velocity
+		_client_grenade_visuals[grenade_id] = entry
 	if _round_finished:
 		return
 	if is_instance_valid(graphics):
@@ -375,6 +443,10 @@ func _process(delta: float) -> void:
 	_update_hud()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("throw_grenade") and is_instance_valid(network) and network.is_authenticated and is_instance_valid(player):
+		network.request_grenade_throw(-player.global_basis.z + Vector3.UP * 0.12)
+		get_viewport().set_input_as_handled()
+		return
 	if not admin_available or not event is InputEventKey or not event.pressed or event.echo:
 		return
 	if event.keycode == KEY_F8:
@@ -388,6 +460,7 @@ func _toggle_admin_panel() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if admin_panel.visible else Input.MOUSE_MODE_CAPTURED
 
 func _setup_input() -> void:
+	_add_key_action("throw_grenade", KEY_G)
 	_add_key_action("move_forward", KEY_W)
 	_add_key_action("move_back", KEY_S)
 	_add_key_action("move_left", KEY_A)
@@ -667,7 +740,18 @@ func _build_hud() -> void:
 	invite_friend_button.pressed.connect(_on_invite_friend_pressed)
 	root.add_child(invite_friend_button)
 	room_status_label = _make_label(root, "LOBBY • Sign in to play online", Vector2(22, 397), 13)
+	var mode_select := OptionButton.new()
+	mode_select.position = Vector2(22, 440)
+	mode_select.size = Vector2(220, 32)
+	mode_select.add_item("FREE FOR ALL")
+	mode_select.set_item_metadata(0, "ffa")
+	mode_select.add_item("TEAM DEATHMATCH")
+	mode_select.set_item_metadata(1, "team_deathmatch")
+	mode_select.item_selected.connect(func(index: int): selected_game_mode = str(mode_select.get_item_metadata(index)))
+	root.add_child(mode_select)
 	health_label = _make_label(root, "HEALTH 100 / 100", Vector2(22, 108), 14)
+	var team_label := _make_label(root, "TEAM FREE", Vector2(22, 148), 14)
+	team_label.name = "TeamLabel"
 	health_bar = ProgressBar.new()
 	health_bar.position = Vector2(22, 128)
 	health_bar.size = Vector2(220, 16)
@@ -940,6 +1024,9 @@ func _map_name() -> String:
 	return ["LOST MALL", "NEON CITY", "SPACE ISLANDS", "CANDY WORLD"][active_map_index]
 
 func _apply_map_variant() -> void:
+	if active_map_index == 4:
+		_build_dust_two_inspired_layout()
+		return
 	if active_map_index == 0:
 		return
 	var tint := Color(0.1, 0.9, 0.78) if active_map_index == 1 else (Color(0.55, 0.35, 1.0) if active_map_index == 2 else Color(1.0, 0.35, 0.62))
@@ -966,6 +1053,27 @@ func _apply_map_variant() -> void:
 		platform.add_child(mesh_node)
 		add_child(platform)
 		map_extras.append(platform)
+
+func _build_dust_two_inspired_layout() -> void:
+	# Original desert three-lane tactical layout; no Counter-Strike assets are copied.
+	var sand := Color("#B99463")
+	var stone := Color("#80694F")
+	var dark := Color("#514638")
+	_make_box("Dust2_A_Long_Cover_01", Vector3(5, 2.2, 1.0), Vector3(-11, 1.1, -8), stone)
+	_make_box("Dust2_A_Long_Cover_02", Vector3(1.0, 2.2, 6), Vector3(-15, 1.1, -4), stone)
+	_make_box("Dust2_A_Site", Vector3(9, 0.35, 7), Vector3(-11, 0.18, -10), sand)
+	_make_box("Dust2_A_Site_BackWall", Vector3(0.8, 4.2, 10), Vector3(-16.5, 2.1, -10), dark)
+	_make_box("Dust2_Mid_Catwalk", Vector3(15, 0.35, 3.5), Vector3(0, 0.18, -4), sand)
+	_make_box("Dust2_Mid_CentralCover", Vector3(2.2, 2.4, 3.2), Vector3(0, 1.2, -5), stone)
+	_make_box("Dust2_Mid_Tunnel_Left", Vector3(1.0, 3.2, 9), Vector3(-5.5, 1.6, 2), dark)
+	_make_box("Dust2_Mid_Tunnel_Right", Vector3(1.0, 3.2, 9), Vector3(5.5, 1.6, 2), dark)
+	_make_box("Dust2_B_Site", Vector3(9, 0.35, 7), Vector3(11, 0.18, 10), sand)
+	_make_box("Dust2_B_BackWall", Vector3(0.8, 4.2, 10), Vector3(16.5, 2.1, 10), dark)
+	_make_box("Dust2_B_Tunnel_Cover", Vector3(4, 2.0, 1.0), Vector3(11, 1.0, 6), stone)
+	_make_box("Dust2_Short_Connector", Vector3(7, 0.35, 2.8), Vector3(7, 0.18, 0), sand)
+	_make_box("Dust2_Long_Approach", Vector3(2.8, 0.35, 10), Vector3(-15, 0.18, 1), sand)
+	_make_box("Dust2_TSpawn_Arch", Vector3(5, 3.4, 0.7), Vector3(0, 1.7, 13.5), stone)
+	_make_box("Dust2_Mid_Upper_Cover", Vector3(4, 1.8, 2), Vector3(0, 0.9, 4), stone)
 
 func _spawn_meteor_shower() -> void:
 	for i in range(7):
