@@ -109,3 +109,6 @@ Players can trigger the original Griddy dance with **B** or the mobile **GRIDDY*
 
 ## HUD visual pass
 The in-game HUD now uses restrained translucent panels for combat status, vitals and lobby controls, with cyan accent borders and custom health, stamina and XP progress-bar styling. The health label changes to a warning tint at low health. HUD presentation is client-side only; gameplay values and authoritative state are unchanged.
+
+## Kill feed and match scoreboard
+Confirmed eliminations now generate a reliable server-authored kill-feed event for every room member, identifying the killer, victim and weapon type (Aether Blaster or grenade). The server tracks deaths alongside kills and includes both in authoritative snapshots. The client displays the five most recent elimination notices and a live scoreboard sorted by kills, then score, with K/D/score columns. Press **Tab** on desktop or use the **SCOREBOARD** touch button on mobile. These UI elements do not award kills or alter combat authority.
