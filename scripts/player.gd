@@ -134,8 +134,7 @@ func _build_visuals() -> void:
 		_body_mesh.material_override = neon_material
 	elif cosmetic_outfit == "outfit_runner":
 		_body_mesh.scale = Vector3(0.94, 1.0, 0.94)
-	if cosmetic_outfit != "outfit_iron_vanguard" and cosmetic_outfit != "outfit_web_sentinel":
-		_add_selected_accessory()
+	_add_selected_accessory()
 	_body_mesh.position.y = 0.9
 	add_child(_body_mesh)
 	_build_swimwear()
@@ -144,10 +143,15 @@ func _build_visuals() -> void:
 	if cosmetic_outfit == "outfit_iron_vanguard" or cosmetic_outfit == "outfit_web_sentinel":
 		_add_hero_skin_details()
 
+	# Keep the local avatar out of the first-person camera while preserving shadows.
+	_set_visual_layer_recursive(self, 2)
 	_camera = Camera3D.new()
-	_camera.position = Vector3(0, 1.55, 0)
+	_camera.position = Vector3(0, 1.55, -0.34)
 	_camera.current = true
 	_camera.fov = 86.0
+	_camera.near = 0.05
+	_camera.far = 300.0
+	_camera.cull_mask = 1
 	add_child(_camera)
 
 	var halo_scene: PackedScene = load("res://assets/CosmicHalo_Cosmetic.glb")
@@ -155,8 +159,15 @@ func _build_visuals() -> void:
 		var halo := halo_scene.instantiate()
 		halo.scale = Vector3.ONE * 0.003
 		halo.position = Vector3(0, 2.0, 0)
+		_set_visual_layer_recursive(halo, 2)
 		add_child(halo)
 
+
+func _set_visual_layer_recursive(node: Node, layer_mask: int) -> void:
+	if node is VisualInstance3D:
+		(node as VisualInstance3D).layers = layer_mask
+	for child in node.get_children():
+		_set_visual_layer_recursive(child, layer_mask)
 
 func _add_hero_skin_details() -> void:
 	# Original hero-inspired silhouettes; no copied movie/game meshes or logos.

@@ -2,6 +2,7 @@ extends CanvasLayer
 signal play_requested(identity: Dictionary)
 
 const I18N = preload("res://scripts/oxenwar_i18n.gd")
+const CHARACTER_VISUALS = preload("res://scripts/character_visuals.gd")
 var backend: Node
 var locale := "az"
 var profile: Dictionary = {}
@@ -16,6 +17,8 @@ var message_label: Label
 var content: VBoxContainer
 var cosmetics: Dictionary = {}
 var registration_notice := ""
+var preview_spin: Node3D
+var preview_model: Node3D
 
 const BG := Color("#07111F")
 const PANEL := Color("#101F32")
@@ -30,6 +33,10 @@ func configure(client: Node, restored: Dictionary = {}) -> void:
 
 func _ready() -> void:
 	pass
+
+func _process(delta: float) -> void:
+	if is_instance_valid(preview_spin):
+		preview_spin.rotation.y += delta * 0.48
 
 func _t(key: String) -> String:
 	return I18N.text_for(key, locale)
@@ -275,6 +282,8 @@ func _on_tab_pressed(tab: String) -> void:
 func _render_tab() -> void:
 	if not is_instance_valid(content):
 		return
+	preview_spin = null
+	preview_model = null
 	for child in content.get_children():
 		child.queue_free()
 	match active_tab:
@@ -557,7 +566,41 @@ func _search_players(query: String) -> void:
 		content.add_child(row)
 
 func _render_character() -> void:
-	content.add_child(_large_label(_t("character") + "  •  " + _t("free")))
+	content.add_child(_large_label(_t("character") + "  •  3D PREVIEW"))
+	var layout := HBoxContainer.new()
+	layout.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	layout.add_theme_constant_override("separation", 16)
+	content.add_child(layout)
+
+	var preview_panel := PanelContainer.new()
+	preview_panel.custom_minimum_size = Vector2(280, 220)
+	preview_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	preview_panel.add_theme_stylebox_override("panel", _panel_style())
+	layout.add_child(preview_panel)
+	var preview_container := SubViewportContainer.new()
+	preview_container.stretch = true
+	preview_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	preview_panel.add_child(preview_container)
+	var preview_viewport := SubViewport.new()
+	preview_viewport.size = Vector2i(512, 384)
+	preview_viewport.own_world_3d = true
+	preview_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	preview_viewport.msaa_3d = Viewport.MSAA_2X
+	preview_container.add_child(preview_viewport)
+	_build_character_preview_stage(preview_viewport)
+
+	var controls_panel := PanelContainer.new()
+	controls_panel.custom_minimum_size = Vector2(230, 0)
+	controls_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	controls_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	controls_panel.add_theme_stylebox_override("panel", _panel_style())
+	layout.add_child(controls_panel)
+	var controls := VBoxContainer.new()
+	controls.add_theme_constant_override("separation", 9)
+	controls_panel.add_child(controls)
+
 	var color_option := OptionButton.new()
 	var outfit_option := OptionButton.new()
 	var accessory_option := OptionButton.new()
@@ -585,30 +628,65 @@ func _render_character() -> void:
 	for item in accessory_items:
 		accessory_option.add_item(str(item.get("name_key")).replace("cosmetic.accessory.", "").capitalize())
 		accessory_option.set_item_metadata(accessory_option.item_count - 1, str(item.get("id")))
-	content.add_child(_label(_t("choose_color")))
-	content.add_child(color_option)
-	content.add_child(_label(_t("choose_outfit")))
-	content.add_child(outfit_option)
-	content.add_child(_label("Accessory"))
-	content.add_child(accessory_option)
-	if color_items.is_empty() or outfit_items.is_empty() or accessory_items.is_empty():
-		content.add_child(_label("Free cosmetics will appear after your account has unlocked its starter inventory."))
-		return
+
 	for i in color_items.size():
-		if str(color_items[i].get("id")) == str(profile.get("avatar_color_id", "")):
+		if str(color_items[i].get("id")) == str(profile.get("avatar_color_id", "color_cyan")):
 			color_option.select(i)
 	for i in outfit_items.size():
-		if str(outfit_items[i].get("id")) == str(profile.get("outfit_id", "")):
+		if str(outfit_items[i].get("id")) == str(profile.get("outfit_id", "outfit_default")):
 			outfit_option.select(i)
 	for i in accessory_items.size():
-		if str(accessory_items[i].get("id")) == str(profile.get("accessory_id", "")):
+		if str(accessory_items[i].get("id")) == str(profile.get("accessory_id", "accessory_cap")):
 			accessory_option.select(i)
+	if color_option.item_count > 0 and color_option.selected < 0:
+		color_option.select(0)
+	if outfit_option.item_count > 0 and outfit_option.selected < 0:
+		outfit_option.select(0)
+	if accessory_option.item_count > 0 and accessory_option.selected < 0:
+		accessory_option.select(0)
+
+	controls.add_child(_label(_t("choose_color")))
+	controls.add_child(color_option)
+	controls.add_child(_label(_t("choose_outfit")))
+	controls.add_child(outfit_option)
+	controls.add_child(_label("Accessory"))
+	controls.add_child(accessory_option)
+	_refresh_character_preview(
+		_selected_cosmetic_id(color_option, "color_cyan"),
+		_selected_cosmetic_id(outfit_option, "outfit_default"),
+		_selected_cosmetic_id(accessory_option, "accessory_cap")
+	)
+	color_option.item_selected.connect(func(_index: int):
+		_refresh_character_preview(
+			_selected_cosmetic_id(color_option, "color_cyan"),
+			_selected_cosmetic_id(outfit_option, "outfit_default"),
+			_selected_cosmetic_id(accessory_option, "accessory_cap")
+		)
+	)
+	outfit_option.item_selected.connect(func(_index: int):
+		_refresh_character_preview(
+			_selected_cosmetic_id(color_option, "color_cyan"),
+			_selected_cosmetic_id(outfit_option, "outfit_default"),
+			_selected_cosmetic_id(accessory_option, "accessory_cap")
+		)
+	)
+	accessory_option.item_selected.connect(func(_index: int):
+		_refresh_character_preview(
+			_selected_cosmetic_id(color_option, "color_cyan"),
+			_selected_cosmetic_id(outfit_option, "outfit_default"),
+			_selected_cosmetic_id(accessory_option, "accessory_cap")
+		)
+	)
+
+	if color_items.is_empty() or outfit_items.is_empty() or accessory_items.is_empty():
+		controls.add_child(_label("Some cosmetic slots are locked or not available yet. The 3D preview still shows your current/default character."))
+		return
 	var save := _button(_t("save"), true)
 	save.pressed.connect(func():
 		var saved: Dictionary = await backend.update_profile({
-			"avatar_color_id": str(color_option.get_item_metadata(color_option.selected)),
-			"outfit_id": str(outfit_option.get_item_metadata(outfit_option.selected)),
-			"accessory_id": str(accessory_option.get_item_metadata(accessory_option.selected))
+			"avatar_color_id": _selected_cosmetic_id(color_option, "color_cyan"),
+			"outfit_id": _selected_cosmetic_id(outfit_option, "outfit_default"),
+			"accessory_id": _selected_cosmetic_id(accessory_option, "accessory_cap")
 		})
 		if saved.get("ok", false):
 			profile = await backend.get_profile()
@@ -616,7 +694,158 @@ func _render_character() -> void:
 		else:
 			save.text = _t("error")
 	)
-	content.add_child(save)
+	controls.add_child(save)
+
+func _selected_cosmetic_id(option: OptionButton, fallback: String) -> String:
+	if not is_instance_valid(option) or option.item_count == 0 or option.selected < 0:
+		return fallback
+	return str(option.get_item_metadata(option.selected))
+
+func _build_character_preview_stage(viewport: SubViewport) -> void:
+	var environment_node := WorldEnvironment.new()
+	var environment := Environment.new()
+	environment.background_mode = Environment.BG_COLOR
+	environment.background_color = Color("#0A1728")
+	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	environment.ambient_light_color = Color("#B7D8F2")
+	environment.ambient_light_energy = 0.9
+	environment_node.environment = environment
+	viewport.add_child(environment_node)
+
+	var stage := Node3D.new()
+	stage.name = "CharacterPreviewStage"
+	viewport.add_child(stage)
+	var key_light := DirectionalLight3D.new()
+	key_light.rotation_degrees = Vector3(-34, -28, 0)
+	key_light.light_color = Color("#E5F4FF")
+	key_light.light_energy = 1.45
+	stage.add_child(key_light)
+	var fill_light := OmniLight3D.new()
+	fill_light.position = Vector3(-2.2, 1.6, -1.4)
+	fill_light.light_color = ACCENT
+	fill_light.light_energy = 0.65
+	fill_light.omni_range = 5.0
+	stage.add_child(fill_light)
+
+	var camera := Camera3D.new()
+	camera.position = Vector3(2.35, 1.95, -4.25)
+	camera.fov = 34.0
+	camera.near = 0.05
+	camera.look_at(Vector3(0, 0.96, 0), Vector3.UP)
+	camera.current = true
+	stage.add_child(camera)
+
+	var pedestal := MeshInstance3D.new()
+	var pedestal_mesh := CylinderMesh.new()
+	pedestal_mesh.top_radius = 0.78
+	pedestal_mesh.bottom_radius = 0.84
+	pedestal_mesh.height = 0.12
+	pedestal.mesh = pedestal_mesh
+	pedestal.position.y = -0.06
+	var pedestal_material := StandardMaterial3D.new()
+	pedestal_material.albedo_color = Color("#1A3148")
+	pedestal_material.metallic = 0.62
+	pedestal_material.roughness = 0.3
+	pedestal.material_override = pedestal_material
+	stage.add_child(pedestal)
+
+	preview_spin = Node3D.new()
+	preview_spin.name = "RotatingCharacterPreview"
+	stage.add_child(preview_spin)
+
+func _refresh_character_preview(color_id: String, outfit_id: String, accessory_id: String) -> void:
+	if not is_instance_valid(preview_spin):
+		return
+	for child in preview_spin.get_children():
+		child.queue_free()
+	preview_model = Node3D.new()
+	preview_model.name = "CharacterPreviewModel"
+	preview_spin.add_child(preview_model)
+
+	var color_map := {
+		"color_cyan": Color("#27D7E7"),
+		"color_violet": Color("#9B70FF"),
+		"color_orange": Color("#FF9B42"),
+		"color_lime": Color("#A7E34B")
+	}
+	var avatar_color: Color = color_map.get(color_id, Color("#27D7E7"))
+	var suit_color := avatar_color
+	if outfit_id == "outfit_iron_vanguard":
+		suit_color = Color("#A92332")
+	elif outfit_id == "outfit_web_sentinel":
+		suit_color = Color("#B52D3D")
+	var body := MeshInstance3D.new()
+	var capsule := CapsuleMesh.new()
+	capsule.radius = 0.38
+	capsule.height = 1.8
+	body.mesh = capsule
+	body.position.y = 0.9
+	body.material_override = _preview_material(suit_color)
+	if outfit_id == "outfit_neon":
+		var neon := _preview_material(avatar_color)
+		neon.emission_enabled = true
+		neon.emission = avatar_color
+		neon.emission_energy_multiplier = 0.45
+		body.material_override = neon
+	elif outfit_id == "outfit_runner":
+		body.scale = Vector3(0.94, 1.0, 0.94)
+	preview_model.add_child(body)
+	CHARACTER_VISUALS.build(body, outfit_id, avatar_color)
+	_add_preview_accessory(preview_model, accessory_id, avatar_color)
+
+	if outfit_id == "outfit_iron_vanguard" or outfit_id == "outfit_web_sentinel":
+		var helmet := MeshInstance3D.new()
+		var helmet_mesh := SphereMesh.new()
+		helmet_mesh.radius = 0.245
+		helmet_mesh.height = 0.44
+		helmet.mesh = helmet_mesh
+		helmet.position = Vector3(0, 1.56, 0.0)
+		helmet.material_override = _preview_material(suit_color.lightened(0.16))
+		preview_model.add_child(helmet)
+		var visor := MeshInstance3D.new()
+		var visor_mesh := BoxMesh.new()
+		visor_mesh.size = Vector3(0.30, 0.12, 0.055)
+		visor.mesh = visor_mesh
+		visor.position = Vector3(0, 1.56, -0.205)
+		visor.material_override = _preview_material(Color("#101A2A"))
+		preview_model.add_child(visor)
+
+func _add_preview_accessory(parent: Node3D, accessory_id: String, avatar_color: Color) -> void:
+	if accessory_id == "accessory_cap":
+		var cap := MeshInstance3D.new()
+		var cap_mesh := SphereMesh.new()
+		cap_mesh.radius = 0.24
+		cap_mesh.height = 0.18
+		cap.mesh = cap_mesh
+		cap.position = Vector3(0, 1.82, 0)
+		cap.material_override = _preview_material(avatar_color.lightened(0.25))
+		parent.add_child(cap)
+		var brim := MeshInstance3D.new()
+		var brim_mesh := CylinderMesh.new()
+		brim_mesh.top_radius = 0.22
+		brim_mesh.bottom_radius = 0.22
+		brim_mesh.height = 0.035
+		brim.mesh = brim_mesh
+		brim.position = Vector3(0, 1.75, -0.12)
+		brim.material_override = _preview_material(avatar_color.darkened(0.2))
+		parent.add_child(brim)
+	elif accessory_id == "accessory_headphones":
+		for side in [-1.0, 1.0]:
+			var ear := MeshInstance3D.new()
+			var ear_mesh := SphereMesh.new()
+			ear_mesh.radius = 0.105
+			ear_mesh.height = 0.22
+			ear.mesh = ear_mesh
+			ear.position = Vector3(side * 0.31, 1.70, 0)
+			ear.material_override = _preview_material(avatar_color)
+			parent.add_child(ear)
+
+func _preview_material(color: Color) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 0.42
+	material.metallic = 0.18
+	return material
 
 func _on_logout() -> void:
 	await backend.sign_out()
