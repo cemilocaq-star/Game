@@ -60,6 +60,16 @@ var scoreboard_panel: PanelContainer
 var scoreboard_rows: VBoxContainer
 var scoreboard_local_stats: Label
 var active_room_mode := "ffa"
+var round_match_xp := 0
+
+const RANK_THRESHOLDS := [
+	{"id":"bronze", "xp":0, "color":Color("#B87945")},
+	{"id":"silver", "xp":500, "color":Color("#B9C5D1")},
+	{"id":"gold", "xp":1500, "color":Color("#F0C65A")},
+	{"id":"platinum", "xp":3500, "color":Color("#58D6D0")},
+	{"id":"diamond", "xp":7000, "color":Color("#65AFFF")},
+	{"id":"master", "xp":12000, "color":Color("#C18AFF")}
+]
 
 const EVENT_NAMES := {
 	"DUCK_PARADE": "DUCK PARADE!",
@@ -400,7 +410,8 @@ func _update_player_match_stats(player_name: String, state: Dictionary) -> void:
 		"score": int(state.get("score", 0)), "team_id": str(state.get("team_id", "")),
 		"shots_fired": int(state.get("shots_fired", 0)), "shots_hit": int(state.get("shots_hit", 0)),
 		"damage_dealt": float(state.get("damage_dealt", 0.0)),
-		"damage_received": float(state.get("damage_received", 0.0))
+		"damage_received": float(state.get("damage_received", 0.0)),
+		"match_xp": maxi(0, int(state.get("match_xp", 0)))
 	}
 	_refresh_scoreboard()
 
@@ -758,9 +769,12 @@ func _on_orb_body_entered(body: Node3D, orb: Area3D, index: int) -> void:
 	if body != player or not is_instance_valid(orb):
 		return
 	var points := 20 if active_event == "GOLDEN_ORB_RUSH" else 10
+	var xp_gain := (25 if active_event == "GOLDEN_ORB_RUSH" else 15) * (2 if active_event == "DOUBLE_XP" else 1)
 	player.add_score(points)
-	progression.add_xp((25 if active_event == "GOLDEN_ORB_RUSH" else 15) * (2 if active_event == "DOUBLE_XP" else 1))
+	progression.add_xp(xp_gain)
+	round_match_xp += xp_gain
 	if index == 11 and progression.discover_secret():
+		round_match_xp += 100
 		_show_meme_toast("SECRET FOUND: 404 SKILL NOT FOUND  •  +100 XP")
 	orb.set_deferred("monitoring", false)
 	orb.visible = false
@@ -1487,6 +1501,11 @@ func _finish_round() -> void:
 	personal.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	personal.add_theme_color_override("font_color", Color("#D7E8F5"))
 	column.add_child(personal)
+	var earned_xp := maxi(0, int(local_stats.get("match_xp", round_match_xp)))
+	var career_xp := progression.total_xp if is_instance_valid(progression) else earned_xp
+	var previous_rank := _rank_for_total_xp(maxi(0, career_xp - earned_xp))
+	var current_rank := _rank_for_total_xp(career_xp)
+	_add_match_xp_card(column, earned_xp, career_xp, previous_rank, current_rank)
 	var table_header := Label.new()
 	table_header.text = "RANK   PLAYER                 K     D     SCORE    DMG"
 	table_header.add_theme_color_override("font_color", Color("#74DDE5"))
@@ -1516,6 +1535,89 @@ func _finish_round() -> void:
 	restart.pressed.connect(func(): get_tree().reload_current_scene())
 	column.add_child(restart)
 
+
+func _rank_for_total_xp(total_xp: int) -> Dictionary:
+	var current: Dictionary = RANK_THRESHOLDS[0]
+	var next_rank: Dictionary = {}
+	for index in range(RANK_THRESHOLDS.size()):
+		var tier: Dictionary = RANK_THRESHOLDS[index]
+		if total_xp >= int(tier.xp):
+			current = tier
+			next_rank = RANK_THRESHOLDS[index + 1] if index + 1 < RANK_THRESHOLDS.size() else {}
+		else:
+			break
+	var floor_xp := int(current.xp)
+	var ceiling_xp := int(next_rank.xp) if not next_rank.is_empty() else floor_xp
+	var progress := 1.0 if next_rank.is_empty() else clampf(float(total_xp - floor_xp) / float(maxi(1, ceiling_xp - floor_xp)), 0.0, 1.0)
+	return {"current":current, "next":next_rank, "progress":progress}
+
+func _add_match_xp_card(parent: VBoxContainer, earned_xp: int, total_xp: int, previous_rank: Dictionary, current_rank: Dictionary) -> void:
+	var rank: Dictionary = current_rank.current
+	var before: Dictionary = previous_rank.current
+	var ranked_up := str(before.id) != str(rank.id)
+	var card := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("#10283A")
+	style.border_color = rank.color if ranked_up else Color("#28516A")
+	style.set_border_width_all(2 if ranked_up else 1)
+	style.set_corner_radius_all(12)
+	style.content_margin_left = 14
+	style.content_margin_right = 14
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
+	card.add_theme_stylebox_override("panel", style)
+	parent.add_child(card)
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 5)
+	card.add_child(stack)
+	var heading := Label.new()
+	heading.text = "RANK UP!" if ranked_up else "MATCH XP REWARD"
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	heading.add_theme_font_size_override("font_size", 17)
+	heading.add_theme_color_override("font_color", rank.color if ranked_up else Color("#65E6D3"))
+	stack.add_child(heading)
+	var badge := Label.new()
+	badge.text = "◆  %s  ◆" % str(rank.id).to_upper()
+	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	badge.add_theme_font_size_override("font_size", 23)
+	badge.add_theme_color_override("font_color", rank.color)
+	stack.add_child(badge)
+	var reward := Label.new()
+	reward.text = "+%d XP  •  %d TOTAL XP" % [earned_xp, total_xp]
+	reward.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	reward.add_theme_color_override("font_color", Color("#F4FAFF"))
+	stack.add_child(reward)
+	var progress := ProgressBar.new()
+	progress.min_value = 0.0
+	progress.max_value = 100.0
+	progress.value = float(current_rank.progress) * 100.0
+	progress.show_percentage = false
+	progress.custom_minimum_size.y = 12
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color("#203B50")
+	track.set_corner_radius_all(6)
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = rank.color
+	fill.set_corner_radius_all(6)
+	progress.add_theme_stylebox_override("background", track)
+	progress.add_theme_stylebox_override("fill", fill)
+	stack.add_child(progress)
+	if ranked_up:
+		var transition := Label.new()
+		transition.text = "%s  →  %s" % [str(before.id).to_upper(), str(rank.id).to_upper()]
+		transition.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		transition.add_theme_color_override("font_color", Color("#FFE08A"))
+		stack.add_child(transition)
+		card.scale = Vector2(0.88, 0.88)
+		card.modulate.a = 0.0
+		var tween := create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(card, "scale", Vector2.ONE, 0.38).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tween.tween_property(card, "modulate:a", 1.0, 0.3)
+	else:
+		card.modulate.a = 0.0
+		var tween := create_tween()
+		tween.tween_property(card, "modulate:a", 1.0, 0.25)
 
 func _on_level_up(new_level: int, reward: String) -> void:
 	_show_meme_toast("LEVEL UP!  LEVEL %d  •  UNLOCKED: %s" % [new_level, reward])
