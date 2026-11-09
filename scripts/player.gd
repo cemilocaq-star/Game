@@ -11,6 +11,11 @@ const DASH_SPEED := 15.0
 const DASH_TIME := 0.16
 const DASH_COOLDOWN := 1.0
 const MAX_STAMINA := 100.0
+const GRAVITY := 18.0
+const JUMP_BUFFER_TIME := 0.14
+const COYOTE_TIME := 0.12
+const SLIDE_DURATION := 0.7
+const SLIDE_STAMINA_COST := 12.0
 
 var look_sensitivity := 0.0022
 var pitch := 0.0
@@ -24,6 +29,11 @@ var gyro_enabled := true
 var _dash_direction := Vector3.ZERO
 var _camera: Camera3D
 var _body_mesh: MeshInstance3D
+var _collider: CollisionShape3D
+var _capsule: CapsuleShape3D
+var _jump_buffer_left := 0.0
+var _coyote_left := 0.0
+var _is_sliding := false
 
 func _ready() -> void:
 	_build_visuals()
@@ -31,20 +41,20 @@ func _ready() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _build_visuals() -> void:
-	var capsule := CapsuleShape3D.new()
-	capsule.radius = 0.38
-	capsule.height = 1.8
-	var collider := CollisionShape3D.new()
-	collider.shape = capsule
-	collider.position.y = 0.9
-	add_child(collider)
+	_capsule = CapsuleShape3D.new()
+	_capsule.radius = 0.38
+	_capsule.height = 1.8
+	_collider = CollisionShape3D.new()
+	_collider.shape = _capsule
+	_collider.position.y = 0.9
+	add_child(_collider)
 
 	_body_mesh = MeshInstance3D.new()
 	var body := CapsuleMesh.new()
 	body.radius = 0.38
 	body.height = 1.8
 	_body_mesh.mesh = body
-	body.material_override = _material(Color(0.12, 0.78, 0.68))
+	_body_mesh.material_override = _material(Color(0.12, 0.78, 0.68))
 	_body_mesh.position.y = 0.9
 	add_child(_body_mesh)
 
@@ -64,43 +74,70 @@ func _build_visuals() -> void:
 func _physics_process(delta: float) -> void:
 	dash_cooldown = maxf(0.0, dash_cooldown - delta)
 	dash_left = maxf(0.0, dash_left - delta)
-	slide_left = maxf(0.0, slide_left - delta)
-	stamina = minf(MAX_STAMINA, stamina + (18.0 if not Input.is_action_pressed("sprint") else 7.0) * delta)
+	_jump_buffer_left = maxf(0.0, _jump_buffer_left - delta)
 
-	if not is_on_floor():
-		velocity.y -= 18.0 * event_gravity_scale * delta
-	elif velocity.y < 0.0:
-		velocity.y = -0.5
+	if is_on_floor():
+		_coyote_left = COYOTE_TIME
+	else:
+		_coyote_left = maxf(0.0, _coyote_left - delta)
+		velocity.y -= GRAVITY * event_gravity_scale * delta
 
-	if Input.is_action_just_pressed("jump") and is_on_floor() and stamina >= 8.0:
+	if Input.is_action_just_pressed("jump"):
+		_jump_buffer_left = JUMP_BUFFER_TIME
+
+	if Input.is_action_just_pressed("slide") and is_on_floor() and stamina >= SLIDE_STAMINA_COST and not _is_sliding:
+		_set_sliding(true)
+		slide_left = SLIDE_DURATION
+		stamina -= SLIDE_STAMINA_COST
+
+	if _is_sliding:
+		slide_left = maxf(0.0, slide_left - delta)
+		if slide_left <= 0.0 or Input.is_action_just_pressed("jump"):
+			_set_sliding(false)
+
+	if _jump_buffer_left > 0.0 and _coyote_left > 0.0 and stamina >= 8.0:
+		_set_sliding(false)
 		velocity.y = JUMP_VELOCITY
 		stamina -= 8.0
+		_jump_buffer_left = 0.0
+		_coyote_left = 0.0
 
 	var input_vector := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var forward := -global_transform.basis.z
 	var right := global_transform.basis.x
 	var direction := (right * input_vector.x + forward * -input_vector.y).normalized()
+
 	if dash_left > 0.0:
+		_set_sliding(false)
 		velocity.x = _dash_direction.x * DASH_SPEED
 		velocity.z = _dash_direction.z * DASH_SPEED
 	else:
 		var target_speed := WALK_SPEED
-		if Input.is_action_pressed("sprint") and stamina > 0.0:
+		if _is_sliding:
+			target_speed = SLIDE_SPEED
+			stamina = maxf(0.0, stamina - 5.0 * delta)
+		elif Input.is_action_pressed("sprint") and stamina > 0.0:
 			target_speed = SPRINT_SPEED
 			stamina = maxf(0.0, stamina - 15.0 * delta)
-		if Input.is_action_pressed("slide") and is_on_floor() and stamina > 0.0:
-			target_speed = SLIDE_SPEED
-			stamina = maxf(0.0, stamina - 9.0 * delta)
-		if direction.length() > 0.01:
-			velocity.x = move_toward(velocity.x, direction.x * target_speed, 28.0 * delta)
-			velocity.z = move_toward(velocity.z, direction.z * target_speed, 28.0 * delta)
 		else:
-			velocity.x = move_toward(velocity.x, 0.0, 20.0 * delta)
-			velocity.z = move_toward(velocity.z, 0.0, 20.0 * delta)
+			stamina = minf(MAX_STAMINA, stamina + 20.0 * delta)
+
+		if direction.length() > 0.01:
+			var acceleration := 34.0 if _is_sliding else 28.0
+			velocity.x = move_toward(velocity.x, direction.x * target_speed, acceleration * delta)
+			velocity.z = move_toward(velocity.z, direction.z * target_speed, acceleration * delta)
+		else:
+			var friction := 7.0 if _is_sliding else 20.0
+			velocity.x = move_toward(velocity.x, 0.0, friction * delta)
+			velocity.z = move_toward(velocity.z, 0.0, friction * delta)
 
 	if Input.is_action_just_pressed("dash"):
 		try_dash(direction)
+
 	move_and_slide()
+	if _camera:
+		var target_camera_height := 1.05 if _is_sliding else 1.55
+		_camera.position.y = move_toward(_camera.position.y, target_camera_height, 5.5 * delta)
 
 	if gyro_enabled and OS.has_feature("android"):
 		var gyro := Input.get_gyroscope()
@@ -108,9 +145,27 @@ func _physics_process(delta: float) -> void:
 		pitch = clampf(pitch - gyro.x * look_sensitivity * 70.0 * delta, deg_to_rad(-82.0), deg_to_rad(82.0))
 		_camera.rotation.x = pitch
 
+func _set_sliding(enabled: bool) -> void:
+	if _is_sliding == enabled:
+		return
+	_is_sliding = enabled
+	if not is_instance_valid(_capsule) or not is_instance_valid(_collider) or not is_instance_valid(_body_mesh):
+		return
+	if enabled:
+		_capsule.height = 1.0
+		_collider.position.y = 0.5
+		_body_mesh.scale.y = 0.56
+		_body_mesh.position.y = 0.5
+	else:
+		_capsule.height = 1.8
+		_collider.position.y = 0.9
+		_body_mesh.scale.y = 1.0
+		_body_mesh.position.y = 0.9
+
 func try_dash(direction: Vector3 = Vector3.ZERO) -> void:
 	if dash_cooldown > 0.0 or stamina < 20.0:
 		return
+	_set_sliding(false)
 	_dash_direction = direction.normalized() if direction.length() > 0.1 else -global_transform.basis.z
 	_dash_direction.y = 0.0
 	_dash_direction = _dash_direction.normalized()
