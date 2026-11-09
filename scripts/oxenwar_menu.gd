@@ -232,7 +232,7 @@ func _on_register() -> void:
 	if not registration_mode:
 		registration_mode = true
 		display_input.show()
-		message_label.text = "Enter your display name, then tap Register again."
+		message_label.text = _t("register_hint")
 		return
 	if password_input.text.length() < 8:
 		message_label.text = _t("error") + ": password must be at least 8 characters."
