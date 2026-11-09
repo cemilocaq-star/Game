@@ -16,7 +16,8 @@ OxenWar is a free-to-play Godot 4.4.1 parkour arena project. Its visual directio
 - Procedural first-person Aether Blaster model, original synthesized sci-fi pulse sound, short energy trail, desktop/mobile fire input, and server-validated multiplayer hit scoring.
 - Server-authoritative health: players start with 100 HP, each confirmed pulse hit deals 34 damage, zero HP triggers a 4-second K.O. state, then automatic full-health respawn; a final hit grants a bonus score.
 - Match results are persisted through a Supabase Edge Function using one-time HMAC game tickets and a server-only session/secret.
-- Free starter cosmetics and Azerbaijani, English, Turkish and Russian menu localization.
+- Free starter cosmetics plus two original hero-inspired outfits: Iron Vanguard (red/gold armored hero) and Web Sentinel (red/blue masked agility hero); outfit selection uses the existing character customization tab and is replicated to remote players.
+- Azerbaijani, English, Turkish and Russian menu localization.
 - Admin role is read-only from the client and must be assigned through trusted database administration.
 
 ## Supabase project
@@ -27,7 +28,7 @@ API URL: `https://lznnfwhlsquiitkhjzlc.supabase.co`
 
 The game client contains only the project's publishable key. Never add a Supabase secret/service-role key to the game or repository. RLS protects the stats and collection tables; players can read only their own rows. Writes are restricted to the server-only result function.
 
-Database schema source is in `supabase/migrations/`. The server sync Edge Function is in `supabase/functions/oxenwar-server-sync/index.ts`. It validates user JWTs over HTTPS when issuing a 60-second, single-use game ticket; the game server redeems it and receives a 12-hour server-only session token.
+Database schema source is in `supabase/migrations/`. Apply all new migrations, including `20261109143000_oxenwar_hero_inspired_outfits.sql`, before using the new outfits on a hosted Supabase project. The server sync Edge Function is in `supabase/functions/oxenwar-server-sync/index.ts`. It validates user JWTs over HTTPS when issuing a 60-second, single-use game ticket; the game server redeems it and receives a 12-hour server-only session token.
 
 ## Run locally
 
