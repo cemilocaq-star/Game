@@ -11,6 +11,7 @@ OxenWar is a free-to-play Godot 4.4.1 parkour arena project. Its visual directio
 - Public quick-match rooms, lobby roster and 8-player room capacity.
 - 30-second reconnect reservation for a disconnected player.
 - Server-owned score, XP awards, collectible inventory and event timers.
+- Event-specific procedural 3D centerpieces, animated particles, original synthesized motifs, and hash-verified CC0 event cues/music.
 - Match results are persisted through a Supabase Edge Function using one-time HMAC game tickets and a server-only session/secret.
 - Free starter cosmetics and Azerbaijani, English, Turkish and Russian menu localization.
 - Admin role is read-only from the client and must be assigned through trusted database administration.
@@ -27,13 +28,14 @@ Database schema source is in `supabase/migrations/`. The server sync Edge Functi
 
 ## Run locally
 
-1. Install Godot 4.4.1 Standard (not .NET).
-2. Open `project.godot`.
-3. Run `main.tscn`.
-4. Register/sign in with Supabase.
-5. Run a dedicated server in another terminal: `godot --headless --path . -- --server`.
-6. In the game, enter the server's LAN address or public hostname and press **CONNECT**.
-7. Use **CREATE ROOM** to make a private friend room, **JOIN** with its code, or **QUICK MATCH** to enter a public room.
+1. Install Godot 4.4.1 Standard (not .NET) and Python 3.
+2. From the repository root, run `python3 tools/fetch_open_audio_assets.py` (on Windows, `py tools/fetch_open_audio_assets.py`). The script downloads the CC0 audio files and verifies each SHA-256 hash.
+3. Open `project.godot`.
+4. Run `main.tscn`.
+5. Register/sign in with Supabase.
+6. Run a dedicated server in another terminal: `godot --headless --path . -- --server`.
+7. In the game, enter the server's LAN address or public hostname and press **CONNECT**.
+8. Use **CREATE ROOM** to make a private friend room, **JOIN** with its code, or **QUICK MATCH** to enter a public room.
 
 For a private room, share its six-character code with an existing OxenWar friend. The server checks the friendship relationship before allowing entry. Public quick-match rooms are available to all authenticated players.
 
