@@ -627,6 +627,7 @@ func _select_weapon(weapon_id: String) -> void:
 		equipped_weapon_label.text = "EQUIPPED  •  " + str(WEAPON_DISPLAY.get(weapon_id, weapon_id.to_upper())) + "   [V / E / R]"
 	if is_instance_valid(arsenal_panel) and arsenal_panel.visible:
 		arsenal_panel.visible = false
+		player.set_arsenal_open(false)
 		if not OS.has_feature("mobile") and not DisplayServer.is_touchscreen_available():
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -1256,6 +1257,8 @@ func _toggle_arsenal() -> void:
 	if not is_instance_valid(arsenal_panel):
 		return
 	arsenal_panel.visible = not arsenal_panel.visible
+	if is_instance_valid(player):
+		player.set_arsenal_open(arsenal_panel.visible)
 	if arsenal_panel.visible:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif not OS.has_feature("mobile") and not DisplayServer.is_touchscreen_available():
