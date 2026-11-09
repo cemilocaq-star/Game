@@ -5,6 +5,7 @@ var target_position := Vector3.ZERO
 var target_yaw := 0.0
 var _sliding := false
 var display_name := "Player"
+var _base_color := Color("#27D7E7")
 var _visual: MeshInstance3D
 var _name_tag: Label3D
 
@@ -29,14 +30,22 @@ func set_player_identity(player_name: String, color: Color) -> void:
 	if is_instance_valid(_name_tag):
 		_name_tag.text = display_name
 	if is_instance_valid(_visual):
+		_base_color = color
 		var material := StandardMaterial3D.new()
 		material.albedo_color = color
 		material.roughness = 0.65
 		_visual.material_override = material
 
-func apply_network_state(position_value: Vector3, yaw_value: float, sliding: bool = false) -> void:
+func apply_network_state(position_value: Vector3, yaw_value: float, sliding: bool = false, health: float = 100.0, dead: bool = false) -> void:
 	target_position = position_value
 	target_yaw = yaw_value
+	if is_instance_valid(_name_tag):
+		_name_tag.text = "%s  •  K.O." % display_name if dead else "%s  •  HP %d" % [display_name, int(ceil(health))]
+	if is_instance_valid(_visual):
+		var material := _visual.material_override as StandardMaterial3D
+		if is_instance_valid(material):
+			material.albedo_color = _base_color.darkened(0.65) if dead else _base_color
+		_visual.visible = not dead
 	if _sliding != sliding:
 		_sliding = sliding
 		_visual.scale.y = 0.56 if sliding else 1.0
