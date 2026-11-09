@@ -1,2 +1,5 @@
 [functions.oxenwar-server-sync]
 verify_jwt = false
+
+[functions.oxenwar-username-auth]
+verify_jwt = false
