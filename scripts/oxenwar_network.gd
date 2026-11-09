@@ -228,7 +228,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			"xp": int(_server_players[peer_id].xp) if _server_players.has(peer_id) else 0,
 			"match_xp": int(_server_players[peer_id].match_xp) if _server_players.has(peer_id) else 0,
 			"collections": _server_players[peer_id].collection_counts.duplicate(true) if _server_players.has(peer_id) else {},
-			"token": str(_session_tokens.get(user_id, "")),
+			"session_token": str(_session_tokens.get(user_id, "")),
 			"already_persisted": bool(room.get("persisted", {}).has(user_id))
 		}
 		if _server_players.has(peer_id):
