@@ -123,9 +123,11 @@ func _start_dedicated_server() -> void:
 		_finish_server_smoke_test()
 
 func _finish_server_smoke_test() -> void:
-	await get_tree().create_timer(1.0).timeout
-	print("OxenWar dedicated server smoke test passed")
-	get_tree().quit()
+	var timer := get_tree().create_timer(1.0)
+	timer.timeout.connect(func() -> void:
+		print("OxenWar dedicated server smoke test passed")
+		get_tree().quit()
+	)
 
 func _start_multiplayer_client() -> void:
 	network = NETWORK_SCRIPT.new()
