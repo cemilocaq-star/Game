@@ -220,8 +220,10 @@ func _spawn_player() -> void:
 		"color_lime": Color("#A7E34B")
 	}
 	player.cosmetic_color = color_map.get(color_id, Color("#27D7E7"))
-	player.cosmetic_outfit = str(player_profile.get("outfit_id", "outfit_default"))
-	player.cosmetic_accessory = str(player_profile.get("accessory_id", "accessory_cap"))
+	var outfit_value: Variant = player_profile.get("outfit_id", null)
+	player.cosmetic_outfit = "outfit_default" if outfit_value == null or str(outfit_value).is_empty() else str(outfit_value)
+	var accessory_value: Variant = player_profile.get("accessory_id", null)
+	player.cosmetic_accessory = "accessory_cap" if accessory_value == null or str(accessory_value).is_empty() else str(accessory_value)
 	player.is_admin = local_admin_authorized
 	admin_available = player.is_admin
 	player.position = Vector3(0, 1.5, 6)

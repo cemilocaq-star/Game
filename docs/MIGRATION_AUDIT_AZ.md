@@ -1,3 +1,7 @@
+# OxenWar — texniki audit
+
+Bu sənəd ilkin mühərrik köçürməsindən qalan qeydləri saxlayır. Cari onlayn hesab/dost/kosmetika sistemi və onun məhdudiyyətləri üçün əsas mənbə `README.md`-dir.
+
 # PROJECT UNKNOWN — Unreal → Godot miqrasiya auditi
 
 ## Status
