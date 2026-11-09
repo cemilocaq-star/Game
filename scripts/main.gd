@@ -372,7 +372,7 @@ func _make_remote_blaster_stream() -> AudioStreamWAV:
 	stream.data = bytes
 	return stream
 
-func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Vector3) -> void:
+func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Vector3, weapon_id: String) -> void:
 	var remote_audio := AudioStreamPlayer3D.new()
 	remote_audio.name = "RemoteAetherPulseAudio"
 	remote_audio.stream = _make_remote_blaster_stream()
@@ -389,10 +389,12 @@ func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Ve
 	mesh.size = Vector3(0.035, 0.035, 1.0)
 	beam.mesh = mesh
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(0.25, 0.9, 1.0, 0.92)
+	var beam_colors := {"aether":Color("#35EFFF"), "minicore":Color("#FF9B54"), "hand_cannon":Color("#F2D36D"), "pulse_carbine":Color("#76E6C5"), "star_piercer":Color("#C6A0FF"), "duck_launcher":Color("#FFE56B"), "banana_boomerang":Color("#E7F26C"), "confetti_cannon":Color("#FF83C8")}
+	var beam_color: Color = beam_colors.get(weapon_id, Color("#35EFFF"))
+	material.albedo_color = beam_color
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.emission_enabled = true
-	material.emission = Color("#35EFFF")
+	material.emission = beam_color
 	material.emission_energy_multiplier = 2.4
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	beam.material_override = material
@@ -404,6 +406,31 @@ func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Ve
 	get_tree().create_timer(0.085).timeout.connect(beam.queue_free)
 	if origin.distance_to(endpoint) < 64.0:
 		COMBAT_FX_SCRIPT.hit_impact(self, endpoint)
+	if weapon_id == "duck_launcher" or weapon_id == "banana_boomerang" or weapon_id == "confetti_cannon":
+		var gag := MeshInstance3D.new()
+		gag.name = "ArcadeWeaponImpact"
+		if weapon_id == "banana_boomerang":
+			var banana := CapsuleMesh.new()
+			banana.radius = 0.11
+			banana.height = 0.42
+			gag.mesh = banana
+		else:
+			var gag_mesh := SphereMesh.new()
+			gag_mesh.radius = 0.18 if weapon_id == "duck_launcher" else 0.12
+			gag_mesh.height = 0.24 if weapon_id == "duck_launcher" else 0.18
+			gag.mesh = gag_mesh
+		var gag_material := StandardMaterial3D.new()
+		gag_material.albedo_color = beam_color
+		gag_material.emission_enabled = true
+		gag_material.emission = beam_color
+		gag_material.emission_energy_multiplier = 1.8
+		gag.material_override = gag_material
+		add_child(gag)
+		gag.global_position = endpoint
+		gag.rotation = Vector3(randf(), randf(), randf())
+		var gag_tween := create_tween()
+		gag_tween.tween_property(gag, "scale", Vector3.ZERO, 0.32)
+		gag_tween.tween_callback(gag.queue_free)
 
 func _on_grenade_spawn_received(grenade_id: int, origin: Vector3, launch_velocity: Vector3) -> void:
 	var grenade := MeshInstance3D.new()
