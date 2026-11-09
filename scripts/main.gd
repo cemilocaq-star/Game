@@ -12,6 +12,63 @@ var local_admin_authorized := false
 var player_profile: Dictionary = {}
 var backend: Node
 const ROUND_SECONDS := 300.0
+
+class MobileJoystick extends Control:
+	signal vector_changed(value: Vector2)
+	var _finger_index := -1
+	var _value := Vector2.ZERO
+
+	func _ready() -> void:
+		custom_minimum_size = Vector2(164, 164)
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		queue_redraw()
+
+	func _gui_input(event: InputEvent) -> void:
+		if event is InputEventScreenTouch:
+			if event.pressed and _finger_index == -1:
+				_finger_index = event.index
+				_update_stick(event.position)
+			elif not event.pressed and event.index == _finger_index:
+				_finger_index = -1
+				_set_stick(Vector2.ZERO)
+		elif event is InputEventScreenDrag and event.index == _finger_index:
+			_update_stick(event.position)
+		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				_finger_index = 0
+				_update_stick(event.position)
+			else:
+				_finger_index = -1
+				_set_stick(Vector2.ZERO)
+		elif event is InputEventMouseMotion and _finger_index == 0 and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			_update_stick(event.position)
+		accept_event()
+
+	func _update_stick(point: Vector2) -> void:
+		var radius := minf(size.x, size.y) * 0.38
+		var offset := (point - size * 0.5) / maxf(radius, 1.0)
+		if offset.length() > 1.0:
+			offset = offset.normalized()
+		if offset.length() < 0.12:
+			offset = Vector2.ZERO
+		_set_stick(offset)
+
+	func _set_stick(value: Vector2) -> void:
+		_value = value
+		vector_changed.emit(_value)
+		queue_redraw()
+
+	func _draw() -> void:
+		var center := size * 0.5
+		var radius := minf(size.x, size.y) * 0.38
+		draw_circle(center, radius + 8.0, Color(0.015, 0.045, 0.075, 0.58))
+		draw_arc(center, radius, 0.0, TAU, 72, Color(0.32, 0.78, 0.86, 0.72), 3.0, true)
+		draw_arc(center, radius * 0.54, 0.0, TAU, 56, Color(0.38, 0.66, 0.74, 0.22), 1.5, true)
+		var knob := center + _value * radius * 0.68
+		draw_circle(knob + Vector2(0, 4), radius * 0.39, Color(0.0, 0.0, 0.0, 0.24))
+		draw_circle(knob, radius * 0.36, Color(0.07, 0.62, 0.62, 0.94))
+		draw_arc(knob, radius * 0.36, 0.0, TAU, 56, Color(0.65, 1.0, 0.96, 0.9), 2.0, true)
+
 const EVENT_INTERVAL := 30.0
 const EVENT_DURATION := 12.0
 
@@ -73,6 +130,8 @@ var killstreak_label: Label
 var weapon_mastery_label: Label
 var equipped_weapon_label: Label
 var arsenal_panel: PanelContainer
+var emote_wheel: Control
+var emote_wheel_button: Button
 const WEAPON_ORDER := ["aether", "minicore", "hand_cannon", "pulse_carbine", "star_piercer", "duck_launcher", "banana_boomerang", "confetti_cannon", "prism_scepter", "vortex_orbiter", "comet_bow", "bubble_burst", "glitch_ray", "meteor_mallet", "frost_wand", "solar_lance", "slime_slinger", "pixel_storm", "thunder_drum", "moon_disc", "jellyfish_staff", "portal_popper", "rubber_chicken"]
 const WEAPON_DISPLAY := {"aether":"AETHER BLASTER", "minicore":"MINICORE", "hand_cannon":"NOVA HAND CANNON", "pulse_carbine":"PULSE CARBINE", "star_piercer":"STAR PIERCER", "duck_launcher":"DUCK LAUNCHER", "banana_boomerang":"BANANA BOOMERANG", "confetti_cannon":"CONFETTI CANNON", "prism_scepter":"PRISM SCEPTER", "vortex_orbiter":"VORTEX ORBITER", "comet_bow":"COMET BOW", "bubble_burst":"BUBBLE BURST", "glitch_ray":"GLITCH RAY", "meteor_mallet":"METEOR MALLET", "frost_wand":"FROST WAND", "solar_lance":"SOLAR LANCE", "slime_slinger":"SLIME SLINGER", "pixel_storm":"PIXEL STORM", "thunder_drum":"THUNDER DRUM", "moon_disc":"MOON DISC", "jellyfish_staff":"JELLYFISH STAFF", "portal_popper":"PORTAL POPPER", "rubber_chicken":"RUBBER CHICKEN"}
 const WEAPON_ROLE := {"aether":"Energy blaster", "minicore":"Rapid pulse", "hand_cannon":"Heavy pulse", "pulse_carbine":"Balanced burst", "star_piercer":"Long-range prism", "duck_launcher":"Duck gag", "banana_boomerang":"Ricochet gag", "confetti_cannon":"Party burst", "prism_scepter":"Crystal beam", "vortex_orbiter":"Orbiting energy", "comet_bow":"Charged comet", "bubble_burst":"Bubble spray", "glitch_ray":"Pixel beam", "meteor_mallet":"Meteor bonk", "frost_wand":"Frost pulse", "solar_lance":"Solar charge", "slime_slinger":"Slime glob", "pixel_storm":"Voxel burst", "thunder_drum":"Thunder beat", "moon_disc":"Lunar ring", "jellyfish_staff":"Floating glow", "portal_popper":"Portal pulse", "rubber_chicken":"Squeaky chaos"}
@@ -1628,42 +1687,162 @@ func _make_label(parent: Control, text_value: String, pos: Vector2, font_size: i
 	return label
 
 func _build_touch_controls(root: Control) -> void:
-	var move_specs := [
-		["◀", "move_left", Vector2(26, -132)],
-		["▶", "move_right", Vector2(150, -132)],
-		["▲", "move_forward", Vector2(88, -194)],
-		["▼", "move_back", Vector2(88, -70)]
+	var joystick := MobileJoystick.new()
+	joystick.name = "StandoffStyleMovementJoystick"
+	joystick.anchor_left = 0.0
+	joystick.anchor_right = 0.0
+	joystick.anchor_top = 1.0
+	joystick.anchor_bottom = 1.0
+	joystick.offset_left = 22.0
+	joystick.offset_right = 186.0
+	joystick.offset_top = -190.0
+	joystick.offset_bottom = -26.0
+	joystick.vector_changed.connect(_set_mobile_move_input)
+	root.add_child(joystick)
+
+	_add_touch_button(root, "JUMP", "jump", Vector2(-190, -184), Vector2(82, 62), false)
+	_add_touch_button(root, "DASH", "dash", Vector2(-98, -126), Vector2(76, 58), false)
+	_add_touch_button(root, "SPRINT", "sprint", Vector2(-190, -112), Vector2(82, 52), true)
+	_add_touch_button(root, "SLIDE", "slide", Vector2(-98, -58), Vector2(76, 52), true)
+	_add_touch_button(root, "FIRE", "fire", Vector2(-190, -260), Vector2(82, 62), true)
+	_add_touch_button(root, "GRENADE", "throw_grenade", Vector2(-98, -250), Vector2(76, 58), false)
+	_add_touch_button(root, "WEAPON +", "weapon_next", Vector2(-190, -330), Vector2(82, 48), false)
+	_add_touch_button(root, "WEAPON -", "weapon_prev", Vector2(-98, -316), Vector2(76, 48), false)
+	_build_emote_wheel(root)
+
+func _set_mobile_move_input(value: Vector2) -> void:
+	var x := clampf(value.x, -1.0, 1.0)
+	var y := clampf(value.y, -1.0, 1.0)
+	if absf(x) > 0.01:
+		Input.action_press("move_left" if x < 0.0 else "move_right", absf(x))
+	else:
+		Input.action_release("move_left")
+		Input.action_release("move_right")
+	if absf(y) > 0.01:
+		Input.action_press("move_forward" if y < 0.0 else "move_back", absf(y))
+	else:
+		Input.action_release("move_forward")
+		Input.action_release("move_back")
+
+func _build_emote_wheel(root: Control) -> void:
+	emote_wheel = Control.new()
+	emote_wheel.name = "EmoteRadialWheel"
+	emote_wheel.anchor_left = 1.0
+	emote_wheel.anchor_right = 1.0
+	emote_wheel.anchor_top = 1.0
+	emote_wheel.anchor_bottom = 1.0
+	emote_wheel.offset_left = -292.0
+	emote_wheel.offset_right = -16.0
+	emote_wheel.offset_top = -584.0
+	emote_wheel.offset_bottom = -308.0
+	emote_wheel.visible = false
+	emote_wheel.z_index = 30
+	root.add_child(emote_wheel)
+	var back := Panel.new()
+	back.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var back_style := StyleBoxFlat.new()
+	back_style.bg_color = Color(0.012, 0.035, 0.06, 0.94)
+	back_style.border_color = Color("#35D8D0")
+	back_style.set_border_width_all(2)
+	back_style.set_corner_radius_all(138)
+	back.add_theme_stylebox_override("panel", back_style)
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	emote_wheel.add_child(back)
+	var choices := [
+		{"id":"griddy", "label":"DANCE", "pos":Vector2(98, 8)},
+		{"id":"goofy", "label":"GOOFY", "pos":Vector2(178, 98)},
+		{"id":"robot", "label":"ROBOT", "pos":Vector2(98, 178)},
+		{"id":"wave", "label":"WAVE", "pos":Vector2(8, 98)}
 	]
-	for spec in move_specs:
-		_add_touch_button(root, spec[0], spec[1], spec[2], Vector2(56, 56), true)
-	_add_touch_button(root, "JUMP", "jump", Vector2(-250, -190), Vector2(96, 64), false)
-	_add_touch_button(root, "DASH", "dash", Vector2(-150, -118), Vector2(88, 60), false)
-	_add_touch_button(root, "SPRINT", "sprint", Vector2(-250, -110), Vector2(96, 54), true)
-	_add_touch_button(root, "SLIDE", "slide", Vector2(-150, -48), Vector2(88, 54), true)
-	_add_touch_button(root, "PULSE", "fire", Vector2(-255, -270), Vector2(96, 64), false)
-	_add_touch_button(root, "GRENADE", "throw_grenade", Vector2(-150, -270), Vector2(88, 64), false)
-	_add_touch_button(root, "WEAPON +", "weapon_next", Vector2(-255, -500), Vector2(96, 54), false)
-	_add_touch_button(root, "WEAPON -", "weapon_prev", Vector2(-150, -500), Vector2(88, 54), false)
-	_add_touch_button(root, "GRIDDY", "emote_griddy", Vector2(-255, -350), Vector2(96, 56), false)
-	_add_touch_button(root, "GOOFY", "emote_goofy", Vector2(-150, -350), Vector2(88, 56), false)
-	_add_touch_button(root, "ROBOT", "emote_robot", Vector2(-255, -410), Vector2(96, 54), false)
-	_add_touch_button(root, "WAVE", "emote_wave", Vector2(-150, -410), Vector2(88, 54), false)
+	for choice in choices:
+		var button := Button.new()
+		button.text = str(choice.label)
+		button.position = choice.pos
+		button.size = Vector2(72, 72)
+		button.add_theme_font_size_override("font_size", 11)
+		button.add_theme_color_override("font_color", Color("#E8FFFF"))
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color("#12394A")
+		style.border_color = Color("#49E5D7")
+		style.set_border_width_all(2)
+		style.set_corner_radius_all(36)
+		button.add_theme_stylebox_override("normal", style)
+		var hover := style.duplicate()
+		hover.bg_color = Color("#1B6570")
+		button.add_theme_stylebox_override("hover", hover)
+		button.pressed.connect(_select_mobile_emote.bind(str(choice.id)))
+		emote_wheel.add_child(button)
+	var close := Button.new()
+	close.text = "×"
+	close.position = Vector2(104, 104)
+	close.size = Vector2(68, 68)
+	close.add_theme_font_size_override("font_size", 28)
+	var close_style := StyleBoxFlat.new()
+	close_style.bg_color = Color("#0B1C2B")
+	close_style.border_color = Color("#6B8797")
+	close_style.set_border_width_all(1)
+	close_style.set_corner_radius_all(34)
+	close.add_theme_stylebox_override("normal", close_style)
+	close.pressed.connect(_toggle_emote_wheel)
+	emote_wheel.add_child(close)
+
+	emote_wheel_button = Button.new()
+	emote_wheel_button.text = "EMOTE"
+	emote_wheel_button.anchor_left = 1.0
+	emote_wheel_button.anchor_right = 1.0
+	emote_wheel_button.anchor_top = 1.0
+	emote_wheel_button.anchor_bottom = 1.0
+	emote_wheel_button.offset_left = -104.0
+	emote_wheel_button.offset_right = -20.0
+	emote_wheel_button.offset_top = -410.0
+	emote_wheel_button.offset_bottom = -326.0
+	emote_wheel_button.add_theme_font_size_override("font_size", 12)
+	var trigger_style := StyleBoxFlat.new()
+	trigger_style.bg_color = Color("#12394A")
+	trigger_style.border_color = Color("#49E5D7")
+	trigger_style.set_border_width_all(2)
+	trigger_style.set_corner_radius_all(42)
+	emote_wheel_button.add_theme_stylebox_override("normal", trigger_style)
+	emote_wheel_button.pressed.connect(_toggle_emote_wheel)
+	root.add_child(emote_wheel_button)
+
+func _toggle_emote_wheel() -> void:
+	if is_instance_valid(emote_wheel):
+		emote_wheel.visible = not emote_wheel.visible
+
+func _select_mobile_emote(emote_id: String) -> void:
+	if is_instance_valid(player):
+		player.play_emote(emote_id)
+	if is_instance_valid(emote_wheel):
+		emote_wheel.visible = false
 
 func _add_touch_button(root: Control, text_value: String, action: String, offset: Vector2, button_size: Vector2, hold_action: bool) -> void:
 	var button := Button.new()
 	button.text = text_value
 	button.size = button_size
-	button.anchor_left = 1.0 if offset.x < 0 else 0.0
-	button.anchor_right = 1.0 if offset.x < 0 else 0.0
+	button.anchor_left = 1.0
+	button.anchor_right = 1.0
 	button.anchor_top = 1.0
 	button.anchor_bottom = 1.0
 	button.position = offset
-	button.add_theme_font_size_override("font_size", 17)
-	button.modulate = Color(0.78, 0.93, 1.0, 0.82)
+	button.add_theme_font_size_override("font_size", 13)
+	button.modulate = Color(0.86, 0.97, 1.0, 0.90)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.035, 0.105, 0.15, 0.88)
+	style.border_color = Color("#3BA8B4")
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(14)
+	button.add_theme_stylebox_override("normal", style)
+	var pressed_style := style.duplicate()
+	pressed_style.bg_color = Color("#176C70")
+	button.add_theme_stylebox_override("pressed", pressed_style)
 	root.add_child(button)
-	button.button_down.connect(func(): Input.action_press(action))
-	button.button_up.connect(func(): Input.action_release(action))
-	button.tree_exiting.connect(func(): Input.action_release(action))
+	if hold_action:
+		button.button_down.connect(func(): Input.action_press(action))
+		button.button_up.connect(func(): Input.action_release(action))
+		button.tree_exiting.connect(func(): Input.action_release(action))
+	else:
+		button.pressed.connect(func(): Input.action_press(action); Input.action_release(action))
 
 
 func _finish_round() -> void:
