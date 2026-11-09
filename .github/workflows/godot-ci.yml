@@ -114,7 +114,16 @@ jobs:
         run: godot --headless --editor --path . --quit
 
       - name: Start dedicated server smoke test
-        run: godot --headless --path . --quit-after 120 -- --server --smoke-test
+        shell: bash
+        run: |
+          output="$(godot --headless --path . --quit-after 120 -- --server --smoke-test 2>&1)"
+          printf '%s\\n' "$output"
+          grep -q "OxenWar authoritative server listening on UDP 2456" <<< "$output"
+          grep -q "OxenWar dedicated server smoke test passed" <<< "$output"
+          if grep -q "SCRIPT ERROR:" <<< "$output"; then
+            echo "Godot reported a script error during server startup."
+            exit 1
+          fi
 
       - name: Export Windows x86_64
         run: |
