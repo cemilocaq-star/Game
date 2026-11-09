@@ -196,7 +196,7 @@ func _add_hero_skin_details() -> void:
 	helmet_mesh.height = 0.42
 	helmet.mesh = helmet_mesh
 	helmet.position = Vector3(0, 0.72, 0)
-	helmet.material_override = _material(primary, 0.42)
+	helmet.material_override = _blaster_material(primary, 0.42)
 	_body_mesh.add_child(helmet)
 	var visor := MeshInstance3D.new()
 	var visor_mesh := BoxMesh.new()
@@ -582,10 +582,10 @@ func _fire_blaster() -> void:
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	if not hit.is_empty():
 		endpoint = hit.position
-	var net := get_parent().get_node_or_null("OxenWarNet")
-	var online_fire := is_instance_valid(net) and net.is_authenticated
+	var net: Node = get_parent().get_node_or_null("OxenWarNet")
+	var online_fire: bool = is_instance_valid(net) and bool(net.get("is_authenticated"))
 	if online_fire:
-		net.request_blaster_fire(selected_weapon_id, direction)
+		net.call("request_blaster_fire", selected_weapon_id, direction)
 	else:
 		_show_blaster_beam(origin, endpoint)
 	if is_instance_valid(_blaster_audio):
