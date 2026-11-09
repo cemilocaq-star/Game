@@ -74,7 +74,7 @@ func _run_tests() -> void:
 		"move_right": false,
 		"move_forward": false,
 		"move_back": false
-})
+	})
 
 	var menu_harness := Control.new()
 	menu_harness.set_script(MENU_SCRIPT)
