@@ -124,3 +124,6 @@ The Career Statistics tab derives a player's rank directly from the existing ser
 
 ## Match XP reward and rank-up presentation
 The server snapshot now includes the authoritative per-match XP total. The results overlay shows XP earned, career XP, the rank badge and progress bar, and animates the card when a rank threshold is crossed. Offline orb and secret rewards are counted in the local match summary as well. Online rank progress uses server-synchronized career XP; clients cannot award themselves online XP.
+
+## King of the Hill mode
+A third multiplayer mode, King of the Hill, assigns players to balanced red/blue teams. The dedicated server tracks players inside the central capture zone, pauses capture while contested, awards control points while one team holds the zone, and determines match outcomes from objective control time. Capture progress and team totals are replicated to the HUD; the arena marks the central objective with a luminous boundary. Capture and scoring are server-authoritative.
