@@ -706,7 +706,7 @@ func _broadcast_snapshot(code: String) -> void:
 			"position": player.global_position, "yaw": player.rotation.y,
 			"display_name": str(_profiles.get(user_id, {}).get("display_name", "Player")),
 			"color": _color_for_profile(_profiles.get(user_id, {})),
-			"score": player.score, "xp": player.xp, "stamina": player.stamina
+			"score": player.score, "xp": player.xp, "stamina": player.stamina, "sliding": player.sliding_active
 		}
 	for user_id in room.members.keys():
 		var peer_id := int(room.members[user_id])
