@@ -68,8 +68,10 @@ var objective_label: Label
 var killstreak_label: Label
 var weapon_mastery_label: Label
 var equipped_weapon_label: Label
-const WEAPON_ORDER := ["aether", "minicore", "hand_cannon", "pulse_carbine", "star_piercer", "duck_launcher", "banana_boomerang", "confetti_cannon"]
-const WEAPON_DISPLAY := {"aether":"AETHER BLASTER", "minicore":"MINICORE", "hand_cannon":"NOVA HAND CANNON", "pulse_carbine":"PULSE CARBINE", "star_piercer":"STAR PIERCER", "duck_launcher":"DUCK LAUNCHER", "banana_boomerang":"BANANA BOOMERANG", "confetti_cannon":"CONFETTI CANNON"}
+var arsenal_panel: PanelContainer
+const WEAPON_ORDER := ["aether", "minicore", "hand_cannon", "pulse_carbine", "star_piercer", "duck_launcher", "banana_boomerang", "confetti_cannon", "prism_scepter", "vortex_orbiter", "comet_bow", "bubble_burst", "glitch_ray", "meteor_mallet", "frost_wand", "solar_lance", "slime_slinger", "pixel_storm", "thunder_drum", "moon_disc", "jellyfish_staff", "portal_popper", "rubber_chicken"]
+const WEAPON_DISPLAY := {"aether":"AETHER BLASTER", "minicore":"MINICORE", "hand_cannon":"NOVA HAND CANNON", "pulse_carbine":"PULSE CARBINE", "star_piercer":"STAR PIERCER", "duck_launcher":"DUCK LAUNCHER", "banana_boomerang":"BANANA BOOMERANG", "confetti_cannon":"CONFETTI CANNON", "prism_scepter":"PRISM SCEPTER", "vortex_orbiter":"VORTEX ORBITER", "comet_bow":"COMET BOW", "bubble_burst":"BUBBLE BURST", "glitch_ray":"GLITCH RAY", "meteor_mallet":"METEOR MALLET", "frost_wand":"FROST WAND", "solar_lance":"SOLAR LANCE", "slime_slinger":"SLIME SLINGER", "pixel_storm":"PIXEL STORM", "thunder_drum":"THUNDER DRUM", "moon_disc":"MOON DISC", "jellyfish_staff":"JELLYFISH STAFF", "portal_popper":"PORTAL POPPER", "rubber_chicken":"RUBBER CHICKEN"}
+const WEAPON_ROLE := {"aether":"Energy blaster", "minicore":"Rapid pulse", "hand_cannon":"Heavy pulse", "pulse_carbine":"Balanced burst", "star_piercer":"Long-range prism", "duck_launcher":"Duck gag", "banana_boomerang":"Ricochet gag", "confetti_cannon":"Party burst", "prism_scepter":"Crystal beam", "vortex_orbiter":"Orbiting energy", "comet_bow":"Charged comet", "bubble_burst":"Bubble spray", "glitch_ray":"Pixel beam", "meteor_mallet":"Meteor bonk", "frost_wand":"Frost pulse", "solar_lance":"Solar charge", "slime_slinger":"Slime glob", "pixel_storm":"Voxel burst", "thunder_drum":"Thunder beat", "moon_disc":"Lunar ring", "jellyfish_staff":"Floating glow", "portal_popper":"Portal pulse", "rubber_chicken":"Squeaky chaos"}
 
 const RANK_THRESHOLDS := [
 	{"id":"bronze", "xp":0, "color":Color("#B87945")},
@@ -207,9 +209,9 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 		return
 	var synced_weapon := str(state.get("equipped_weapon_id", "aether"))
 	if WEAPON_ORDER.has(synced_weapon):
-		player.selected_weapon_id = synced_weapon
+		player.set_selected_weapon(synced_weapon)
 		if is_instance_valid(equipped_weapon_label):
-			equipped_weapon_label.text = "EQUIPPED  •  " + str(WEAPON_DISPLAY.get(synced_weapon, synced_weapon.to_upper())) + "   [1–8 / E / R]"
+			equipped_weapon_label.text = "EQUIPPED  •  " + str(WEAPON_DISPLAY.get(synced_weapon, synced_weapon.to_upper())) + "   [V / E / R]"
 	var position_value: Variant = state.get("position", player.global_position)
 	if position_value is Vector3:
 		player.global_position = position_value
@@ -394,7 +396,7 @@ func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Ve
 	mesh.size = Vector3(0.035, 0.035, 1.0)
 	beam.mesh = mesh
 	var material := StandardMaterial3D.new()
-	var beam_colors := {"aether":Color("#35EFFF"), "minicore":Color("#FF9B54"), "hand_cannon":Color("#F2D36D"), "pulse_carbine":Color("#76E6C5"), "star_piercer":Color("#C6A0FF"), "duck_launcher":Color("#FFE56B"), "banana_boomerang":Color("#E7F26C"), "confetti_cannon":Color("#FF83C8")}
+	var beam_colors := {"aether":Color("#35EFFF"), "minicore":Color("#FF9B54"), "hand_cannon":Color("#F2D36D"), "pulse_carbine":Color("#76E6C5"), "star_piercer":Color("#C6A0FF"), "duck_launcher":Color("#FFE56B"), "banana_boomerang":Color("#E7F26C"), "confetti_cannon":Color("#FF83C8"), "prism_scepter":Color("#E98BFF"), "vortex_orbiter":Color("#7A9DFF"), "comet_bow":Color("#F7A8FF"), "bubble_burst":Color("#8EEAFF"), "glitch_ray":Color("#B6FF63"), "meteor_mallet":Color("#FF815D"), "frost_wand":Color("#8FCFFF"), "solar_lance":Color("#FFD46A"), "slime_slinger":Color("#B9F56E"), "pixel_storm":Color("#80F6DB"), "thunder_drum":Color("#7DC8FF"), "moon_disc":Color("#BCC7FF"), "jellyfish_staff":Color("#D39BFF"), "portal_popper":Color("#9C72FF"), "rubber_chicken":Color("#FFB56C")}
 	var beam_color: Color = beam_colors.get(weapon_id, Color("#35EFFF"))
 	material.albedo_color = beam_color
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -590,6 +592,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_select_weapon(str(number_to_weapon[event.keycode]))
 			get_viewport().set_input_as_handled()
 			return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_V:
+		_toggle_arsenal()
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("throw_grenade") and is_instance_valid(network) and network.is_authenticated and is_instance_valid(player):
 		network.request_grenade_throw(-player.global_basis.z + Vector3.UP * 0.12)
 		get_viewport().set_input_as_handled()
@@ -614,11 +620,15 @@ func _cycle_weapon(direction: int) -> void:
 func _select_weapon(weapon_id: String) -> void:
 	if not WEAPON_ORDER.has(weapon_id) or not is_instance_valid(player):
 		return
-	player.selected_weapon_id = weapon_id
+	player.set_selected_weapon(weapon_id)
 	if is_instance_valid(network) and network.is_authenticated:
 		network.request_select_weapon(weapon_id)
 	if is_instance_valid(equipped_weapon_label):
-		equipped_weapon_label.text = "EQUIPPED  •  " + str(WEAPON_DISPLAY.get(weapon_id, weapon_id.to_upper())) + "   [1–8 / E / R]"
+		equipped_weapon_label.text = "EQUIPPED  •  " + str(WEAPON_DISPLAY.get(weapon_id, weapon_id.to_upper())) + "   [V / E / R]"
+	if is_instance_valid(arsenal_panel) and arsenal_panel.visible:
+		arsenal_panel.visible = false
+		if not OS.has_feature("mobile") and not DisplayServer.is_touchscreen_available():
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _toggle_admin_panel() -> void:
 	if not admin_available or not is_instance_valid(admin_panel):
@@ -1147,6 +1157,16 @@ func _build_hud() -> void:
 	scoreboard_rows.add_theme_constant_override("separation", 4)
 	scoreboard_column.add_child(scoreboard_rows)
 	_refresh_scoreboard()
+	_build_arsenal_panel(root)
+	var arsenal_button := Button.new()
+	arsenal_button.text = "ARSENAL  •  23"
+	arsenal_button.anchor_left = 0.78
+	arsenal_button.anchor_right = 0.98
+	arsenal_button.anchor_top = 0.23
+	arsenal_button.anchor_bottom = 0.23
+	arsenal_button.offset_bottom = 38
+	arsenal_button.pressed.connect(_toggle_arsenal)
+	root.add_child(arsenal_button)
 
 	if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available():
 		_build_touch_controls(root)
@@ -1171,6 +1191,75 @@ func _build_hud() -> void:
 		admin_button.offset_bottom = 38
 		admin_button.pressed.connect(_toggle_admin_panel)
 		root.add_child(admin_button)
+
+func _build_arsenal_panel(root: Control) -> void:
+	arsenal_panel = PanelContainer.new()
+	arsenal_panel.name = "ArcadeArsenal"
+	arsenal_panel.anchor_left = 0.10
+	arsenal_panel.anchor_right = 0.90
+	arsenal_panel.anchor_top = 0.12
+	arsenal_panel.anchor_bottom = 0.88
+	arsenal_panel.visible = false
+	arsenal_panel.z_index = 20
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.012, 0.025, 0.05, 0.97)
+	panel_style.border_color = Color("#27D7E7")
+	panel_style.set_border_width_all(2)
+	panel_style.set_corner_radius_all(14)
+	panel_style.content_margin_left = 14
+	panel_style.content_margin_right = 14
+	panel_style.content_margin_top = 12
+	panel_style.content_margin_bottom = 12
+	arsenal_panel.add_theme_stylebox_override("panel", panel_style)
+	root.add_child(arsenal_panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 8)
+	arsenal_panel.add_child(column)
+	var header := HBoxContainer.new()
+	column.add_child(header)
+	var title := Label.new()
+	title.text = "OXENWAR  •  ARCADE ARSENAL"
+	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", Color("#6FEAF2"))
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+	var close_button := Button.new()
+	close_button.text = "CLOSE  [V]"
+	close_button.pressed.connect(_toggle_arsenal)
+	header.add_child(close_button)
+	var note := Label.new()
+	note.text = "23 FICTIONAL WEAPON ARCHETYPES  •  E / R TO CYCLE  •  SELECT A CARD TO EQUIP"
+	note.add_theme_font_size_override("font_size", 12)
+	note.add_theme_color_override("font_color", Color("#A9C3D5"))
+	column.add_child(note)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	column.add_child(scroll)
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	scroll.add_child(grid)
+	for index in range(WEAPON_ORDER.size()):
+		var weapon_id: String = WEAPON_ORDER[index]
+		var weapon_button := Button.new()
+		weapon_button.custom_minimum_size = Vector2(174, 60)
+		weapon_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		weapon_button.text = "%02d  %s\n%s" % [index + 1, str(WEAPON_DISPLAY[weapon_id]), str(WEAPON_ROLE.get(weapon_id, "Arcade energy"))]
+		weapon_button.add_theme_font_size_override("font_size", 12)
+		weapon_button.add_theme_color_override("font_color", Color("#EAF8FF"))
+		weapon_button.pressed.connect(_select_weapon.bind(weapon_id))
+		grid.add_child(weapon_button)
+
+func _toggle_arsenal() -> void:
+	if not is_instance_valid(arsenal_panel):
+		return
+	arsenal_panel.visible = not arsenal_panel.visible
+	if arsenal_panel.visible:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	elif not OS.has_feature("mobile") and not DisplayServer.is_touchscreen_available():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _add_hud_panel(root: Control, panel_name: String, panel_position: Vector2, panel_size: Vector2, fill: Color, accent: Color) -> Panel:
 	var panel := Panel.new()
