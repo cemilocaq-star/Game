@@ -63,3 +63,10 @@ These are original generated prototype meshes and remain blockout-quality, stati
 - Random event siyahısına METEOR_SHOWER (dekorativ), ICE_WORLD və DOUBLE_XP əlavə edilib.
 - **Təhlükəsizlik sərhədi:** bu layihənin hazırkı versiyası offline/single-player prototipdir və server autentifikasiyası yoxdur. Buna görə Admin Panel export build-lərdə aktiv deyil. Real multiplayer admin əmrləri serverdə rol yoxlaması və server-authoritative icra tələb edir; gizli düymə və ya client config təhlükəsizlik sayılmır.
 - **Verification:** GitHub faylları və struktur yoxlaması oxunub; Godot editor parse/runtime, real input, xəritə collision, multiplayer və EXE/APK testləri bu mühitdə aparılmayıb.
+
+
+## FixerPly administrator identity
+
+- Local prototype player display name is `FixerPly`; the Admin Power Panel is enabled only for the matching `ADMIN_PLAYER_NAME` check.
+- F8 and an ADMIN HUD button open the panel.
+- This local name check is not multiplayer authentication. Server-side immutable account identity and role authorization are required before enabling online admin commands.

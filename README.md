@@ -34,3 +34,8 @@ Progression is saved locally in `user://progression.cfg`; graphics preference is
 ## Admin development tools and map variants
 
 Press **F8** while running the project from the Godot editor to open the editor-only Admin Power Panel. It includes fly mode (WASD + Space/Ctrl), a god-mode state flag for future damage systems, a first-person Thor-style hammer prop, a decorative lightning strike, UFO/duck meme effects, a bounce/reset utility, four local arena variants (Lost Mall, Neon City, Space Islands, Candy World), and manual event triggers. Random event rotation now also includes decorative Meteor Shower, Ice World and Double XP. The admin panel is intentionally unavailable in exported builds: this prototype has no account authentication or authoritative multiplayer server, so a client-side secret or hidden button would not be real admin security. Proper multiplayer admin powers must be authorized and executed by the server.
+
+
+### FixerPly admin identity
+
+The current offline prototype assigns the local player the display name `FixerPly`; the Admin Power Panel is enabled only when `player.player_name == ADMIN_PLAYER_NAME`. Desktop uses F8 and a visible ADMIN button is also provided for touch devices. This is a local prototype identity check, **not secure online authentication**: when multiplayer accounts are implemented, the server must assign and verify the immutable account ID/role for FixerPly. A player-controlled nickname alone must never grant server privileges.

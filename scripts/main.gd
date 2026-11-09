@@ -1,6 +1,8 @@
 extends Node3D
 
 const PLAYER_SCRIPT = preload("res://scripts/player.gd")
+const ADMIN_PLAYER_NAME := "FixerPly"
+const DEFAULT_PLAYER_NAME := "FixerPly"
 const ROUND_SECONDS := 300.0
 const EVENT_INTERVAL := 30.0
 const EVENT_DURATION := 12.0
@@ -47,8 +49,8 @@ const EVENT_NAMES := {
 
 func _ready() -> void:
 	rng.randomize()
-	# Admin tools are deliberately editor-only until the game has server-side accounts/roles.
-	admin_available = OS.has_feature("editor")
+	# Offline prototype identity. Multiplayer builds must replace this with server-authenticated account roles.
+	admin_available = false
 	progression = ProgressionManager.new()
 	add_child(progression)
 	progression.level_up.connect(_on_level_up)
@@ -180,6 +182,9 @@ func _make_box(node_name: String, size: Vector3, position: Vector3, color: Color
 func _spawn_player() -> void:
 	player = PLAYER_SCRIPT.new()
 	player.name = "LocalPlayer"
+	player.player_name = DEFAULT_PLAYER_NAME
+	player.is_admin = player.player_name == ADMIN_PLAYER_NAME
+	admin_available = player.is_admin
 	player.position = Vector3(0, 1.5, 6)
 	player.collected.connect(_on_collected)
 	add_child(player)
@@ -337,9 +342,19 @@ func _build_hud() -> void:
 		_build_touch_controls(root)
 	if admin_available:
 		_build_admin_panel(root)
+		var admin_button := Button.new()
+		admin_button.text = "ADMIN"
+		admin_button.anchor_left = 0.78
+		admin_button.anchor_right = 0.98
+		admin_button.anchor_top = 0.16
+		admin_button.anchor_bottom = 0.16
+		admin_button.offset_top = 0
+		admin_button.offset_bottom = 38
+		admin_button.pressed.connect(_toggle_admin_panel)
+		root.add_child(admin_button)
 
 func _build_admin_panel(root: Control) -> void:
-	admin_hint = _make_label(root, "F8  •  ADMIN DEV MODE", Vector2(22, 198), 13)
+	admin_hint = _make_label(root, "F8  •  FIXERPLY ADMIN", Vector2(22, 198), 13)
 	admin_hint.add_theme_color_override("font_color", Color(1.0, 0.72, 0.25))
 	admin_panel = PanelContainer.new()
 	admin_panel.name = "AdminPowerPanel"

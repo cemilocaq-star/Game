@@ -35,6 +35,8 @@ var _capsule: CapsuleShape3D
 var _jump_buffer_left := 0.0
 var _coyote_left := 0.0
 var _is_sliding := false
+var player_name := "Player"
+var is_admin := false
 var admin_fly_enabled := false
 var admin_god_mode := false
 var admin_hammer_equipped := false
@@ -189,11 +191,15 @@ func try_dash(direction: Vector3 = Vector3.ZERO) -> void:
 	stamina -= 20.0
 
 func set_admin_fly(enabled: bool) -> void:
+	if not is_admin:
+		return
 	admin_fly_enabled = enabled
 	if not enabled:
 		velocity = Vector3.ZERO
 
 func toggle_admin_hammer() -> void:
+	if not is_admin:
+		return
 	admin_hammer_equipped = not admin_hammer_equipped
 	if admin_hammer_equipped:
 		_admin_hammer = Node3D.new()
