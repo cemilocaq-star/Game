@@ -191,7 +191,7 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 	player.rotation.y = float(state.get("yaw", player.rotation.y))
 	player.score = int(state.get("score", player.score))
 	match_killboard[local_player_name] = int(state.get("kills", 0))
-	_update_player_match_stats(local_player_name, int(state.get("kills", 0)), int(state.get("deaths", 0)), int(state.get("score", 0)))
+	_update_player_match_stats(local_player_name, state)
 	player.stamina = float(state.get("stamina", player.stamina))
 	player.health = float(state.get("health", player.health))
 	player.is_dead = bool(state.get("dead", false))
@@ -307,7 +307,7 @@ func _on_invite_friend_pressed() -> void:
 func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
 	var remote_name := str(state.get("display_name", "Player"))
 	match_killboard[remote_name] = int(state.get("kills", 0))
-	_update_player_match_stats(remote_name, int(state.get("kills", 0)), int(state.get("deaths", 0)), int(state.get("score", 0)))
+	_update_player_match_stats(remote_name, state)
 	var remote = remote_players.get(peer_id)
 	if not is_instance_valid(remote):
 		remote = REMOTE_PLAYER_SCRIPT.new()
@@ -394,8 +394,14 @@ func _on_grenade_exploded_received(grenade_id: int, position_value: Vector3) -> 
 	_client_grenade_visuals.erase(grenade_id)
 	COMBAT_FX_SCRIPT.grenade_explosion(self, position_value)
 
-func _update_player_match_stats(player_name: String, kills: int, deaths: int, score: int) -> void:
-	match_stats[player_name] = {"kills": kills, "deaths": deaths, "score": score}
+func _update_player_match_stats(player_name: String, state: Dictionary) -> void:
+	match_stats[player_name] = {
+		"kills": int(state.get("kills", 0)), "deaths": int(state.get("deaths", 0)),
+		"score": int(state.get("score", 0)), "team_id": str(state.get("team_id", "")),
+		"shots_fired": int(state.get("shots_fired", 0)), "shots_hit": int(state.get("shots_hit", 0)),
+		"damage_dealt": float(state.get("damage_dealt", 0.0)),
+		"damage_received": float(state.get("damage_received", 0.0))
+	}
 	_refresh_scoreboard()
 
 func _refresh_scoreboard() -> void:
@@ -1389,73 +1395,123 @@ func _finish_round() -> void:
 	if _round_finished:
 		return
 	_round_finished = true
-	if is_instance_valid(player):
-		progression.record_score(player.score)
-		player.set_physics_process(false)
-		player.set_process_unhandled_input(false)
-
-	var overlay := ColorRect.new()
-	overlay.name = "RoundFinishedOverlay"
-	overlay.color = Color(0.015, 0.025, 0.055, 0.88)
+	var standings: Array[Dictionary] = []
+	var team_totals := {"red": 0, "blue": 0}
+	for player_name in match_stats.keys():
+		var stats: Dictionary = match_stats[player_name]
+		var row := {
+			"name": str(player_name), "kills": int(stats.get("kills", 0)),
+			"deaths": int(stats.get("deaths", 0)), "score": int(stats.get("score", 0)),
+			"team_id": str(stats.get("team_id", "")),
+			"shots_fired": int(stats.get("shots_fired", 0)), "shots_hit": int(stats.get("shots_hit", 0)),
+			"damage_dealt": float(stats.get("damage_dealt", 0.0)),
+			"damage_received": float(stats.get("damage_received", 0.0))
+		}
+		standings.append(row)
+		var team := str(row.team_id)
+		if team_totals.has(team):
+			team_totals[team] = int(team_totals[team]) + int(row.kills)
+	standings.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if int(a.kills) == int(b.kills):
+			return int(a.score) > int(b.score)
+		return int(a.kills) > int(b.kills)
+	)
+	var mvp_rows := standings.duplicate()
+	mvp_rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if int(a.score) == int(b.score):
+			return int(a.kills) > int(b.kills)
+		return int(a.score) > int(b.score)
+	)
+	var winner_name := str(standings[0].name) if not standings.is_empty() else local_player_name
+	var winner_kills := int(standings[0].kills) if not standings.is_empty() else 0
+	var mvp_name := str(mvp_rows[0].name) if not mvp_rows.is_empty() else local_player_name
+	var team_winner := ""
+	if active_room_mode == "team_deathmatch":
+		if int(team_totals.red) > int(team_totals.blue):
+			team_winner = "RED TEAM WINS  •  %d - %d" % [int(team_totals.red), int(team_totals.blue)]
+		elif int(team_totals.blue) > int(team_totals.red):
+			team_winner = "BLUE TEAM WINS  •  %d - %d" % [int(team_totals.blue), int(team_totals.red)]
+		else:
+			team_winner = "TEAM DRAW  •  %d - %d" % [int(team_totals.red), int(team_totals.blue)]
+	var overlay := Control.new()
+	overlay.name = "MatchResultsOverlay"
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	hud_layer.add_child(overlay)
-
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(center)
-
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(440, 250)
+	panel.custom_minimum_size = Vector2(580, 440)
 	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.045, 0.085, 0.14, 1.0)
-	panel_style.border_color = Color(0.12, 0.78, 0.68, 1.0)
+	panel_style.bg_color = Color(0.025, 0.055, 0.09, 0.98)
+	panel_style.border_color = Color(0.12, 0.82, 0.76, 1.0)
 	panel_style.set_border_width_all(2)
 	panel_style.set_corner_radius_all(16)
-	panel_style.content_margin_left = 28
-	panel_style.content_margin_right = 28
-	panel_style.content_margin_top = 24
-	panel_style.content_margin_bottom = 24
+	panel_style.content_margin_left = 24
+	panel_style.content_margin_right = 24
+	panel_style.content_margin_top = 18
+	panel_style.content_margin_bottom = 18
 	panel.add_theme_stylebox_override("panel", panel_style)
 	center.add_child(panel)
-
 	var column := VBoxContainer.new()
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
-	column.add_theme_constant_override("separation", 16)
+	column.add_theme_constant_override("separation", 8)
 	panel.add_child(column)
-
 	var title := Label.new()
-	title.text = "FREE FOR ALL • MATCH COMPLETE" if active_room_mode == "ffa" else "ROUND COMPLETE"
+	title.text = "MATCH RESULTS"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_font_size_override("font_size", 28)
 	title.add_theme_color_override("font_color", Color(0.45, 1.0, 0.86))
 	column.add_child(title)
-
-	var result := Label.new()
-	var standings: Array = []
-	for player_name in match_killboard.keys():
-		standings.append({"name": str(player_name), "kills": int(match_killboard[player_name])})
-	standings.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.kills) > int(b.kills))
-	var winner_name := str(standings[0].name) if not standings.is_empty() else local_player_name
-	var winner_kills := int(standings[0].kills) if not standings.is_empty() else 0
-	result.text = "WINNER  %s  •  %d KILLS" % [winner_name, winner_kills]
-	result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	result.add_theme_font_size_override("font_size", 23)
-	result.add_theme_color_override("font_color", Color(0.92, 0.97, 1.0))
-	column.add_child(result)
-
-	var hint := Label.new()
-	var board_lines := PackedStringArray()
+	var winner := Label.new()
+	winner.text = team_winner if not team_winner.is_empty() else "WINNER  %s  •  %d KILLS" % [winner_name, winner_kills]
+	winner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	winner.add_theme_font_size_override("font_size", 20)
+	winner.add_theme_color_override("font_color", Color(0.94, 0.98, 1.0))
+	column.add_child(winner)
+	var mvp := Label.new()
+	mvp.text = "MVP  •  %s" % mvp_name
+	mvp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mvp.add_theme_color_override("font_color", Color("#FFD47A"))
+	column.add_child(mvp)
+	var local_stats: Dictionary = match_stats.get(local_player_name, {})
+	var shots := int(local_stats.get("shots_fired", 0))
+	var hits := int(local_stats.get("shots_hit", 0))
+	var accuracy := 100.0 * float(hits) / float(shots) if shots > 0 else 0.0
+	var personal := Label.new()
+	personal.text = "YOUR PERFORMANCE\nKILLS  %d     DEATHS  %d     SCORE  %d\nBLASTER ACCURACY  %.1f%%  (%d / %d)\nDAMAGE DEALT  %.0f     DAMAGE RECEIVED  %.0f" % [
+		int(local_stats.get("kills", 0)), int(local_stats.get("deaths", 0)), int(local_stats.get("score", 0)),
+		accuracy, hits, shots, float(local_stats.get("damage_dealt", 0.0)), float(local_stats.get("damage_received", 0.0))
+	]
+	personal.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	personal.add_theme_color_override("font_color", Color("#D7E8F5"))
+	column.add_child(personal)
+	var table_header := Label.new()
+	table_header.text = "RANK   PLAYER                 K     D     SCORE    DMG"
+	table_header.add_theme_color_override("font_color", Color("#74DDE5"))
+	column.add_child(table_header)
+	var board := VBoxContainer.new()
+	board.add_theme_constant_override("separation", 2)
+	column.add_child(board)
 	for index in range(mini(5, standings.size())):
-		board_lines.append("%d. %s  —  %d KILLS" % [index + 1, str(standings[index].name), int(standings[index].kills)])
-	hint.text = "\n".join(board_lines) if not board_lines.is_empty() else "No eliminations recorded."
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.add_theme_color_override("font_color", Color(0.68, 0.78, 0.88))
-	column.add_child(hint)
-
+		var entry: Dictionary = standings[index]
+		var row_label := Label.new()
+		row_label.text = "%d.     %-20s %3d   %3d   %5d   %5.0f" % [
+			index + 1, str(entry.name).substr(0, 20), int(entry.kills), int(entry.deaths),
+			int(entry.score), float(entry.damage_dealt)
+		]
+		row_label.add_theme_color_override("font_color", Color("#FFFFFF") if str(entry.name) == local_player_name else Color("#AFC4D4"))
+		board.add_child(row_label)
+	if active_room_mode == "team_deathmatch":
+		var teams := Label.new()
+		teams.text = "RED TEAM  %d KILLS     •     BLUE TEAM  %d KILLS" % [int(team_totals.red), int(team_totals.blue)]
+		teams.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		teams.add_theme_color_override("font_color", Color("#F0B8C0"))
+		column.add_child(teams)
 	var restart := Button.new()
 	restart.text = "PLAY AGAIN"
-	restart.custom_minimum_size = Vector2(180, 48)
+	restart.custom_minimum_size = Vector2(180, 42)
 	restart.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	restart.pressed.connect(func(): get_tree().reload_current_scene())
 	column.add_child(restart)
