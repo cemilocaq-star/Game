@@ -36,6 +36,8 @@ var local_player: Node3D
 var local_player_name := "Player"
 var local_player_color := Color("#27D7E7")
 var _access_token := ""
+var _game_ticket := ""
+var _ticket_request_in_progress := false
 var _last_send_ms := 0
 var _snapshot_accumulator := 0.0
 var _server_players: Dictionary = {} # peer id -> CharacterBody3D
@@ -44,7 +46,7 @@ var _client_peer_ids: Dictionary = {}
 var _peer_users: Dictionary = {} # peer id -> Supabase user id
 var _user_peers: Dictionary = {} # Supabase user id -> peer id
 var _profiles: Dictionary = {}
-var _tokens: Dictionary = {} # server memory only; never persisted/logged
+var _session_tokens: Dictionary = {} # server memory only; never persisted/logged
 var _rooms: Dictionary = {} # room code -> room state
 var _user_rooms: Dictionary = {} # user id -> room code
 var _sessions: Dictionary = {} # user id -> reconnect reservation
@@ -74,11 +76,38 @@ func connect_to_server(host: String, access_token: String) -> void:
 	_access_token = access_token
 	_last_host = host.strip_edges()
 	_reconnect_attempts = 0
+	_request_ticket_and_connect()
+
+func _request_ticket_and_connect() -> void:
+	if is_dedicated_server or _ticket_request_in_progress:
+		return
+	if _last_host.is_empty() or _access_token.is_empty():
+		connection_status_changed.emit("Sign in and enter a server address.")
+		return
+	_ticket_request_in_progress = true
+	var headers := PackedStringArray([
+		"apikey: " + SUPABASE_KEY,
+		"Authorization: Bearer " + _access_token,
+		"Content-Type: application/json"
+	])
+	var ticket_response := await _http_json(HTTPClient.METHOD_POST,
+		SUPABASE_URL + "/functions/v1/oxenwar-server-sync", headers, {"action": "issue_ticket"})
+	_ticket_request_in_progress = false
+	if not ticket_response.get("ok", false):
+		connection_status_changed.emit("Secure game ticket request failed (HTTP %d)" % int(ticket_response.get("status", 0)))
+		_schedule_reconnect()
+		return
+	var ticket_data: Dictionary = ticket_response.get("data", {})
+	_game_ticket = str(ticket_data.get("ticket", ""))
+	if _game_ticket.is_empty():
+		connection_status_changed.emit("Supabase did not issue a game ticket")
+		_schedule_reconnect()
+		return
 	_connect_now()
 
 func _connect_now() -> void:
-	if _last_host.is_empty() or _access_token.is_empty():
-		connection_status_changed.emit("Sign in and enter a server address.")
+	if _last_host.is_empty() or _game_ticket.is_empty():
+		connection_status_changed.emit("Secure game ticket is missing.")
 		return
 	var peer := ENetMultiplayerPeer.new()
 	var error := peer.create_client(_last_host, PORT)
@@ -142,7 +171,7 @@ func _process(delta: float) -> void:
 func _on_connected_to_server() -> void:
 	_reconnect_attempts = 0
 	connection_status_changed.emit("Connected • verifying Supabase account")
-	rpc_id(1, "_server_authenticate", _access_token)
+	rpc_id(1, "_server_authenticate", _game_ticket)
 
 func _on_connection_failed() -> void:
 	is_authenticated = false
@@ -166,7 +195,7 @@ func _schedule_reconnect() -> void:
 		_reconnect_timer = Timer.new()
 		_reconnect_timer.one_shot = true
 		add_child(_reconnect_timer)
-		_reconnect_timer.timeout.connect(_connect_now)
+		_reconnect_timer.timeout.connect(_request_ticket_and_connect)
 	if _reconnect_timer.is_stopped():
 		_reconnect_attempts += 1
 		_reconnect_timer.wait_time = minf(15.0, 1.5 * pow(1.6, minf(_reconnect_attempts, 5)))
@@ -199,7 +228,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			"xp": int(_server_players[peer_id].xp) if _server_players.has(peer_id) else 0,
 			"match_xp": int(_server_players[peer_id].match_xp) if _server_players.has(peer_id) else 0,
 			"collections": _server_players[peer_id].collection_counts.duplicate(true) if _server_players.has(peer_id) else {},
-			"token": str(_tokens.get(user_id, "")),
+			"token": str(_session_tokens.get(user_id, "")),
 			"already_persisted": bool(room.get("persisted", {}).has(user_id))
 		}
 		if _server_players.has(peer_id):
@@ -209,32 +238,35 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	_last_input_ms.erase(peer_id)
 	if int(_user_peers.get(user_id, 0)) == peer_id:
 		_user_peers.erase(user_id)
-		_tokens.erase(user_id)
+		_session_tokens.erase(user_id)
 	_broadcast_room_state(room_code)
 	print("OxenWar peer disconnected: ", peer_id)
 
 @rpc("any_peer", "call_remote", "reliable")
-func _server_authenticate(token: String) -> void:
+func _server_authenticate(ticket: String) -> void:
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
-	if token.length() < 40 or token.length() > 4096:
-		rpc_id(peer_id, "_client_auth_result", false, "Invalid access token")
+	if ticket.length() < 40 or ticket.length() > 8192:
+		rpc_id(peer_id, "_client_auth_result", false, "Invalid game ticket")
 		return
-	var identity := await _verify_supabase_token(token)
+	var identity := await _redeem_game_ticket(ticket)
 	if not identity.get("ok", false):
-		rpc_id(peer_id, "_client_auth_result", false, "Supabase authentication failed")
+		rpc_id(peer_id, "_client_auth_result", false, "Game ticket invalid, expired or already used")
 		return
-	var user_id := str(identity.user_id)
+	var user_id := str(identity.get("user_id", ""))
+	if user_id.is_empty():
+		rpc_id(peer_id, "_client_auth_result", false, "Ticket has no player identity")
+		return
 	if _user_peers.has(user_id):
 		var old_peer := int(_user_peers[user_id])
 		if old_peer != peer_id:
 			multiplayer.multiplayer_peer.disconnect_peer(old_peer)
-	var profile: Dictionary = identity.profile
+	var profile: Dictionary = identity.get("profile", {})
 	_peer_users[peer_id] = user_id
 	_user_peers[user_id] = peer_id
 	_profiles[user_id] = profile
-	_tokens[user_id] = token
+	_session_tokens[user_id] = str(identity.get("session_token", ""))
 	var player := _create_server_player(peer_id, profile, identity.get("stats", {}))
 	var restored: Dictionary = _sessions.get(user_id, {})
 	var restored_room := str(restored.get("room_code", ""))
@@ -259,33 +291,23 @@ func _server_authenticate(token: String) -> void:
 	if not _user_rooms.has(user_id):
 		_server_quick_match_for_peer(peer_id)
 
-func _verify_supabase_token(token: String) -> Dictionary:
-	var auth_response := await _http_json(HTTPClient.METHOD_GET, SUPABASE_URL + "/auth/v1/user", PackedStringArray([
+func _redeem_game_ticket(ticket: String) -> Dictionary:
+	if _server_secret.is_empty():
+		return {"ok": false}
+	var headers := PackedStringArray([
 		"apikey: " + SUPABASE_KEY,
-		"Authorization: Bearer " + token
-	]))
-	if not auth_response.get("ok", false):
+		"Content-Type: application/json",
+		"x-oxenwar-server-secret: " + _server_secret
+	])
+	var response := await _http_json(HTTPClient.METHOD_POST,
+		SUPABASE_URL + "/functions/v1/oxenwar-server-sync", headers,
+		{"action": "redeem_ticket", "ticket": ticket})
+	if not response.get("ok", false):
 		return {"ok": false}
-	var user: Dictionary = auth_response.get("data", {})
-	var user_id := str(user.get("id", ""))
-	if user_id.is_empty():
+	var data: Dictionary = response.get("data", {})
+	if not data.get("ok", false) or str(data.get("session_token", "")).is_empty():
 		return {"ok": false}
-	var headers := PackedStringArray(["apikey: " + SUPABASE_KEY, "Authorization: Bearer " + token])
-	var profile_response := await _http_json(HTTPClient.METHOD_GET,
-		SUPABASE_URL + "/rest/v1/profiles?select=id,username,display_name,avatar_color_id,outfit_id,accessory_id&id=eq." + user_id.uri_encode() + "&limit=1", headers)
-	if not profile_response.get("ok", false):
-		return {"ok": false}
-	var profiles: Array = profile_response.get("data", [])
-	if profiles.is_empty():
-		return {"ok": false}
-	var stats_response := await _http_json(HTTPClient.METHOD_GET,
-		SUPABASE_URL + "/rest/v1/player_stats?select=total_xp,best_score,total_score,matches_played&user_id=eq." + user_id.uri_encode() + "&limit=1", headers)
-	var stats: Dictionary = {}
-	if stats_response.get("ok", false):
-		var stats_rows: Array = stats_response.get("data", [])
-		if not stats_rows.is_empty():
-			stats = stats_rows[0]
-	return {"ok": true, "user_id": user_id, "profile": profiles[0], "stats": stats}
+	return data
 
 func _http_json(method: int, url: String, headers: PackedStringArray, payload: Variant = null) -> Dictionary:
 	var request := HTTPRequest.new()
@@ -382,7 +404,7 @@ func _server_join_room(code: String) -> void:
 		rpc_id(peer_id, "_client_room_error", "Room is full")
 		return
 	if not bool(room.is_public) and str(room.owner_uid) != user_id:
-		var friends := await _server_are_friends(user_id, str(room.owner_uid), str(_tokens.get(user_id, "")))
+		var friends := await _server_are_friends(user_id, str(room.owner_uid), str(_session_tokens.get(user_id, "")))
 		if not friends:
 			rpc_id(peer_id, "_client_room_error", "Private rooms are for friends only")
 			return
@@ -435,21 +457,25 @@ func _server_invite_friend(friend_user_id: String) -> void:
 	if user_id.is_empty() or room_code.is_empty() or not _user_peers.has(friend_user_id):
 		rpc_id(peer_id, "_client_room_error", "Friend is offline or no room is active")
 		return
-	if not await _server_are_friends(user_id, friend_user_id, str(_tokens.get(user_id, ""))):
+	if not await _server_are_friends(user_id, friend_user_id, str(_session_tokens.get(user_id, ""))):
 		rpc_id(peer_id, "_client_room_error", "You can invite friends only")
 		return
 	var friend_peer := int(_user_peers[friend_user_id])
 	rpc_id(friend_peer, "_client_room_invite", str(_profiles[user_id].get("display_name", "Friend")), room_code)
 
-func _server_are_friends(user_id: String, other_id: String, token: String) -> bool:
-	var low := user_id if user_id < other_id else other_id
-	var high := other_id if user_id < other_id else user_id
-	var url := SUPABASE_URL + "/rest/v1/friendships?select=user_a&user_a=eq." + low + "&user_b=eq." + high + "&limit=1"
-	var result := await _http_json(HTTPClient.METHOD_GET, url, PackedStringArray([
+func _server_are_friends(user_id: String, other_id: String, session_token: String) -> bool:
+	var headers := PackedStringArray([
 		"apikey: " + SUPABASE_KEY,
-		"Authorization: Bearer " + token
-	]))
-	return result.get("ok", false) and result.get("data", []) is Array and not result.data.is_empty()
+		"Content-Type: application/json",
+		"x-oxenwar-server-secret: " + _server_secret
+	])
+	var result := await _http_json(HTTPClient.METHOD_POST,
+		SUPABASE_URL + "/functions/v1/oxenwar-server-sync", headers,
+		{"action": "check_friend", "session_token": session_token, "friend_user_id": other_id})
+	if not result.get("ok", false):
+		return false
+	var data: Dictionary = result.get("data", {})
+	return bool(data.get("is_friend", false))
 
 func _new_room(code: String, owner_uid: String, public_room: bool) -> Dictionary:
 	var availability := {}
@@ -612,7 +638,7 @@ func _persist_session_result(user_id: String, session: Dictionary) -> void:
 	var counts: Dictionary = session.get("collections", {})
 	await _persist_result_values(
 		user_id,
-		str(session.get("token", "")),
+		str(session.get("session_token", "")),
 		int(session.get("score", 0)),
 		int(session.get("match_xp", 0)),
 		_collection_list_from_counts(counts)
@@ -634,24 +660,23 @@ func _persist_room_member_result(room_code: String, user_id: String, player) -> 
 		_rooms[room_code] = room
 
 func _persist_user_result(user_id: String, player) -> bool:
-	return await _persist_result_values(user_id, str(_tokens.get(user_id, "")), int(player.score), int(player.match_xp), _collection_list(player))
+	return await _persist_result_values(user_id, str(_session_tokens.get(user_id, "")), int(player.score), int(player.match_xp), _collection_list(player))
 
-func _persist_result_values(user_id: String, token: String, score: int, xp: int, collections: Array) -> bool:
+func _persist_result_values(user_id: String, session_token: String, score: int, xp: int, collections: Array) -> bool:
 	if user_id.is_empty() or (score <= 0 and xp <= 0 and collections.is_empty()):
 		return true
-	if token.is_empty():
-		return false
-	if _server_secret.is_empty():
-		push_warning("OXENWAR_SERVER_SECRET is not configured; match results remain server-side for this session.")
+	if session_token.is_empty() or _server_secret.is_empty():
+		push_warning("OXENWAR_SERVER_SECRET or server session is missing; match results cannot be persisted.")
 		return false
 	var payload := {
+		"action": "sync_result",
+		"session_token": session_token,
 		"score": clampi(score, 0, 20000),
 		"xp": clampi(xp, 0, 50000),
 		"collections": collections
 	}
 	var headers := PackedStringArray([
 		"apikey: " + SUPABASE_KEY,
-		"Authorization: Bearer " + token,
 		"Content-Type: application/json",
 		"x-oxenwar-server-secret: " + _server_secret
 	])
