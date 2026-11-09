@@ -148,16 +148,17 @@ func _build_event_artifact(event_id: String) -> void:
 			var tail_part := _artifact_part(artifact, meteor_tail, Color(1.0, 0.68, 0.2), Vector3(0.0, 0.9, 0.0))
 			tail_part.rotation_degrees.z = 22.0
 		"BONK_MODE":
+			# Cartoon impact-star centerpiece instead of a weapon-shaped prop.
 			color = Color(1.0, 0.56, 0.12)
-			var bonk_handle := CylinderMesh.new()
-			bonk_handle.top_radius = 0.07
-			bonk_handle.bottom_radius = 0.09
-			bonk_handle.height = 1.55
-			var bonk_handle_part := _artifact_part(artifact, bonk_handle, Color(0.62, 0.42, 0.22), Vector3(0.0, -0.25, 0.0))
-			bonk_handle_part.rotation_degrees.z = -25.0
-			var bonk_head := BoxMesh.new()
-			bonk_head.size = Vector3(1.15, 0.58, 0.62)
-			_artifact_part(artifact, bonk_head, color, Vector3(0.3, 0.5, 0.0))
+			var impact_core := SphereMesh.new()
+			impact_core.radius = 0.46
+			impact_core.height = 0.92
+			_artifact_part(artifact, impact_core, Color(1.0, 0.9, 0.28), Vector3.ZERO)
+			for spark_index in range(8):
+				var impact_spark := BoxMesh.new()
+				impact_spark.size = Vector3(0.18, 0.95, 0.14)
+				var spark := _artifact_part(artifact, impact_spark, color, Vector3(cos(float(spark_index) * TAU / 8.0) * 0.78, sin(float(spark_index) * TAU / 8.0) * 0.78, 0.0))
+				spark.rotation.z = float(spark_index) * TAU / 8.0
 		"NPC_MODE":
 			color = Color(0.3, 1.0, 0.52)
 			var npc_stem := CylinderMesh.new()
