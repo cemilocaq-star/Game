@@ -88,16 +88,16 @@ func _build_event_artifact(event_id: String) -> void:
 			_artifact_part(artifact, reward_orb, color, Vector3.ZERO)
 			for i in range(2):
 				var reward_halo := TorusMesh.new()
-				reward_pink_halo.inner_radius = 0.86 + float(i) * 0.18
+				reward_halo.inner_radius = 0.86 + float(i) * 0.18
 				reward_halo.outer_radius = reward_halo.inner_radius + 0.06
 				var reward_part := _artifact_part(artifact, reward_halo, color.lightened(0.12), Vector3.ZERO)
 				reward_part.rotation_degrees.x = 65.0 if i == 0 else -65.0
 		"METEOR_SHOWER":
 			color = Color(1.0, 0.38, 0.12)
-			var core := SphereMesh.new()
-			core.radius = 0.55
-			core.height = 1.1
-			_artifact_part(artifact, core, color, Vector3.ZERO)
+			var meteor_core := SphereMesh.new()
+			meteor_core.radius = 0.55
+			meteor_core.height = 1.1
+			_artifact_part(artifact, meteor_core, color, Vector3.ZERO)
 			var meteor_tail := CylinderMesh.new()
 			meteor_tail.top_radius = 0.04
 			meteor_tail.bottom_radius = 0.36
@@ -128,12 +128,12 @@ func _build_event_artifact(event_id: String) -> void:
 			_artifact_part(artifact, npc_marker, Color(1.0, 0.9, 0.25), Vector3(0.0, 0.65, 0.0))
 		"PINK_SKY":
 			color = Color(1.0, 0.28, 0.72)
-			var core := SphereMesh.new()
-			core.radius = 0.48
-			core.height = 0.96
-			_artifact_part(artifact, core, color, Vector3.ZERO)
+			var pink_core := SphereMesh.new()
+			pink_core.radius = 0.48
+			pink_core.height = 0.96
+			_artifact_part(artifact, pink_core, color, Vector3.ZERO)
 			var pink_halo := TorusMesh.new()
-			halo.inner_radius = 0.8
+			pink_halo.inner_radius = 0.8
 			pink_halo.outer_radius = 0.88
 			var ring_part := _artifact_part(artifact, pink_halo, Color(1.0, 0.68, 0.9), Vector3.ZERO)
 			ring_part.rotation_degrees.x = 62.0
