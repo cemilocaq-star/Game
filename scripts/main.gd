@@ -2,7 +2,7 @@ extends Node3D
 
 const PLAYER_SCRIPT = preload("res://scripts/player.gd")
 const ADMIN_PLAYER_NAME := "FixerPly"
-const DEFAULT_PLAYER_NAME := "FixerPly"
+const ADMIN_CODE_SHA256 := "735441830457f2280da8f91397f367b729451573e2cb6ce14846ed7a40da708c"\nvar local_player_name := "Player"\nvar local_admin_authorized := false
 const ROUND_SECONDS := 300.0
 const EVENT_INTERVAL := 30.0
 const EVENT_DURATION := 12.0
@@ -49,8 +49,7 @@ const EVENT_NAMES := {
 
 func _ready() -> void:
 	rng.randomize()
-	# Offline prototype identity. Multiplayer builds must replace this with server-authenticated account roles.
-	admin_available = false
+	await _request_player_identity()
 	progression = ProgressionManager.new()
 	add_child(progression)
 	progression.level_up.connect(_on_level_up)
@@ -64,6 +63,90 @@ func _ready() -> void:
 	_build_hud()
 	_build_collectibles()
 	_update_hud()
+
+func _request_player_identity() -> void:
+	var login_layer := CanvasLayer.new()
+	login_layer.name = "PlayerIdentityPrompt"
+	add_child(login_layer)
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.015, 0.025, 0.055, 0.97)
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	login_layer.add_child(backdrop)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	backdrop.add_child(center)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(360, 0)
+	center.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 12)
+	panel.add_child(column)
+
+	var title := Label.new()
+	title.text = "ENTER THE ARENA"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 25)
+	column.add_child(title)
+	var name_label := Label.new()
+	name_label.text = "Player name"
+	column.add_child(name_label)
+	var name_input := LineEdit.new()
+	name_input.placeholder_text = "Enter a player name"
+	name_input.text = "Player"
+	name_input.max_length = 24
+	column.add_child(name_input)
+
+	var code_label := Label.new()
+	code_label.text = "FixerPly admin code"
+	code_label.visible = false
+	column.add_child(code_label)
+	var code_input := LineEdit.new()
+	code_input.placeholder_text = "Enter admin code"
+	code_input.secret = true
+	code_input.max_length = 64
+	code_input.visible = false
+	column.add_child(code_input)
+	var error_label := Label.new()
+	error_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
+	error_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(error_label)
+	var continue_button := Button.new()
+	continue_button.text = "CONTINUE"
+	continue_button.custom_minimum_size = Vector2(0, 42)
+	column.add_child(continue_button)
+
+	name_input.text_changed.connect(func(value: String) -> void:
+		var wants_admin := value.strip_edges() == ADMIN_PLAYER_NAME
+		code_label.visible = wants_admin
+		code_input.visible = wants_admin
+		if not wants_admin:
+			code_input.clear()
+			error_label.text = ""
+	)
+	name_input.text_submitted.connect(func(_value: String) -> void:
+		continue_button.emit_signal("pressed")
+	)
+	code_input.text_submitted.connect(func(_value: String) -> void:
+		continue_button.emit_signal("pressed")
+	)
+
+	while true:
+		await continue_button.pressed
+		var entered_name := name_input.text.strip_edges()
+		if entered_name.is_empty():
+			error_label.text = "Please enter a player name."
+			continue
+		local_player_name = entered_name
+		local_admin_authorized = false
+		if entered_name == ADMIN_PLAYER_NAME:
+			if code_input.text.sha256_text() != ADMIN_CODE_SHA256:
+				error_label.text = "Incorrect admin code. Try again or choose another name."
+				code_input.clear()
+				continue
+			local_admin_authorized = true
+		break
+	login_layer.queue_free()
 
 func _process(delta: float) -> void:
 	if _round_finished:
@@ -182,8 +265,8 @@ func _make_box(node_name: String, size: Vector3, position: Vector3, color: Color
 func _spawn_player() -> void:
 	player = PLAYER_SCRIPT.new()
 	player.name = "LocalPlayer"
-	player.player_name = DEFAULT_PLAYER_NAME
-	player.is_admin = player.player_name == ADMIN_PLAYER_NAME
+	player.player_name = local_player_name
+	player.is_admin = local_admin_authorized and player.player_name == ADMIN_PLAYER_NAME
 	admin_available = player.is_admin
 	player.position = Vector3(0, 1.5, 6)
 	player.collected.connect(_on_collected)
