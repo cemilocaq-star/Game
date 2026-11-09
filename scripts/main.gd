@@ -42,6 +42,7 @@ var network: Node
 var network_status_label: Label
 var network_host_input: LineEdit
 var room_code_input: LineEdit
+var friend_name_input: LineEdit
 var room_status_label: Label
 var remote_players: Dictionary = {}
 
@@ -217,6 +218,26 @@ func _on_quick_match_pressed() -> void:
 func _on_join_room_pressed() -> void:
 	if is_instance_valid(network) and is_instance_valid(room_code_input):
 		network.request_join_room(room_code_input.text)
+
+func _on_invite_friend_pressed() -> void:
+	if not is_instance_valid(network) or not network.is_authenticated or not is_instance_valid(backend) or not is_instance_valid(friend_name_input):
+		return
+	var target_name := friend_name_input.text.strip_edges().to_lower()
+	if target_name.is_empty():
+		return
+	var friends: Dictionary = await backend.get_friends()
+	if not friends.get("ok", false):
+		if is_instance_valid(room_status_label):
+			room_status_label.text = "Could not load friends"
+		return
+	for friend in friends.get("data", []):
+		if str(friend.get("username", "")).to_lower() == target_name:
+			network.request_invite_friend(str(friend.get("id", "")))
+			if is_instance_valid(room_status_label):
+				room_status_label.text = "Invite sent to " + str(friend.get("username", "friend"))
+			return
+	if is_instance_valid(room_status_label):
+		room_status_label.text = "Friend username not found"
 
 func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
 	var remote = remote_players.get(peer_id)
@@ -531,7 +552,18 @@ func _build_hud() -> void:
 	join_room_button.size = Vector2(72, 34)
 	join_room_button.pressed.connect(_on_join_room_pressed)
 	root.add_child(join_room_button)
-	room_status_label = _make_label(root, "LOBBY • Sign in to play online", Vector2(22, 310), 13)
+	friend_name_input = LineEdit.new()
+	friend_name_input.position = Vector2(22, 312)
+	friend_name_input.size = Vector2(160, 34)
+	friend_name_input.placeholder_text = "Friend username"
+	root.add_child(friend_name_input)
+	var invite_friend_button := Button.new()
+	invite_friend_button.text = "INVITE FRIEND"
+	invite_friend_button.position = Vector2(190, 312)
+	invite_friend_button.size = Vector2(118, 34)
+	invite_friend_button.pressed.connect(_on_invite_friend_pressed)
+	root.add_child(invite_friend_button)
+	room_status_label = _make_label(root, "LOBBY • Sign in to play online", Vector2(22, 350), 13)
 	stamina_bar = ProgressBar.new()
 	stamina_bar.position = Vector2(22, 114)
 	stamina_bar.size = Vector2(220, 20)
