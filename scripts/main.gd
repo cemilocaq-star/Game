@@ -41,6 +41,8 @@ var admin_hint: Label
 var network: Node
 var network_status_label: Label
 var network_host_input: LineEdit
+var room_code_input: LineEdit
+var room_status_label: Label
 var remote_players: Dictionary = {}
 
 const EVENT_NAMES := {
@@ -105,6 +107,11 @@ func _send_presence_heartbeat() -> void:
 		await backend.update_presence()
 
 func _start_dedicated_server() -> void:
+	# Dedicated server builds the same collision arena before accepting players.
+	graphics = GraphicsManager.new()
+	graphics.load_settings()
+	add_child(graphics)
+	_build_arena()
 	network = NETWORK_SCRIPT.new()
 	network.name = "OxenWarNet"
 	add_child(network)
@@ -126,19 +133,90 @@ func _start_multiplayer_client() -> void:
 	network.player_state_received.connect(_on_remote_player_state)
 	network.player_disconnected.connect(_on_remote_player_left)
 	network.connection_status_changed.connect(_on_network_status_changed)
+	network.authentication_changed.connect(_on_network_authentication_changed)
+	network.local_state_received.connect(_on_authoritative_local_state)
+	network.room_state_changed.connect(_on_network_room_state)
+	network.invite_received.connect(_on_room_invite_received)
 	network.set_local_player(player, local_player_name, player.cosmetic_color)
 	var host := OS.get_environment("OXENWAR_SERVER_HOST")
 	if host.is_empty():
 		host = str(ProjectSettings.get_setting("oxenwar/server_host", "127.0.0.1"))
-	network.connect_to_server(host)
+	if is_instance_valid(backend) and not str(backend.access_token).is_empty():
+		network.connect_to_server(host, str(backend.access_token))
+	else:
+		_on_network_status_changed("Sign in required for multiplayer")
 
 func _on_network_status_changed(message: String) -> void:
 	if is_instance_valid(network_status_label):
 		network_status_label.text = "MULTIPLAYER • " + message
 
+func _on_network_authentication_changed(authenticated: bool, message: String) -> void:
+	if is_instance_valid(player) and authenticated:
+		# Online movement is simulated by the server; the client only sends input.
+		player.set_physics_process(false)
+		for area in get_tree().get_nodes_in_group("local_collectibles"):
+			if area is Area3D:
+				area.monitoring = false
+		_show_meme_toast("SERVER VERIFIED • " + message)
+	elif is_instance_valid(player) and not authenticated:
+		player.set_physics_process(false)
+
+func _on_authoritative_local_state(state: Dictionary) -> void:
+	if not is_instance_valid(player):
+		return
+	var position_value: Variant = state.get("position", player.global_position)
+	if position_value is Vector3:
+		player.global_position = position_value
+	player.rotation.y = float(state.get("yaw", player.rotation.y))
+	player.score = int(state.get("score", player.score))
+	player.stamina = float(state.get("stamina", player.stamina))
+	if is_instance_valid(progression):
+		progression.sync_server_total_xp(int(state.get("xp", progression.total_xp)))
+	_update_hud()
+
+func _on_network_room_state(state: Dictionary) -> void:
+	if state.has("event_id"):
+		active_event = str(state.get("event_id", ""))
+		event_left = float(state.get("event_left", 0.0))
+		round_left = float(state.get("round_left", ROUND_SECONDS))
+		var available: Dictionary = state.get("orb_available", {})
+		for index in range(orb_spawns.size()):
+			var orb := get_node_or_null("GoldenOrb_%02d" % index)
+			if is_instance_valid(orb) and available.has(index):
+				orb.visible = bool(available[index])
+	if state.has("code"):
+		var members: Array = state.get("members", [])
+		var names: Array[String] = []
+		for member in members:
+			names.append(str(member.get("display_name", "Player")) + ("" if bool(member.get("online", false)) else " (offline)"))
+		if is_instance_valid(room_status_label):
+			room_status_label.text = "ROOM %s • %d/%d • %s" % [
+				str(state.get("code", "")), members.size(), int(state.get("max_players", 8)),
+				", ".join(names)
+			]
+	_update_hud()
+
+func _on_room_invite_received(owner_name: String, room_code: String) -> void:
+	if is_instance_valid(room_status_label):
+		room_status_label.text = "%s invited you • room %s" % [owner_name, room_code]
+	if is_instance_valid(room_code_input):
+		room_code_input.text = room_code
+
 func _on_network_connect_pressed() -> void:
-	if is_instance_valid(network) and is_instance_valid(network_host_input):
-		network.connect_to_server(network_host_input.text)
+	if is_instance_valid(network) and is_instance_valid(network_host_input) and is_instance_valid(backend):
+		network.connect_to_server(network_host_input.text, str(backend.access_token))
+
+func _on_create_room_pressed() -> void:
+	if is_instance_valid(network):
+		network.request_create_room(true)
+
+func _on_quick_match_pressed() -> void:
+	if is_instance_valid(network):
+		network.request_quick_match()
+
+func _on_join_room_pressed() -> void:
+	if is_instance_valid(network) and is_instance_valid(room_code_input):
+		network.request_join_room(room_code_input.text)
 
 func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
 	var remote: Node3D = remote_players.get(peer_id)
@@ -157,9 +235,15 @@ func _on_remote_player_left(peer_id: int) -> void:
 	remote_players.erase(peer_id)
 
 func _process(delta: float) -> void:
+	if OS.get_cmdline_user_args().has("--server"):
+		return
 	if _round_finished:
 		return
-	graphics.update_performance(delta)
+	if is_instance_valid(graphics):
+		graphics.update_performance(delta)
+	if is_instance_valid(network) and network.is_authenticated:
+		_update_hud()
+		return
 	round_left = maxf(0.0, round_left - delta)
 	if round_left <= 0.0:
 		_finish_round()
@@ -300,6 +384,7 @@ func _build_collectibles() -> void:
 func _spawn_orb(index: int) -> void:
 	var area := Area3D.new()
 	area.name = "GoldenOrb_%02d" % index
+	area.add_to_group("local_collectibles")
 	area.position = orb_spawns[index]
 	area.collision_layer = 0
 	area.collision_mask = 1
@@ -330,6 +415,8 @@ func _spawn_orb(index: int) -> void:
 	add_child(area)
 
 func _on_orb_body_entered(body: Node3D, orb: Area3D, index: int) -> void:
+	if is_instance_valid(network) and network.is_authenticated:
+		return
 	if body != player or not is_instance_valid(orb):
 		return
 	var points := 20 if active_event == "GOLDEN_ORB_RUSH" else 10
@@ -346,6 +433,8 @@ func _on_orb_body_entered(body: Node3D, orb: Area3D, index: int) -> void:
 		_spawn_orb(index)
 
 func _start_random_event() -> void:
+	if is_instance_valid(network) and network.is_authenticated:
+		return
 	var choices: Array[String] = ["DUCK_PARADE", "PINK_SKY", "GOLDEN_ORB_RUSH", "CONFETTI_STORM", "LOW_GRAVITY", "BONK_MODE", "NPC_MODE", "DUCK_EXE", "METEOR_SHOWER", "ICE_WORLD", "DOUBLE_XP"]
 	active_event = choices[rng.randi_range(0, choices.size() - 1)]
 	event_left = EVENT_DURATION
@@ -419,6 +508,30 @@ func _build_hud() -> void:
 	connect_button.size = Vector2(112, 36)
 	connect_button.pressed.connect(_on_network_connect_pressed)
 	root.add_child(connect_button)
+	room_code_input = LineEdit.new()
+	room_code_input.position = Vector2(22, 272)
+	room_code_input.size = Vector2(128, 34)
+	room_code_input.placeholder_text = "ROOM CODE"
+	root.add_child(room_code_input)
+	var create_room_button := Button.new()
+	create_room_button.text = "CREATE ROOM"
+	create_room_button.position = Vector2(158, 272)
+	create_room_button.size = Vector2(112, 34)
+	create_room_button.pressed.connect(_on_create_room_pressed)
+	root.add_child(create_room_button)
+	var quick_match_button := Button.new()
+	quick_match_button.text = "QUICK MATCH"
+	quick_match_button.position = Vector2(278, 272)
+	quick_match_button.size = Vector2(112, 34)
+	quick_match_button.pressed.connect(_on_quick_match_pressed)
+	root.add_child(quick_match_button)
+	var join_room_button := Button.new()
+	join_room_button.text = "JOIN"
+	join_room_button.position = Vector2(398, 272)
+	join_room_button.size = Vector2(72, 34)
+	join_room_button.pressed.connect(_on_join_room_pressed)
+	root.add_child(join_room_button)
+	room_status_label = _make_label(root, "LOBBY • Sign in to play online", Vector2(22, 310), 13)
 	stamina_bar = ProgressBar.new()
 	stamina_bar.position = Vector2(22, 114)
 	stamina_bar.size = Vector2(220, 20)
@@ -634,7 +747,7 @@ func _admin_reset_player() -> void:
 		_show_meme_toast("PLAYER RESET")
 
 func _admin_trigger_event(event_id: String) -> void:
-	if not admin_available or not is_instance_valid(player):
+	if (is_instance_valid(network) and network.is_authenticated) or not admin_available or not is_instance_valid(player):
 		return
 	active_event = event_id
 	event_left = EVENT_DURATION * 2.0
