@@ -16,6 +16,7 @@ OxenWar is a free-to-play Godot 4.4.1 parkour arena project. Its visual directio
 - Procedural first-person Aether Blaster model, original synthesized sci-fi pulse sound, short energy trail, desktop/mobile fire input, and server-validated multiplayer hit scoring.
 - Server-authoritative health: players start with 100 HP, each confirmed pulse hit deals 34 damage, zero HP triggers a 4-second K.O. state, then automatic full-health respawn; a final hit grants a bonus score.
 - Consecutive-kill streaks are tracked by the server, reset when eliminated, and award milestone score bonuses at 3, 5, 7 and 10 kills with live HUD announcements.
+- Match weapon mastery is server-awarded from accepted combat events: Aether Blaster earns XP for accepted shots, confirmed hits and eliminations; grenades earn XP for confirmed damage and eliminations. The HUD displays Bronze (100), Silver (300) and Gold (600) match mastery ranks. These are match-scoped and reset when a new match starts; persistent career mastery is not yet implemented.
 - Free-for-all and Team Deathmatch room modes. Team assignment is server-owned, with team spawns, team HUD colours and friendly-fire protection.
 - Server-simulated grenades with a 2.5-second fuse, 5-metre blast radius, distance-scaled damage, cooldown validation and replicated projectile/explosion visuals.
 - Original Dust II-inspired desert three-lane map blockout (A Long/site, Mid, connector and B site) built from procedural geometry; no Valve assets are copied.
