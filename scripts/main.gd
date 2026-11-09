@@ -205,6 +205,11 @@ func _on_network_authentication_changed(authenticated: bool, message: String) ->
 func _on_authoritative_local_state(state: Dictionary) -> void:
 	if not is_instance_valid(player):
 		return
+	var synced_weapon := str(state.get("equipped_weapon_id", "aether"))
+	if WEAPON_ORDER.has(synced_weapon):
+		player.selected_weapon_id = synced_weapon
+		if is_instance_valid(equipped_weapon_label):
+			equipped_weapon_label.text = "EQUIPPED  •  " + str(WEAPON_DISPLAY.get(synced_weapon, synced_weapon.to_upper())) + "   [1–8 / E / R]"
 	var position_value: Variant = state.get("position", player.global_position)
 	if position_value is Vector3:
 		player.global_position = position_value
