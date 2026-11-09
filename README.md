@@ -1,46 +1,63 @@
-# Project Unknown: Arcade Parkour (Godot migration)
+# OxenWar
 
-This is the first Godot migration pass from the Unreal Engine 5.7 source package. It is a **playable-prototype codebase in progress**, not a verified release build.
+OxenWar is a free-to-play Godot 4.4.1 parkour arena project. Its visual direction uses a dark competitive-game layout with teal accents; it is inspired by modern shooter menus without copying another game's assets or interface.
 
-## Current controls
+## Current features
+
+- Existing local parkour arena, movement, dash, slide, collectibles, rounds, events, XP progression and graphics presets.
+- Supabase email/password account registration and sign-in.
+- Unique player usernames and display names.
+- Friend search, outgoing/incoming friend requests, accept/reject and friend list.
+- Friend online status based on a 30-second heartbeat and a 90-second online window.
+- Free starter cosmetics: avatar colors, outfit variants and accessories.
+- Azerbaijani, English, Turkish and Russian menu localization.
+- Admin role is read-only from the client and must be assigned through trusted database administration; a player cannot grant themselves admin access.
+
+## Supabase project
+
+Project ref: `lznnfwhlsquiitkhjzlc`  
+Region: `eu-central-1` (Frankfurt)  
+API URL: `https://lznnfwhlsquiitkhjzlc.supabase.co`
+
+The client uses the project's **publishable** key. This key is designed for client applications; access is restricted by database Row Level Security. Never add a Supabase secret/service-role key to the game or repository.
+
+Database schema source is in `supabase/migrations/`. The tables use RLS. New Auth users receive a profile, player role, presence row and the free starter cosmetic inventory.
+
+## Run locally
+
+1. Install Godot 4.4.1 Standard (not .NET).
+2. Open `project.godot`.
+3. Run `main.tscn`.
+4. Register with an email and password. If email confirmation is enabled in Supabase Auth, confirm the email before signing in.
+5. Choose a language, find friends by username and equip free cosmetics.
+
+## Controls
 
 - WASD / arrows: move
 - Mouse: look
 - Space: jump
 - Shift: sprint
-- Ctrl: slide (tap to start)
+- Ctrl: slide
 - Q: dash
 - Escape: release/capture mouse
-- Touchscreen: on-screen movement/action buttons and swipe look
 
-Collect golden orbs for points. Orbs now rotate and bob, and respawn after collection. Slide uses a lowered stance; jump input buffering and a short coyote-time window make parkour controls more forgiving. A 5-minute round ends with a score screen and replay button. Random lighthearted events rotate during the round, including BONK MODE, NPC MODE and DUCK.EXE meme references. Collecting orbs grants persistent XP; levels unlock reward milestones, a 404 secret grants bonus XP, and your best score is saved. Graphics can be set to AUTO, LOW, MEDIUM, HIGH or ULTRA in-game. AUTO estimates a starting preset from platform, processor count, GPU adapter name and screen resolution, then adjusts quality using measured FPS. It is still a heuristic and needs real-device testing. Neon surface shaders and dynamic shadows scale with the selected preset. The renderer is set to Compatibility for broad desktop/mobile support.
+## Builds
 
-## Local opening and export
+GitHub Actions validates the structure, imports/parses the project with Godot headless, and attempts Windows x86_64 EXE and Android arm64 debug APK exports. Artifacts are only considered built when the workflow succeeds and the files are uploaded.
 
-Install Godot 4.4.1 Standard (not .NET), open `project.godot`, then run `main.tscn`. The export presets are in `export_presets.cfg`: Windows x86_64 (`build/ProjectUnknown.exe`) and Android arm64 (`build/ProjectUnknown.apk`). Export locally from the Godot editor after installing the matching export templates; Android export also requires the Android SDK and JDK configured in Godot. GitHub Actions automatically validates the project and attempts Windows x86_64 EXE and Android arm64 debug APK exports on pushes and pull requests to `main`, and can also be started manually from the Actions tab. Successful builds are uploaded as workflow artifacts.
+- Windows: `build/OxenWar.exe`
+- Android: `build/OxenWar.apk`
 
-See `docs/MIGRATION_AUDIT_AZ.md` for exact status and known gaps.
+## Important limitations — read before calling this multiplayer
 
-## Important status honesty
+- The current parkour gameplay loop is still local single-player. Supabase currently provides online accounts, social graph, cosmetics and friend presence; it does **not** yet synchronize player movement, matches, rooms or combat between devices.
+- Friend presence is heartbeat-based polling, not a continuous realtime indicator.
+- Friend-request records are in the Realtime publication, but the game menu currently refreshes them when the Friends page is opened.
+- Online admin role lookup is server-backed, but no player has been promoted to admin yet. Do not use the old client-side name/password gate as online security.
+- Real device testing, Godot parse/build verification and live signup/friend-flow tests must be completed before a public release.
 
-The container used to prepare this migration did not have Godot installed. The structural validator can run locally, but it does not replace Godot parsing, runtime, export, device or multiplayer tests. Do not label the EXE/APK as built until they have actually been exported and checked.
+## Security
 
-
-## Progression and graphics
-
-Progression is saved locally in `user://progression.cfg`; graphics preference is saved in `user://game_settings.cfg`. XP is earned from collectibles. The XP requirement increases each level, with reward milestones at levels 3, 5, 10 and 20. A hidden 404 collectible grants a one-time XP bonus. The graphics selector supports AUTO/LOW/MEDIUM/HIGH/ULTRA. AUTO uses platform, CPU core count, GPU adapter name and display resolution as a starting estimate, then samples FPS every four seconds: it lowers quality after sustained low FPS and cautiously raises it after sustained high FPS. It is not a substitute for device testing and cannot guarantee a specific FPS. LOW disables the custom neon shader and shadows; higher presets progressively enable shader intensity and shadows.
-
-
-## Admin development tools and map variants
-
-When the local player name is `FixerPly`, press **F8** (or use the ADMIN touch button) to open the Admin Power Panel. It includes fly mode (WASD + Space/Ctrl), a god-mode state flag for future damage systems, a first-person Thor-style hammer prop, a decorative lightning strike, UFO/duck meme effects, a bounce/reset utility, four local arena variants (Lost Mall, Neon City, Space Islands, Candy World), and manual event triggers. Random event rotation now also includes decorative Meteor Shower, Ice World and Double XP. The current FixerPly check is a local offline prototype identity gate, not secure online authentication. Proper multiplayer admin powers must be authorized and executed by the server.
-
-
-### FixerPly admin identity
-
-At startup, every player enters a display name. If the exact name `FixerPly` is entered, a masked admin-code field appears. The Admin Power Panel (F8 on desktop, ADMIN button on touch devices) is enabled only after the code is accepted. The local prototype compares a SHA-256 digest rather than storing the code as readable text. This remains a client-side offline gate, not secure authentication: anyone who can inspect or modify the game client can bypass it. An online release must validate credentials and admin roles on a trusted server.
-
-
-### FixerPly admin code
-
-At startup, players enter a display name. Entering `FixerPly` reveals a masked admin-code field; the admin panel is enabled only after the code is accepted. The local prototype compares a SHA-256 digest rather than storing the code as readable text. This is only a client-side offline gate, not secure authentication: anyone who can inspect or modify the game client can bypass it. An online release must validate credentials and admin roles on a trusted server.
+- Never commit a secret/service-role key.
+- Keep RLS enabled on every exposed table.
+- Do not trust client-side admin flags, player names, scores or movement for competitive multiplayer. Authoritative game logic requires a trusted game server.

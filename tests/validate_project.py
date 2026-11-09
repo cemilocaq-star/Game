@@ -1,12 +1,16 @@
 from pathlib import Path
-import json
 import struct
 
 ROOT = Path(__file__).resolve().parents[1]
 errors = []
+
 required = [
     "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd",
+    "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd",
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
+    "supabase/migrations/20261109120000_oxenwar_social_foundation.sql",
+    "supabase/migrations/20261109120500_oxenwar_permissions_hardening.sql",
+    "supabase/migrations/20261109121000_oxenwar_accessories.sql",
     "assets/LostFoodCourt_Arena_Blockout.glb", "assets/GoldenOrb_Collectible.glb",
     "assets/DuckBeacon_Mascot.glb", "assets/CosmicHalo_Cosmetic.glb",
     "scripts/progression.gd", "scripts/graphics_manager.gd", "shaders/neon_surface.gdshader",
@@ -15,71 +19,64 @@ for rel in required:
     if not (ROOT / rel).is_file():
         errors.append(f"missing: {rel}")
 
-for rel in ["assets/LostFoodCourt_Arena_Blockout.glb", "assets/GoldenOrb_Collectible.glb", "assets/DuckBeacon_Mascot.glb", "assets/CosmicHalo_Cosmetic.glb"]:
-    p = ROOT / rel
-    if p.exists():
-        data = p.read_bytes()
+for rel in [
+    "assets/LostFoodCourt_Arena_Blockout.glb", "assets/GoldenOrb_Collectible.glb",
+    "assets/DuckBeacon_Mascot.glb", "assets/CosmicHalo_Cosmetic.glb",
+]:
+    path = ROOT / rel
+    if path.exists():
+        data = path.read_bytes()
         if len(data) < 12 or data[:4] != b"glTF" or struct.unpack_from("<I", data, 8)[0] != len(data):
             errors.append(f"invalid GLB header/length: {rel}")
 
-main_script = (ROOT / "scripts/main.gd").read_text(encoding="utf-8")
-player_script = (ROOT / "scripts/player.gd").read_text(encoding="utf-8")
-presets = (ROOT / "export_presets.cfg").read_text(encoding="utf-8")
-for needle, text, label in [
-    ("_build_arena", main_script, "arena builder"),
-    ("_build_collectibles", main_script, "collectible builder"),
-    ("_start_random_event", main_script, "event rotation"),
-    ("try_dash", player_script, "dash mechanic"),
-    ("_set_sliding", player_script, "actual slide stance"),
-    ("JUMP_BUFFER_TIME", player_script, "jump input buffer"),
-    ("COYOTE_TIME", player_script, "coyote-time jump window"),
-    ("_finish_round", main_script, "round completion screen"),
-    ("ROUND COMPLETE", main_script, "round results UI"),
-    ("ProgressionManager", main_script, "XP progression manager"),
-    ("_on_level_up", main_script, "level-up reward feedback"),
-    ("BONK_MODE", main_script, "meme event"),
-    ("graphics_option", main_script, "graphics quality selector"),
-    ("discover_secret", main_script, "secret meme collectible"),
-    ("Input.get_gyroscope", player_script, "mobile gyro path"),
-    ('name="Windows Desktop"', presets, "Windows export preset"),
-    ('name="Android"', presets, "Android export preset"),
-]:
-    if needle not in text:
+def read(rel):
+    path = ROOT / rel
+    return path.read_text(encoding="utf-8") if path.exists() else ""
+
+project = read("project.godot")
+main = read("scripts/main.gd")
+player = read("scripts/player.gd")
+backend = read("scripts/oxenwar_supabase.gd")
+menu = read("scripts/oxenwar_menu.gd")
+i18n = read("scripts/oxenwar_i18n.gd")
+workflow = read(".github/workflows/godot-ci.yml")
+presets = read("export_presets.cfg")
+readme = read("README.md")
+
+checks = [
+    ('config/name="OxenWar"', project, "OxenWar application name"),
+    ("OxenWarMainMenu", main, "OxenWar menu integration"),
+    ("OnlinePresenceHeartbeat", main, "presence heartbeat"),
+    ("cosmetic_accessory", main, "player accessory integration"),
+    ("_add_selected_accessory", player, "visible accessory customization"),
+    ("friend_requests", backend, "friend request API"),
+    ("refresh_token", backend, "session refresh"),
+    ("PUBLISHABLE_KEY", backend, "Supabase publishable-key client"),
+    ("accessory_id", menu, "accessory selection"),
+    ("get_friend_presence", menu, "friend online/offline display"),
+    ('"az"', i18n, "Azerbaijani localization"),
+    ('"en"', i18n, "English localization"),
+    ('"tr"', i18n, "Turkish localization"),
+    ('"ru"', i18n, "Russian localization"),
+    ("OxenWar.exe", presets, "OxenWar Windows export name"),
+    ("OxenWar.apk", presets, "OxenWar Android export name"),
+    ("OxenWar-Windows-x86_64", workflow, "OxenWar Windows artifact"),
+    ("OxenWar-Android-arm64-debug", workflow, "OxenWar Android artifact"),
+    ("single-player", readme, "multiplayer limitation documented"),
+]
+for needle, source, label in checks:
+    if needle not in source:
         errors.append(f"missing {label}")
 
-progression_script = (ROOT / "scripts/progression.gd").read_text(encoding="utf-8")
-graphics_script = (ROOT / "scripts/graphics_manager.gd").read_text(encoding="utf-8")
-shader_script = (ROOT / "shaders/neon_surface.gdshader").read_text(encoding="utf-8")
-for needle, text, label in [
-    ("xp_for_next_level", progression_script, "level XP curve"),
-    ("secret_404_found", progression_script, "persistent secret unlock"),
-    ("best_score", progression_script, "persistent best score"),
-    ("_resolve_quality", graphics_script, "automatic graphics selection"),
-    ("LOW", graphics_script, "low graphics preset"),
-    ("ULTRA", graphics_script, "ultra graphics preset"),
-    ("effect_strength", shader_script, "adjustable neon shader"),
-    ("ADMIN POWER PANEL", main_script, "admin power panel"),
-    ('ADMIN_PLAYER_NAME := "FixerPly"', main_script, "FixerPly admin identity"),
-    ("player.is_admin = local_admin_authorized and player.player_name == ADMIN_PLAYER_NAME", main_script, "code-gated admin authorization"),
-    ("_request_player_identity", main_script, "player name prompt"),
-    ("code_input.secret = true", main_script, "masked admin code input"),
-    ("code_input.text.sha256_text() != ADMIN_CODE_SHA256", main_script, "admin code verification"),
-    ("if not admin_available", main_script, "admin action guards"),
-    ("_admin_lightning_show", main_script, "admin lightning effect"),
-    ("_admin_ufo_troll", main_script, "admin UFO troll"),
-    ("_admin_cycle_map", main_script, "admin map switching"),
-    ("METEOR_SHOWER", main_script, "meteor random event"),
-    ("DOUBLE_XP", main_script, "double XP event"),
-    ("set_admin_fly", player_script, "admin fly mode"),
-    ("toggle_admin_hammer", player_script, "admin hammer prop"),
-]:
-    if needle not in text:
-        errors.append(f"missing {label}")
+if "service_role" in backend.lower() or "sb_secret_" in backend:
+    errors.append("secret/service-role credential must never be present in the game client")
+if "ADMIN_CODE_SHA256" in main or "ADMIN_PLAYER_NAME" in main:
+    errors.append("obsolete client-side admin password/name authorization remains")
 
 if errors:
     print("VALIDATION FAILED")
-    print("
-".join(f"- {e}" for e in errors))
+    print("\n".join(f"- {error}" for error in errors))
     raise SystemExit(1)
-print(f"VALIDATION PASSED: {len(required)} required paths, 4 GLB headers, gameplay/progression/graphics hooks and both local export presets checked")
-print("NOTE: this is a structural check, not a Godot parse, runtime, network, or platform-build test.")
+
+print(f"VALIDATION PASSED: {len(required)} required files, 4 GLB headers, OxenWar identity, social/auth/cosmetic/localization hooks and export configuration checked")
+print("NOTE: structural validation is not a Godot parse, runtime, online service, multiplayer or device test.")

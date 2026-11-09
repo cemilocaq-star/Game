@@ -63,17 +63,17 @@ jobs:
       - name: Export Windows x86_64
         run: |
           mkdir -p build
-          godot --headless --path . --export-release "Windows Desktop" build/ProjectUnknown.exe
+          godot --headless --path . --export-release "Windows Desktop" build/OxenWar.exe
 
       - name: Export Android arm64 debug APK
         run: |
           mkdir -p build
-          godot --headless --path . --export-debug "Android" build/ProjectUnknown.apk
+          godot --headless --path . --export-debug "Android" build/OxenWar.apk
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
         with:
-          name: ProjectUnknown-Windows-x86_64
+          name: OxenWar-Windows-x86_64
           path: build/ProjectUnknown*
           if-no-files-found: error
           compression-level: 6
@@ -82,8 +82,8 @@ jobs:
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
-          name: ProjectUnknown-Android-arm64-debug
-          path: build/ProjectUnknown.apk
+          name: OxenWar-Android-arm64-debug
+          path: build/OxenWar.apk
           if-no-files-found: error
           compression-level: 6
           retention-days: 14

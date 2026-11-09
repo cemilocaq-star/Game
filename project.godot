@@ -1,12 +1,12 @@
 ; Engine configuration file.
-; PROJECT UNKNOWN - Godot migration prototype
+; OXENWAR - Godot game
 config_version=5
 
 [application]
-config/name="Project Unknown: Arcade Parkour"
+config/name="OxenWar"
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
-config/description="Cross-platform arcade parkour prototype migrated from Unreal Engine source."
+config/description="OxenWar: free-to-play cross-platform parkour arena with accounts, friends and free character cosmetics."
 
 [display]
 window/size/viewport_width=1280

@@ -36,6 +36,9 @@ var _jump_buffer_left := 0.0
 var _coyote_left := 0.0
 var _is_sliding := false
 var player_name := "Player"
+var cosmetic_color := Color("#27D7E7")
+var cosmetic_outfit := "outfit_default"
+var cosmetic_accessory := "accessory_cap"
 var is_admin := false
 var admin_fly_enabled := false
 var admin_god_mode := false
@@ -61,7 +64,16 @@ func _build_visuals() -> void:
 	body.radius = 0.38
 	body.height = 1.8
 	_body_mesh.mesh = body
-	_body_mesh.material_override = _material(Color(0.12, 0.78, 0.68))
+	_body_mesh.material_override = _material(cosmetic_color)
+	if cosmetic_outfit == "outfit_neon":
+		var neon_material := _material(cosmetic_color)
+		neon_material.emission_enabled = true
+		neon_material.emission = cosmetic_color
+		neon_material.emission_energy_multiplier = 0.45
+		_body_mesh.material_override = neon_material
+	elif cosmetic_outfit == "outfit_runner":
+		_body_mesh.scale = Vector3(0.94, 1.0, 0.94)
+	_add_selected_accessory()
 	_body_mesh.position.y = 0.9
 	add_child(_body_mesh)
 
@@ -77,6 +89,40 @@ func _build_visuals() -> void:
 		halo.scale = Vector3.ONE * 0.003
 		halo.position = Vector3(0, 2.0, 0)
 		add_child(halo)
+
+func _add_selected_accessory() -> void:
+	var accessory_root := Node3D.new()
+	accessory_root.name = "FreeCosmeticAccessory"
+	accessory_root.position.y = 1.72
+	add_child(accessory_root)
+	if cosmetic_accessory == "accessory_cap":
+		var cap := MeshInstance3D.new()
+		var cap_mesh := SphereMesh.new()
+		cap_mesh.radius = 0.24
+		cap_mesh.height = 0.18
+		cap.mesh = cap_mesh
+		cap.position.y = 0.08
+		cap.material_override = _material(cosmetic_color.lightened(0.25))
+		accessory_root.add_child(cap)
+		var brim := MeshInstance3D.new()
+		var brim_mesh := CylinderMesh.new()
+		brim_mesh.top_radius = 0.22
+		brim_mesh.bottom_radius = 0.22
+		brim_mesh.height = 0.035
+		brim.mesh = brim_mesh
+		brim.position = Vector3(0, 0.015, -0.12)
+		brim.material_override = _material(cosmetic_color.darkened(0.2))
+		accessory_root.add_child(brim)
+	elif cosmetic_accessory == "accessory_headphones":
+		for side in [-1.0, 1.0]:
+			var ear := MeshInstance3D.new()
+			var ear_mesh := SphereMesh.new()
+			ear_mesh.radius = 0.105
+			ear_mesh.height = 0.22
+			ear.mesh = ear_mesh
+			ear.position = Vector3(side * 0.31, -0.02, 0)
+			ear.material_override = _material(cosmetic_color)
+			accessory_root.add_child(ear)
 
 func _physics_process(delta: float) -> void:
 	if admin_fly_enabled:

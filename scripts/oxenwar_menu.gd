@@ -71,7 +71,9 @@ func _build() -> void:
 	tagline.add_theme_color_override("font_color", MUTED)
 	tagline.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	header.add_child(tagline)
-	header.add_spacer()
+	var header_spacer := Control.new()
+	header_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(header_spacer)
 	var language := OptionButton.new()
 	for item in [["AZ","az"],["EN","en"],["TR","tr"],["RU","ru"]]:
 		language.add_item(item[0])
@@ -323,8 +325,24 @@ func _render_friends() -> void:
 	content.add_child(friends_title)
 	var friends: Dictionary = await backend.get_friends()
 	if friends.get("ok", false):
-		for friend in friends.get("data", []):
-			content.add_child(_label(str(friend.get("username", "Player")) + "  •  " + str(friend.get("display_name", ""))))
+		var friend_rows: Array = friends.get("data", [])
+		var friend_ids := PackedStringArray()
+		for friend in friend_rows:
+			friend_ids.append(str(friend.get("id", "")))
+		var presence_result: Dictionary = await backend.get_friend_presence(friend_ids)
+		var presence_by_id := {}
+		if presence_result.get("ok", false):
+			for presence in presence_result.get("data", []):
+				presence_by_id[str(presence.get("user_id"))] = str(presence.get("last_seen_at", ""))
+		for friend in friend_rows:
+			var friend_id := str(friend.get("id", ""))
+			var last_seen := str(presence_by_id.get(friend_id, ""))
+			var online := false
+			if not last_seen.is_empty():
+				var last_seen_unix := Time.get_unix_time_from_datetime_string(last_seen)
+				online = int(Time.get_unix_time_from_system()) - last_seen_unix <= 90
+			var status_text := _t("online") if online else _t("offline")
+			content.add_child(_label(str(friend.get("username", "Player")) + "  •  " + status_text))
 		if friends.get("data", []).is_empty():
 			content.add_child(_label(_t("no_results")))
 	else:
@@ -355,8 +373,10 @@ func _render_character() -> void:
 	content.add_child(_large_label(_t("character") + "  •  " + _t("free")))
 	var color_option := OptionButton.new()
 	var outfit_option := OptionButton.new()
+	var accessory_option := OptionButton.new()
 	var color_items: Array = []
 	var outfit_items: Array = []
+	var accessory_items: Array = []
 	var unlocked := {}
 	for item in cosmetics.get("inventory", []):
 		unlocked[str(item.get("cosmetic_id"))] = true
@@ -367,17 +387,24 @@ func _render_character() -> void:
 			color_items.append(item)
 		elif str(item.get("slot")) == "outfit":
 			outfit_items.append(item)
+		elif str(item.get("slot")) == "accessory":
+			accessory_items.append(item)
 	for item in color_items:
 		color_option.add_item(str(item.get("name_key")).replace("cosmetic.color.", "").capitalize())
 		color_option.set_item_metadata(color_option.item_count - 1, str(item.get("id")))
 	for item in outfit_items:
 		outfit_option.add_item(str(item.get("name_key")).replace("cosmetic.outfit.", "").capitalize())
 		outfit_option.set_item_metadata(outfit_option.item_count - 1, str(item.get("id")))
+	for item in accessory_items:
+		accessory_option.add_item(str(item.get("name_key")).replace("cosmetic.accessory.", "").capitalize())
+		accessory_option.set_item_metadata(accessory_option.item_count - 1, str(item.get("id")))
 	content.add_child(_label(_t("choose_color")))
 	content.add_child(color_option)
 	content.add_child(_label(_t("choose_outfit")))
 	content.add_child(outfit_option)
-	if color_items.is_empty() or outfit_items.is_empty():
+	content.add_child(_label("Accessory"))
+	content.add_child(accessory_option)
+	if color_items.is_empty() or outfit_items.is_empty() or accessory_items.is_empty():
 		content.add_child(_label("Free cosmetics will appear after your account has unlocked its starter inventory."))
 		return
 	for i in color_items.size():
@@ -386,11 +413,15 @@ func _render_character() -> void:
 	for i in outfit_items.size():
 		if str(outfit_items[i].get("id")) == str(profile.get("outfit_id", "")):
 			outfit_option.select(i)
+	for i in accessory_items.size():
+		if str(accessory_items[i].get("id")) == str(profile.get("accessory_id", "")):
+			accessory_option.select(i)
 	var save := _button(_t("save"), true)
 	save.pressed.connect(func():
 		var saved: Dictionary = await backend.update_profile({
 			"avatar_color_id": str(color_option.get_item_metadata(color_option.selected)),
-			"outfit_id": str(outfit_option.get_item_metadata(outfit_option.selected))
+			"outfit_id": str(outfit_option.get_item_metadata(outfit_option.selected)),
+			"accessory_id": str(accessory_option.get_item_metadata(accessory_option.selected))
 		})
 		if saved.get("ok", false):
 			profile = await backend.get_profile()

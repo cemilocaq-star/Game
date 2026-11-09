@@ -1,10 +1,12 @@
 extends Node3D
 
 const PLAYER_SCRIPT = preload("res://scripts/player.gd")
-const ADMIN_PLAYER_NAME := "FixerPly"
-const ADMIN_CODE_SHA256 := "735441830457f2280da8f91397f367b729451573e2cb6ce14846ed7a40da708c"
+const BACKEND_SCRIPT = preload("res://scripts/oxenwar_supabase.gd")
+const MENU_SCRIPT = preload("res://scripts/oxenwar_menu.gd")
 var local_player_name := "Player"
 var local_admin_authorized := false
+var player_profile: Dictionary = {}
+var backend: Node
 const ROUND_SECONDS := 300.0
 const EVENT_INTERVAL := 30.0
 const EVENT_DURATION := 12.0
@@ -65,90 +67,32 @@ func _ready() -> void:
 	_build_hud()
 	_build_collectibles()
 	_update_hud()
+	var heartbeat := Timer.new()
+	heartbeat.name = "OnlinePresenceHeartbeat"
+	heartbeat.wait_time = 30.0
+	heartbeat.autostart = true
+	heartbeat.timeout.connect(_send_presence_heartbeat)
+	add_child(heartbeat)
+	_send_presence_heartbeat()
 
 func _request_player_identity() -> void:
-	var login_layer := CanvasLayer.new()
-	login_layer.name = "PlayerIdentityPrompt"
-	add_child(login_layer)
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.015, 0.025, 0.055, 0.97)
-	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	login_layer.add_child(backdrop)
+	backend = BACKEND_SCRIPT.new()
+	backend.name = "OxenWarBackend"
+	add_child(backend)
+	var restored: Dictionary = await backend.restore_session()
+	var menu = MENU_SCRIPT.new()
+	menu.name = "OxenWarMainMenu"
+	add_child(menu)
+	await menu.configure(backend, restored)
+	var identity: Dictionary = await menu.play_requested
+	local_player_name = str(identity.get("display_name", "Player"))
+	player_profile = identity.get("profile", {})
+	local_admin_authorized = bool(identity.get("is_admin", false))
+	menu.queue_free()
 
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	backdrop.add_child(center)
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(360, 0)
-	center.add_child(panel)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 12)
-	panel.add_child(column)
-
-	var title := Label.new()
-	title.text = "ENTER THE ARENA"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 25)
-	column.add_child(title)
-	var name_label := Label.new()
-	name_label.text = "Player name"
-	column.add_child(name_label)
-	var name_input := LineEdit.new()
-	name_input.placeholder_text = "Enter a player name"
-	name_input.text = "Player"
-	name_input.max_length = 24
-	column.add_child(name_input)
-
-	var code_label := Label.new()
-	code_label.text = "FixerPly admin code"
-	code_label.visible = false
-	column.add_child(code_label)
-	var code_input := LineEdit.new()
-	code_input.placeholder_text = "Enter admin code"
-	code_input.secret = true
-	code_input.max_length = 64
-	code_input.visible = false
-	column.add_child(code_input)
-	var error_label := Label.new()
-	error_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
-	error_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(error_label)
-	var continue_button := Button.new()
-	continue_button.text = "CONTINUE"
-	continue_button.custom_minimum_size = Vector2(0, 42)
-	column.add_child(continue_button)
-
-	name_input.text_changed.connect(func(value: String) -> void:
-		var wants_admin := value.strip_edges() == ADMIN_PLAYER_NAME
-		code_label.visible = wants_admin
-		code_input.visible = wants_admin
-		if not wants_admin:
-			code_input.clear()
-			error_label.text = ""
-	)
-	name_input.text_submitted.connect(func(_value: String) -> void:
-		continue_button.emit_signal("pressed")
-	)
-	code_input.text_submitted.connect(func(_value: String) -> void:
-		continue_button.emit_signal("pressed")
-	)
-
-	while true:
-		await continue_button.pressed
-		var entered_name := name_input.text.strip_edges()
-		if entered_name.is_empty():
-			error_label.text = "Please enter a player name."
-			continue
-		local_player_name = entered_name
-		local_admin_authorized = false
-		if entered_name == ADMIN_PLAYER_NAME:
-			if code_input.text.sha256_text() != ADMIN_CODE_SHA256:
-				error_label.text = "Incorrect admin code. Try again or choose another name."
-				code_input.clear()
-				continue
-			local_admin_authorized = true
-		break
-	login_layer.queue_free()
+func _send_presence_heartbeat() -> void:
+	if is_instance_valid(backend) and not str(backend.user_id).is_empty():
+		await backend.update_presence()
 
 func _process(delta: float) -> void:
 	if _round_finished:
@@ -268,7 +212,17 @@ func _spawn_player() -> void:
 	player = PLAYER_SCRIPT.new()
 	player.name = "LocalPlayer"
 	player.player_name = local_player_name
-	player.is_admin = local_admin_authorized and player.player_name == ADMIN_PLAYER_NAME
+	var color_id := str(player_profile.get("avatar_color_id", "color_cyan"))
+	var color_map := {
+		"color_cyan": Color("#27D7E7"),
+		"color_violet": Color("#9B70FF"),
+		"color_orange": Color("#FF9B42"),
+		"color_lime": Color("#A7E34B")
+	}
+	player.cosmetic_color = color_map.get(color_id, Color("#27D7E7"))
+	player.cosmetic_outfit = str(player_profile.get("outfit_id", "outfit_default"))
+	player.cosmetic_accessory = str(player_profile.get("accessory_id", "accessory_cap"))
+	player.is_admin = local_admin_authorized
 	admin_available = player.is_admin
 	player.position = Vector3(0, 1.5, 6)
 	player.collected.connect(_on_collected)

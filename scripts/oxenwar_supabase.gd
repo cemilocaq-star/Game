@@ -101,8 +101,10 @@ func _ensure_session() -> bool:
 	return true
 
 func _request(method: int, path: String, payload: Variant = null, authenticated: bool = false, extra_headers: PackedStringArray = PackedStringArray()) -> Dictionary:
-	if authenticated and not await _ensure_session():
-		return {"ok": false, "message": "Please sign in again."}
+	if authenticated:
+		var valid_session: bool = await _ensure_session()
+		if not valid_session:
+			return {"ok": false, "message": "Please sign in again."}
 	var request_node := HTTPRequest.new()
 	request_node.timeout = 25.0
 	add_child(request_node)
@@ -141,7 +143,7 @@ func get_profile() -> Dictionary:
 	if not await _ensure_session():
 		return {}
 	var result := await _request(HTTPClient.METHOD_GET,
-		"/rest/v1/profiles?select=id,username,display_name,locale,avatar_color_id,outfit_id&id=eq.%s&limit=1" % user_id, null, true)
+		"/rest/v1/profiles?select=id,username,display_name,locale,avatar_color_id,outfit_id,accessory_id&id=eq.%s&limit=1" % user_id, null, true)
 	if not result.get("ok", false):
 		return {}
 	var rows: Array = result.get("data", [])
@@ -218,3 +220,18 @@ func update_presence() -> Dictionary:
 		"/rest/v1/online_presence?on_conflict=user_id",
 		{"user_id": user_id, "last_seen_at": Time.get_datetime_string_from_system(true)},
 		true, PackedStringArray(["Prefer: resolution=merge-duplicates,return=minimal"]))
+
+func get_profile_by_id(profile_id: String) -> Dictionary:
+	var result := await _request(HTTPClient.METHOD_GET,
+		"/rest/v1/profiles?select=id,username,display_name&id=eq.%s&limit=1" % profile_id, null, true)
+	if not result.get("ok", false):
+		return {}
+	var rows: Array = result.get("data", [])
+	return rows[0] if not rows.is_empty() else {}
+
+func get_friend_presence(friend_ids: PackedStringArray) -> Dictionary:
+	if friend_ids.is_empty():
+		return {"ok": true, "data": []}
+	return await _request(HTTPClient.METHOD_GET,
+		"/rest/v1/online_presence?select=user_id,last_seen_at&user_id=in.(%s)" % ",".join(friend_ids),
+		null, true)
