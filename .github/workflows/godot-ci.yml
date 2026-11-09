@@ -19,10 +19,6 @@ jobs:
     name: Validate and export game
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    env:
-      ANDROID_HOME: ${{ runner.temp }}/android-sdk
-      ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
