@@ -300,6 +300,40 @@ func _render_tab() -> void:
 		"character":
 			_render_character()
 
+func _render_weapon_mastery() -> void:
+	content.add_child(_large_label("WEAPON MASTERY"))
+	var loading := _label("Loading weapon mastery...")
+	content.add_child(loading)
+	var result: Dictionary = await backend.get_weapon_mastery()
+	if not is_instance_valid(loading):
+		return
+	loading.queue_free()
+	if not result.get("ok", false):
+		content.add_child(_label("Weapon mastery is currently unavailable."))
+		return
+	var mastery: Dictionary = result.get("data", {})
+	for weapon in [
+		{"id": "blaster", "name": "AETHER BLASTER", "xp": int(mastery.get("blaster_xp", 0))},
+		{"id": "grenade", "name": "GRENADE", "xp": int(mastery.get("grenade_xp", 0))}
+	]:
+		var xp := int(weapon.xp)
+		var rank := "GOLD" if xp >= 600 else ("SILVER" if xp >= 300 else ("BRONZE" if xp >= 100 else "RECRUIT"))
+		var row := HBoxContainer.new()
+		var name_label := _label(str(weapon.name) + "  •  " + rank)
+		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(name_label)
+		var xp_label := _label("%d XP" % xp)
+		xp_label.add_theme_color_override("font_color", ACCENT)
+		row.add_child(xp_label)
+		content.add_child(row)
+		var progress := ProgressBar.new()
+		progress.custom_minimum_size = Vector2(0, 12)
+		progress.max_value = 600
+		progress.value = mini(xp, 600)
+		progress.show_percentage = false
+		content.add_child(progress)
+	content.add_child(_label("Mastery XP is saved to your account after each match. Weapon skins are not yet connected to this progression."))
+
 func _render_stats() -> void:
 	content.add_child(_large_label(_t("career_title")))
 	var loading := _label(_t("stats_loading"))
@@ -314,6 +348,7 @@ func _render_stats() -> void:
 	loading.queue_free()
 	var total_xp := maxi(0, int(stats.get("total_xp", 0)))
 	_render_rank_progress(total_xp)
+	await _render_weapon_mastery()
 	if stats.is_empty():
 		content.add_child(_label(_t("stats_empty")))
 		return
