@@ -38,8 +38,8 @@ jobs:
         run: |
           sdkmanager --install \
             "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
+            "platforms;android-34" \
+            "build-tools;34.0.0"
 
       - name: Set up Godot 4.4.1 and export templates
         uses: chickensoft-games/setup-godot@v2
