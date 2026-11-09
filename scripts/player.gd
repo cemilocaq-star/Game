@@ -55,6 +55,7 @@ var _admin_hammer: Node3D
 var _blaster_audio: AudioStreamPlayer3D
 var _blaster_model: Node3D
 var _blaster_cooldown := 0.0
+var _blaster_recoil := 0.0
 var active_emote := ""
 var _emote_clock := 0.0
 var _emote_music: AudioStreamPlayer
@@ -269,6 +270,9 @@ func _process(delta: float) -> void:
 		_emote_clock += delta
 		_update_emote_visual()
 	_blaster_cooldown = maxf(0.0, _blaster_cooldown - delta)
+	_blaster_recoil = move_toward(_blaster_recoil, 0.0, delta * 1.35)
+	if is_instance_valid(_blaster_model):
+		_blaster_model.position.z = -0.48 + _blaster_recoil
 	if Input.is_action_just_pressed("fire") and _blaster_cooldown <= 0.0:
 		_fire_blaster()
 
@@ -364,6 +368,18 @@ func _setup_blaster() -> void:
 	core.mesh = core_mesh
 	core.material_override = _blaster_material(Color("#26384E"), 0.35)
 	_blaster_model.add_child(core)
+	_add_blaster_box("BarrelShroud", Vector3(0.22, 0.20, 0.34), Vector3(0, 0.005, -0.245), Color("#1D3147"), 0.58)
+	_add_blaster_box("LeftReceiverRail", Vector3(0.045, 0.115, 0.43), Vector3(-0.105, 0.015, -0.035), Color("#405A70"), 0.62)
+	_add_blaster_box("RightReceiverRail", Vector3(0.045, 0.115, 0.43), Vector3(0.105, 0.015, -0.035), Color("#405A70"), 0.62)
+	_add_blaster_box("UpperPowerRail", Vector3(0.052, 0.035, 0.44), Vector3(0, 0.17, -0.035), Color("#9CB2C4"), 0.72)
+	_add_blaster_box("Grip", Vector3(0.14, 0.25, 0.18), Vector3(0, -0.19, 0.15), Color("#172638"), 0.18)
+	_add_blaster_box("GripInset", Vector3(0.012, 0.15, 0.115), Vector3(0.077, -0.19, 0.15), Color("#526D83"), 0.42)
+	_add_blaster_box("TriggerGuardTop", Vector3(0.10, 0.035, 0.13), Vector3(0, -0.105, 0.015), Color("#60788A"), 0.7)
+	_add_blaster_box("RearSight", Vector3(0.12, 0.075, 0.055), Vector3(0, 0.205, 0.20), Color("#8299AA"), 0.65)
+	_add_blaster_box("FrontSight", Vector3(0.08, 0.06, 0.045), Vector3(0, 0.155, -0.405), Color("#8299AA"), 0.65)
+	for side in [-1.0, 1.0]:
+		for vent_index in range(3):
+			_add_blaster_box("CoolingVent_%s_%d" % [side, vent_index], Vector3(0.012, 0.022, 0.055), Vector3(side * 0.132, 0.035, -0.12 + float(vent_index) * 0.075), Color("#8DA6B9"), 0.45)
 	var top := MeshInstance3D.new()
 	var top_mesh := BoxMesh.new()
 	top_mesh.size = Vector3(0.12, 0.07, 0.36)
@@ -381,6 +397,21 @@ func _setup_blaster() -> void:
 	emitter.position.z = -0.37
 	emitter.material_override = _blaster_material(Color("#31E8FF"), 0.2, true)
 	_blaster_model.add_child(emitter)
+	var muzzle_ring := MeshInstance3D.new()
+	muzzle_ring.name = "MuzzleRing"
+	var ring_mesh := CylinderMesh.new()
+	ring_mesh.top_radius = 0.108
+	ring_mesh.bottom_radius = 0.108
+	ring_mesh.height = 0.045
+	muzzle_ring.mesh = ring_mesh
+	muzzle_ring.rotation_degrees.x = 90.0
+	muzzle_ring.position.z = -0.475
+	muzzle_ring.material_override = _blaster_material(Color("#8EA5BA"), 0.82)
+	_blaster_model.add_child(muzzle_ring)
+	_add_blaster_box("CellFrameTop", Vector3(0.17, 0.025, 0.19), Vector3(0.105, 0.105, 0.02), Color("#465F78"), 0.7)
+	_add_blaster_box("CellFrameBottom", Vector3(0.17, 0.025, 0.19), Vector3(0.105, -0.135, 0.02), Color("#465F78"), 0.7)
+	_add_blaster_box("CellFrameLeft", Vector3(0.025, 0.20, 0.19), Vector3(0.015, -0.015, 0.02), Color("#465F78"), 0.7)
+	_add_blaster_box("CellFrameRight", Vector3(0.025, 0.20, 0.19), Vector3(0.195, -0.015, 0.02), Color("#465F78"), 0.7)
 	var cell := MeshInstance3D.new()
 	var cell_mesh := SphereMesh.new()
 	cell_mesh.radius = 0.085
@@ -396,6 +427,17 @@ func _setup_blaster() -> void:
 	_blaster_audio.unit_size = 9.0
 	_blaster_audio.stream = _make_blaster_stream()
 	_blaster_model.add_child(_blaster_audio)
+
+func _add_blaster_box(node_name: String, size: Vector3, position: Vector3, color: Color, metallic_value: float) -> MeshInstance3D:
+	var instance := MeshInstance3D.new()
+	instance.name = node_name
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	instance.mesh = mesh
+	instance.position = position
+	instance.material_override = _blaster_material(color, metallic_value)
+	_blaster_model.add_child(instance)
+	return instance
 
 func _blaster_material(color: Color, metallic_value: float, emissive: bool = false) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -433,6 +475,7 @@ func _fire_blaster() -> void:
 	if not is_instance_valid(_camera) or _blaster_cooldown > 0.0:
 		return
 	_blaster_cooldown = 0.24
+	_blaster_recoil = 0.055
 	var origin := _camera.global_position
 	var direction := -_camera.global_basis.z.normalized()
 	var endpoint := origin + direction * 65.0
