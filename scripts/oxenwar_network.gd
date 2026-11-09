@@ -10,7 +10,7 @@ signal authentication_changed(authenticated: bool, message: String)
 signal local_state_received(state: Dictionary)
 signal room_state_changed(state: Dictionary)
 signal invite_received(owner_name: String, room_code: String)
-signal blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Vector3)
+signal blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Vector3, weapon_id: String)
 signal grenade_spawn_received(grenade_id: int, origin: Vector3, velocity: Vector3)
 signal grenade_exploded_received(grenade_id: int, position: Vector3)
 signal kill_feed_received(killer_name: String, victim_name: String, weapon_name: String)
@@ -298,6 +298,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			"kills": int(_server_players[peer_id].kills) if _server_players.has(peer_id) else 0,
 			"deaths": int(_server_players[peer_id].deaths) if _server_players.has(peer_id) else 0,
 			"equipped_weapon_id": str(_server_players[peer_id].equipped_weapon_id) if _server_players.has(peer_id) else "aether",
+			"equipped_weapon_id": str(_server_players[peer_id].equipped_weapon_id) if _server_players.has(peer_id) else "aether",
 			"blaster_mastery_xp": int(_server_players[peer_id].blaster_mastery_xp) if _server_players.has(peer_id) else 0,
 			"grenade_mastery_xp": int(_server_players[peer_id].grenade_mastery_xp) if _server_players.has(peer_id) else 0,
 			"damage_dealt": float(_server_players[peer_id].damage_dealt) if _server_players.has(peer_id) else 0.0,
@@ -551,7 +552,7 @@ func _server_blaster_fire(weapon_id: String, direction: Vector3) -> void:
 	for member_user in room.members.keys():
 		var member_peer := int(room.members[member_user])
 		if member_peer > 0:
-			rpc_id(member_peer, "_client_blaster_fx", peer_id, origin, endpoint)
+			rpc_id(member_peer, "_client_blaster_fx", peer_id, origin, endpoint, weapon_id)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _server_throw_grenade(direction: Vector3) -> void:
@@ -734,9 +735,9 @@ func _client_grenade_explode(grenade_id: int, position_value: Vector3) -> void:
 		grenade_exploded_received.emit(grenade_id, position_value)
 
 @rpc("authority", "call_remote", "unreliable")
-func _client_blaster_fx(shooter_peer_id: int, origin: Vector3, endpoint: Vector3) -> void:
+func _client_blaster_fx(shooter_peer_id: int, origin: Vector3, endpoint: Vector3, weapon_id: String) -> void:
 	if not multiplayer.is_server():
-		blaster_fx_received.emit(shooter_peer_id, origin, endpoint)
+		blaster_fx_received.emit(shooter_peer_id, origin, endpoint, weapon_id)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _server_create_room(private_room: bool = true, mode: String = "ffa") -> void:
