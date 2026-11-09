@@ -84,5 +84,9 @@ GitHub Actions validates the structure, imports/parses the project with Godot he
 - The server owns movement, collision, scores, XP, event timing and collectible awards. Never re-enable client-side online movement or score awards.
 
 
+## Beach / swimwear
+
+The arena includes a shallow, non-blocking pool. Entering its marked swim zone switches the character to a modest beach outfit (shirt, swim shorts and sunglasses); leaving restores the regular appearance. The server derives the swim-zone state from player position and replicates it in snapshots so remote players see the same outfit. This is a visual zone only; it does not yet implement swimming physics or water movement.
+
 ## Emotes
 Players can trigger the original Griddy dance with **B** or the mobile **GRIDDY** button, and a goofy dance with **N** or **GOOFY**. Emotes animate the character while normal movement continues; selecting the same emote again stops it. Griddy plays a short, original synthesized looping beat. Emote state is replicated in multiplayer snapshots so other players can see the dance. No third-party dance audio or character animation assets are bundled.
