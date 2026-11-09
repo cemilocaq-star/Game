@@ -117,7 +117,7 @@ checks = [
     ("shooter.kills += 1", read("scripts/oxenwar_network.gd"), "kill credited on blaster elimination"),
     ("_server_players[owner_peer].kills += 1", read("scripts/oxenwar_network.gd"), "kill credited on grenade elimination"),
     ("\"kills\": player.kills", read("scripts/oxenwar_network.gd"), "authoritative kill leaderboard snapshots"),
-    ("FREE FOR ALL • MATCH COMPLETE", main, "FFA match winner screen"),
+    ("MATCH RESULTS", main, "unified FFA and Team Deathmatch results screen"),
     ("WINNER  %s  •  %d KILLS", main, "highest-kill winner announcement"),
     ("play_emote(\"griddy\")", player, "Griddy emote trigger"),
     ("play_emote(\"goofy\")", player, "goofy dance emote trigger"),
