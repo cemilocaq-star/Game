@@ -36,6 +36,7 @@ var kill_streak := 0
 var best_kill_streak := 0
 var blaster_mastery_xp := 0
 var grenade_mastery_xp := 0
+var equipped_weapon_id := "aether"
 var shots_fired := 0
 var shots_hit := 0
 var damage_dealt := 0.0
