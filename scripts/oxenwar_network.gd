@@ -268,10 +268,9 @@ func _server_authenticate(ticket: String) -> void:
 	if user_id.is_empty():
 		rpc_id(peer_id, "_client_auth_result", false, "Ticket has no player identity")
 		return
-	if _user_peers.has(user_id):
-		var old_peer := int(_user_peers[user_id])
-		if old_peer != peer_id:
-			multiplayer.multiplayer_peer.disconnect_peer(old_peer)
+	if _user_peers.has(user_id) and int(_user_peers[user_id]) != peer_id:
+		rpc_id(peer_id, "_client_auth_result", false, "This account is already connected")
+		return
 	var profile: Dictionary = identity.get("profile", {})
 	_peer_users[peer_id] = user_id
 	_user_peers[user_id] = peer_id
