@@ -954,8 +954,7 @@ func _broadcast_snapshot(code: String) -> void:
 			"outfit_id": str(_profiles.get(user_id, {}).get("outfit_id", "outfit_default")),
 			"team_id": str(player.team_id),
 			"score": player.score, "xp": player.xp, "stamina": player.stamina, "sliding": player.sliding_active,
-			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left,
-		"team_id": str(player.team_id)
+			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left
 		}
 	for user_id in room.members.keys():
 		var peer_id := int(room.members[user_id])
