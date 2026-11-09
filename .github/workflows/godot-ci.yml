@@ -120,9 +120,21 @@ jobs:
       - name: Import project and parse resources
         run: godot --headless --editor --path . --quit
 
+      - name: Verify dedicated server rejects missing secret
+        shell: bash
+        run: |
+          if output="$(env -u OXENWAR_SERVER_SECRET godot --headless --path . --quit-after 5 -- --server --smoke-test 2>&1)"; then
+            printf '%s\n' "$output"
+            echo "Dedicated server unexpectedly started without OXENWAR_SERVER_SECRET."
+            exit 1
+          fi
+          printf '%s\n' "$output"
+          grep -Fq "OXENWAR_SERVER_SECRET is required; refusing to start dedicated server." <<< "$output"
+
       - name: Start dedicated server smoke test
         shell: bash
         run: |
+          export OXENWAR_SERVER_SECRET="ci-smoke-test-only-not-production"
           output="$(godot --headless --path . --quit-after 5 -- --server --smoke-test 2>&1)"
           printf '%s\n' "$output"
           grep -q "OxenWar authoritative server listening on UDP 2456" <<< "$output"
