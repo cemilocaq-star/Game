@@ -57,6 +57,10 @@ func _physics_process(delta: float) -> void:
 	if is_dead:
 		input_vector = Vector2.ZERO
 		velocity = Vector3.ZERO
+		jump_requested = false
+		dash_requested = false
+		slide_requested = false
+		sprinting = false
 		return
 	if event_id == "FREEZE_FRAME":
 		velocity = Vector3.ZERO
