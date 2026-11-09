@@ -244,6 +244,10 @@ func _on_peer_disconnected(peer_id: int) -> void:
 		if _server_players.has(peer_id):
 			_server_players[peer_id].queue_free()
 		_server_players.erase(peer_id)
+	else:
+		if _server_players.has(peer_id):
+			_server_players[peer_id].queue_free()
+			_server_players.erase(peer_id)
 	_peer_users.erase(peer_id)
 	_last_input_ms.erase(peer_id)
 	if int(_user_peers.get(user_id, 0)) == peer_id:
