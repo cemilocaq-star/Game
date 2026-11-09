@@ -151,6 +151,12 @@ checks = [
 ]
 checks.extend([
     ("_build_swimming_pool", main, "visible beach pool area"),
+    ("_build_arena_detail_pass", main, "procedural arena art detail pass"),
+    ("FloorGridX_", main, "floor inlay detail"),
+    ("CornerBeaconLight", main, "arena corner lighting"),
+    ("TONE_MAPPER_FILMIC", read("scripts/graphics_manager.gd"), "filmic graphics tonemapping"),
+    ("glow_enabled", read("scripts/graphics_manager.gd"), "quality-scaled glow"),
+    ("surface_detail", read("shaders/neon_surface.gdshader"), "procedural surface microdetail"),
     ("BeachSwimwear", player, "local beach outfit visual"),
     ("SwimShorts", player, "swim shorts mesh"),
     ("set_swimming", player, "local swimwear state toggle"),
