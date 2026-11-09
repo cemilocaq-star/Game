@@ -2,6 +2,7 @@ extends SceneTree
 ## Exercises the exact input-state transitions used by the mobile analog joystick.
 
 const MAIN_SCRIPT := preload("res://scripts/main.gd")
+const MENU_SCRIPT := preload("res://scripts/oxenwar_menu.gd")
 const MOVE_ACTIONS := [
 	"move_left",
 	"move_right",
@@ -75,6 +76,20 @@ func _run_tests() -> void:
 		"move_back": false
 })
 
+	var menu_harness := Control.new()
+	menu_harness.set_script(MENU_SCRIPT)
+	_assert_true("valid WSS URL", bool(menu_harness.call("_is_server_address_valid", "wss://oxenwar.example.onrender.com")))
+	_assert_true("valid UDP hostname", bool(menu_harness.call("_is_server_address_valid", "game.example.com")))
+	_assert_true("valid IPv4 address", bool(menu_harness.call("_is_server_address_valid", "192.0.2.10")))
+	_assert_true("valid localhost address", bool(menu_harness.call("_is_server_address_valid", "localhost")))
+	_assert_false("reject HTTPS scheme", bool(menu_harness.call("_is_server_address_valid", "https://oxenwar.example.com")))
+	_assert_false("reject empty WSS host", bool(menu_harness.call("_is_server_address_valid", "wss://")))
+	_assert_false("reject whitespace in address", bool(menu_harness.call("_is_server_address_valid", "game server.example.com")))
+	_assert_true("valid room code", bool(menu_harness.call("_is_valid_room_code", "AB234C")))
+	_assert_false("reject ambiguous room-code characters", bool(menu_harness.call("_is_valid_room_code", "ABO01C")))
+	_assert_false("reject short room code", bool(menu_harness.call("_is_valid_room_code", "ABC12")))
+
+	menu_harness.free()
 	harness.free()
 	for action in MOVE_ACTIONS:
 		Input.action_release(action)
@@ -100,3 +115,12 @@ func _assert_strength(label: String, action: String, expected: float) -> void:
 	var actual := Input.get_action_strength(action)
 	if absf(actual - expected) > 0.02:
 		failures.append("%s: expected strength %.2f, got %.2f" % [label, expected, actual])
+
+func _assert_true(label: String, actual: bool) -> void:
+	if not actual:
+		failures.append("%s: expected true" % label)
+
+
+func _assert_false(label: String, actual: bool) -> void:
+	if actual:
+		failures.append("%s: expected false" % label)

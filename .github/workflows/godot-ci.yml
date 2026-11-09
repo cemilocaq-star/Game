@@ -152,6 +152,21 @@ jobs:
             exit 1
           fi
 
+      - name: Start dedicated WebSocket server smoke test
+        shell: bash
+        run: |
+          export OXENWAR_SERVER_SECRET="ci-smoke-test-only-not-production"
+          export OXENWAR_TRANSPORT="websocket"
+          export OXENWAR_PORT="18081"
+          output="$(godot --headless --path . --quit-after 5 -- --server --smoke-test 2>&1)"
+          printf '%s\\n' "$output"
+          grep -q "OxenWar authoritative server listening on WebSocket port 18081" <<< "$output"
+          grep -q "OxenWar dedicated server smoke test passed" <<< "$output"
+          if grep -q "SCRIPT ERROR:" <<< "$output"; then
+            echo "Godot reported a script error during WebSocket server startup."
+            exit 1
+          fi
+
       - name: Export Windows x86_64
         run: |
           mkdir -p build

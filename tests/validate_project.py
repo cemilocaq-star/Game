@@ -257,6 +257,11 @@ checks.extend([
     ("build/OxenWar.apk.sha256", workflow, "APK SHA-256 sidecar artifact"),
     ("_build_touch_controls(root)", main, "mobile touch controls integration"),
     ("_render_play_tab()", menu, "pre-game lobby and matchmaking menu"),
+    ("_is_server_address_valid", menu, "server address validation before matchmaking"),
+    ("_is_valid_room_code", menu, "room code alphabet and length validation"),
+    ('_t("mode_ffa")', menu, "localized matchmaking game mode"),
+    ('_t("server_missing")', menu, "localized missing-server state"),
+
     ('"START  •  FIND MATCH"', menu, "start action launches public quick matchmaking"),
     ('"CREATE ROOM"', menu, "create room is available in the main menu"),
     ('"JOIN ROOM"', menu, "join room is available in the main menu"),

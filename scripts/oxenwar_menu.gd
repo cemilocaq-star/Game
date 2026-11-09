@@ -304,20 +304,20 @@ func _render_tab() -> void:
 
 func _render_play_tab() -> void:
 	content.add_child(_large_label("OXENWAR"))
-	content.add_child(_label("ONLINE ARENA  •  FRIEND ROOMS  •  COMPETITIVE MODES"))
+	content.add_child(_label(_t("online_arena")))
 	var mode_row := HBoxContainer.new()
 	mode_row.add_theme_constant_override("separation", 10)
 	content.add_child(mode_row)
-	var mode_label := _label("GAME MODE")
+	var mode_label := _label(_t("game_mode"))
 	mode_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mode_row.add_child(mode_label)
 	var mode_select := OptionButton.new()
 	mode_select.custom_minimum_size = Vector2(220, 44)
-	mode_select.add_item("FREE FOR ALL")
+	mode_select.add_item(_t("mode_ffa"))
 	mode_select.set_item_metadata(0, "ffa")
-	mode_select.add_item("TEAM DEATHMATCH")
+	mode_select.add_item(_t("mode_tdm"))
 	mode_select.set_item_metadata(1, "team_deathmatch")
-	mode_select.add_item("KING OF THE HILL")
+	mode_select.add_item(_t("mode_koth"))
 	mode_select.set_item_metadata(2, "king_of_the_hill")
 	mode_select.item_selected.connect(func(index: int): selected_game_mode = str(mode_select.get_item_metadata(index)))
 	mode_row.add_child(mode_select)
@@ -328,65 +328,91 @@ func _render_play_tab() -> void:
 	var server_stack := VBoxContainer.new()
 	server_stack.add_theme_constant_override("separation", 8)
 	server_panel.add_child(server_stack)
-	server_stack.add_child(_label("GAME SERVER  •  WSS (hosted) OR UDP 2456"))
-	server_host_field = _field("Server host", "wss://your-game-server.onrender.com")
+	server_stack.add_child(_label(_t("server_title") + "  •  WSS / UDP 2456"))
+	server_host_field = _field(_t("server_address"), _t("server_hint"))
 	server_host_field.text = server_host
 	server_stack.add_child(server_host_field)
-	lobby_notice_label = _label("PUBLIC SERVER NOT DEPLOYED — enter a live wss:// URL or UDP host to enable online play." if server_host.is_empty() else "SERVER ADDRESS SET  •  connection will be verified when you enter a match")
+	var initial_valid := _is_server_address_valid(server_host)
+	lobby_notice_label = _label(_t("server_ready") if initial_valid else (_t("server_missing") if server_host.is_empty() else _t("server_invalid")))
 	lobby_notice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lobby_notice_label.add_theme_color_override("font_color", Color("#FFC36B") if server_host.is_empty() else ACCENT)
+	lobby_notice_label.add_theme_color_override("font_color", ACCENT if initial_valid else Color("#FFC36B"))
 	server_stack.add_child(lobby_notice_label)
 
-	var start := _button("START  •  FIND MATCH", true)
+	var start := _button(_t("start_match"), true)
 	start.custom_minimum_size = Vector2(0, 58)
-	start.disabled = server_host.is_empty()
+	start.disabled = not initial_valid
 	start.pressed.connect(_launch_game.bind("quick_match"))
 	content.add_child(start)
 
 	var room_row := HBoxContainer.new()
 	room_row.add_theme_constant_override("separation", 10)
-	var create := _button("CREATE ROOM", false)
+	var create := _button(_t("create_room"), false)
 	create.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	create.custom_minimum_size.y = 52
-	create.disabled = server_host.is_empty()
+	create.disabled = not initial_valid
 	create.pressed.connect(_launch_game.bind("create_room"))
 	room_row.add_child(create)
 	content.add_child(room_row)
 
 	var join_row := HBoxContainer.new()
 	join_row.add_theme_constant_override("separation", 10)
-	room_code_field = _field("ROOM CODE", "A1B2C3")
+	room_code_field = _field(_t("room_code"), "A1B2C3")
 	room_code_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	join_row.add_child(room_code_field)
-	var join := _button("JOIN ROOM", false)
+	var join := _button(_t("join_room"), false)
 	join.custom_minimum_size = Vector2(130, 44)
-	join.disabled = server_host.is_empty()
+	join.disabled = not initial_valid
 	join.pressed.connect(_launch_game.bind("join_room"))
 	join_row.add_child(join)
 	content.add_child(join_row)
 	server_host_field.text_changed.connect(func(value: String):
-		var ready := not value.strip_edges().is_empty()
-		start.disabled = not ready
-		create.disabled = not ready
-		join.disabled = not ready
-		lobby_notice_label.text = "SERVER ADDRESS SET  •  connection will be verified when you enter a match" if ready else "PUBLIC SERVER NOT DEPLOYED — enter a live UDP server address to enable online play."
-		lobby_notice_label.add_theme_color_override("font_color", ACCENT if ready else Color("#FFC36B"))
+		var valid := _is_server_address_valid(value)
+		start.disabled = not valid
+		create.disabled = not valid
+		join.disabled = not valid
+		lobby_notice_label.text = _t("server_ready") if valid else (_t("server_missing") if value.strip_edges().is_empty() else _t("server_invalid"))
+		lobby_notice_label.add_theme_color_override("font_color", ACCENT if valid else Color("#FFC36B"))
 	)
 
 	var logout := _button(_t("logout"), false)
 	logout.pressed.connect(_on_logout)
 	content.add_child(logout)
 
+func _is_server_address_valid(value: String) -> bool:
+	var address := value.strip_edges()
+	if address.is_empty() or address.length() > 512:
+		return false
+	if address.contains(" ") or address.contains("\n") or address.contains("\t"):
+		return false
+	if address.begins_with("wss://") or address.begins_with("ws://"):
+		var scheme_length := 6 if address.begins_with("wss://") else 5
+		var endpoint := address.substr(scheme_length)
+		var hostname := endpoint.get_slice("/", 0)
+		return not hostname.is_empty() and not hostname.contains("?") and not hostname.contains("#")
+	if address.contains("://") or address.contains("/") or address.contains("?") or address.contains("#"):
+		return false
+	return address == "localhost" or address.is_valid_ip_address() or address.contains(".")
+
+func _is_valid_room_code(value: String) -> bool:
+	var code := value.strip_edges().to_upper()
+	const ROOM_CODE_ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	if code.length() != 6:
+		return false
+	for index in range(code.length()):
+		if not ROOM_CODE_ALPHABET.contains(code.substr(index, 1)):
+			return false
+	return true
+
 func _launch_game(action: String) -> void:
 	var host := server_host_field.text.strip_edges() if is_instance_valid(server_host_field) else server_host
-	if host.is_empty():
+	if not _is_server_address_valid(host):
 		if is_instance_valid(lobby_notice_label):
-			lobby_notice_label.text = "No public game server is deployed yet. Online matchmaking is unavailable."
+			lobby_notice_label.text = _t("server_invalid") if not host.is_empty() else _t("server_missing")
 		return
 	var room_code := room_code_field.text.strip_edges().to_upper() if is_instance_valid(room_code_field) else ""
-	if action == "join_room" and room_code.length() != 6:
+	if action == "join_room" and not _is_valid_room_code(room_code):
 		if is_instance_valid(lobby_notice_label):
-			lobby_notice_label.text = "Enter a valid six-character room code."
+			lobby_notice_label.text = _t("room_code_invalid")
 		return
 	play_requested.emit({
 		"display_name": str(profile.get("display_name", profile.get("username", "Player"))),
