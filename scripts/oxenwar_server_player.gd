@@ -40,7 +40,10 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	rotation.y = look_yaw
-	_set_sliding(sliding)
+	var effective_slide := sliding and is_on_floor() and stamina > 0.0
+	if jump_requested:
+		effective_slide = false
+	_set_sliding(effective_slide)
 	_dash_left = maxf(0.0, _dash_left - delta)
 	_dash_cooldown = maxf(0.0, _dash_cooldown - delta)
 	if not is_on_floor():
@@ -65,7 +68,7 @@ func _physics_process(delta: float) -> void:
 		velocity.x = _dash_direction.x * DASH_SPEED * speed_scale
 		velocity.z = _dash_direction.z * DASH_SPEED * speed_scale
 	else:
-		var target_speed := SLIDE_SPEED if sliding else (SPRINT_SPEED if sprinting and stamina > 0.0 else WALK_SPEED)
+		var target_speed := SLIDE_SPEED if _was_sliding else (SPRINT_SPEED if sprinting and stamina > 0.0 else WALK_SPEED)
 		target_speed *= speed_scale
 		if direction.length() > 0.01:
 			velocity.x = move_toward(velocity.x, direction.x * target_speed, 30.0 * delta)
@@ -73,7 +76,7 @@ func _physics_process(delta: float) -> void:
 		else:
 			velocity.x = move_toward(velocity.x, 0.0, 18.0 * delta)
 			velocity.z = move_toward(velocity.z, 0.0, 18.0 * delta)
-		if sliding:
+		if _was_sliding:
 			stamina = maxf(0.0, stamina - 5.0 * delta)
 		elif sprinting and stamina > 0.0:
 			stamina = maxf(0.0, stamina - 15.0 * delta)
