@@ -245,17 +245,17 @@ func _server_authenticate(token: String) -> void:
 		_server_quick_match_for_peer(peer_id)
 
 func _verify_supabase_token(token: String) -> Dictionary:
-	var auth_response := await _http_json(HTTPClient.METHOD_GET, SUPABASE_URL + "/auth/v1/user", [
+	var auth_response := await _http_json(HTTPClient.METHOD_GET, SUPABASE_URL + "/auth/v1/user", PackedStringArray([
 		"apikey: " + SUPABASE_KEY,
 		"Authorization: Bearer " + token
-	])
+	]))
 	if not auth_response.get("ok", false):
 		return {"ok": false}
 	var user: Dictionary = auth_response.get("data", {})
 	var user_id := str(user.get("id", ""))
 	if user_id.is_empty():
 		return {"ok": false}
-	var headers := ["apikey: " + SUPABASE_KEY, "Authorization: Bearer " + token]
+	var headers := PackedStringArray(["apikey: " + SUPABASE_KEY, "Authorization: Bearer " + token])
 	var profile_response := await _http_json(HTTPClient.METHOD_GET,
 		SUPABASE_URL + "/rest/v1/profiles?select=id,username,display_name,avatar_color_id,outfit_id,accessory_id&id=eq." + user_id.uri_encode() + "&limit=1", headers)
 	if not profile_response.get("ok", false):
@@ -292,8 +292,8 @@ func _http_json(method: int, url: String, headers: PackedStringArray, payload: V
 			parsed = json.data
 	return {"ok": status >= 200 and status < 300, "status": status, "data": parsed}
 
-func _create_server_player(peer_id: int, profile: Dictionary, stats: Dictionary = {}) -> CharacterBody3D:
-	var player: CharacterBody3D = SERVER_PLAYER_SCRIPT.new()
+func _create_server_player(peer_id: int, profile: Dictionary, stats: Dictionary = {}):
+	var player = SERVER_PLAYER_SCRIPT.new()
 	player.name = "ServerPlayer_%d" % peer_id
 	player.position = Vector3(0, 1.5, 6)
 	player.xp = int(stats.get("total_xp", 0))
@@ -320,7 +320,7 @@ func _server_submit_input(move: Vector2, yaw: float, jump: bool, sprint: bool, s
 	var peer_id := multiplayer.get_remote_sender_id()
 	if not _peer_users.has(peer_id) or not _server_players.has(peer_id):
 		return
-	var player: CharacterBody3D = _server_players[peer_id]
+	var player = _server_players[peer_id]
 	player.input_vector = move.limit_length(1.0)
 	player.look_yaw = wrapf(yaw, -PI, PI)
 	player.jump_requested = player.jump_requested or jump
@@ -422,10 +422,10 @@ func _server_are_friends(user_id: String, other_id: String, token: String) -> bo
 	var low := user_id if user_id < other_id else other_id
 	var high := other_id if user_id < other_id else user_id
 	var url := SUPABASE_URL + "/rest/v1/friendships?select=user_a&user_a=eq." + low + "&user_b=eq." + high + "&limit=1"
-	var result := await _http_json(HTTPClient.METHOD_GET, url, [
+	var result := await _http_json(HTTPClient.METHOD_GET, url, PackedStringArray([
 		"apikey: " + SUPABASE_KEY,
 		"Authorization: Bearer " + token
-	])
+	]))
 	return result.get("ok", false) and result.get("data", []) is Array and not result.data.is_empty()
 
 func _new_room(code: String, owner_uid: String, public_room: bool) -> Dictionary:
@@ -560,7 +560,7 @@ func _server_process_rooms(delta: float) -> void:
 			for uid in room.members.keys():
 				var finished_peer := int(room.members[uid])
 				if finished_peer > 0 and _server_players.has(finished_peer):
-					var finished_player: CharacterBody3D = _server_players[finished_peer]
+					var finished_player = _server_players[finished_peer]
 					finished_player.input_vector = Vector2.ZERO
 					finished_player.velocity = Vector3.ZERO
 					_persist_room_member_result(str(code), str(uid), finished_player)
@@ -572,7 +572,7 @@ func _server_process_rooms(delta: float) -> void:
 	if int(now / 1000) % 10 == 0:
 		pass
 
-func _collection_list(player: CharacterBody3D) -> Array[String]:
+func _collection_list(player) -> Array[String]:
 	var result: Array[String] = []
 	for collection_id in player.collection_counts.keys():
 		var quantity := mini(512 - result.size(), int(player.collection_counts[collection_id]))
@@ -592,7 +592,7 @@ func _persist_room_member_result(room_code: String, user_id: String, player: Cha
 	_rooms[room_code] = room
 	_persist_user_result(user_id, player)
 
-func _persist_user_result(user_id: String, player: CharacterBody3D) -> void:
+func _persist_user_result(user_id: String, player) -> void:
 	if user_id.is_empty() or (player.score <= 0 and player.match_xp <= 0 and player.collection_counts.is_empty()):
 		return
 	var token := str(_tokens.get(user_id, ""))
