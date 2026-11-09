@@ -933,6 +933,36 @@ func _server_process_rooms(delta: float) -> void:
 						break
 		if float(room.round_left) <= 0.0 and not bool(room.round_finished):
 			room.round_finished = true
+			var red_kills := 0
+			var blue_kills := 0
+			var ffa_winner_peer := 0
+			var best_kills := -1
+			var best_score := -1
+			for member_uid in room.members.keys():
+				var member_peer := int(room.members[member_uid])
+				if member_peer <= 0 or not _server_players.has(member_peer):
+					continue
+				var candidate = _server_players[member_peer]
+				if str(candidate.team_id) == "red":
+					red_kills += int(candidate.kills)
+				elif str(candidate.team_id) == "blue":
+					blue_kills += int(candidate.kills)
+				if int(candidate.kills) > best_kills or (int(candidate.kills) == best_kills and int(candidate.score) > best_score):
+					best_kills = int(candidate.kills)
+					best_score = int(candidate.score)
+					ffa_winner_peer = member_peer
+			for member_uid in room.members.keys():
+				var member_peer := int(room.members[member_uid])
+				var outcome := "draw"
+				if str(room.mode) == "team_deathmatch":
+					if red_kills > blue_kills:
+						outcome = "win" if _server_players.has(member_peer) and str(_server_players[member_peer].team_id) == "red" else "loss"
+					elif blue_kills > red_kills:
+						outcome = "win" if _server_players.has(member_peer) and str(_server_players[member_peer].team_id) == "blue" else "loss"
+				elif member_peer != ffa_winner_peer:
+					outcome = "loss"
+				if _server_players.has(member_peer):
+					_server_players[member_peer].match_outcome = outcome
 			for uid in room.members.keys():
 				var finished_peer := int(room.members[uid])
 				if finished_peer > 0 and _server_players.has(finished_peer):
@@ -963,11 +993,12 @@ func _persist_session_result(user_id: String, session: Dictionary) -> void:
 		return
 	var counts: Dictionary = session.get("collections", {})
 	await _persist_result_values(
-		user_id,
-		str(session.get("session_token", "")),
-		int(session.get("score", 0)),
-		int(session.get("match_xp", 0)),
-		_collection_list_from_counts(counts)
+		user_id, str(session.get("session_token", "")),
+		int(session.get("score", 0)), int(session.get("match_xp", 0)),
+		_collection_list_from_counts(counts), int(session.get("kills", 0)),
+		int(session.get("deaths", 0)), float(session.get("damage_dealt", 0.0)),
+		int(session.get("shots_fired", 0)), int(session.get("shots_hit", 0)),
+		int(session.get("playtime_seconds", 0)), str(session.get("outcome", "abandoned"))
 	)
 
 func _persist_room_member_result(room_code: String, user_id: String, player) -> void:
@@ -986,10 +1017,17 @@ func _persist_room_member_result(room_code: String, user_id: String, player) -> 
 		_rooms[room_code] = room
 
 func _persist_user_result(user_id: String, player) -> bool:
-	return await _persist_result_values(user_id, str(_session_tokens.get(user_id, "")), int(player.score), int(player.match_xp), _collection_list(player))
+	var joined_at := int(_player_joined_at_ms.get(user_id, Time.get_ticks_msec()))
+	var playtime := maxi(0, int((Time.get_ticks_msec() - joined_at) / 1000))
+	return await _persist_result_values(
+		user_id, str(_session_tokens.get(user_id, "")), int(player.score),
+		int(player.match_xp), _collection_list(player), int(player.kills),
+		int(player.deaths), float(player.damage_dealt), int(player.shots_fired),
+		int(player.shots_hit), playtime, str(player.match_outcome)
+	)
 
-func _persist_result_values(user_id: String, session_token: String, score: int, xp: int, collections: Array) -> bool:
-	if user_id.is_empty() or (score <= 0 and xp <= 0 and collections.is_empty()):
+func _persist_result_values(user_id: String, session_token: String, score: int, xp: int, collections: Array, kills: int, deaths: int, damage_dealt: float, shots_fired: int, shots_hit: int, playtime_seconds: int, outcome: String) -> bool:
+	if user_id.is_empty():
 		return true
 	if session_token.is_empty() or _server_secret.is_empty():
 		push_warning("OXENWAR_SERVER_SECRET or server session is missing; match results cannot be persisted.")
@@ -999,7 +1037,14 @@ func _persist_result_values(user_id: String, session_token: String, score: int, 
 		"session_token": session_token,
 		"score": clampi(score, 0, 20000),
 		"xp": clampi(xp, 0, 50000),
-		"collections": collections
+		"collections": collections,
+		"kills": clampi(kills, 0, 5000),
+		"deaths": clampi(deaths, 0, 5000),
+		"damage_dealt": clampf(damage_dealt, 0.0, 10000000.0),
+		"shots_fired": clampi(shots_fired, 0, 20000),
+		"shots_hit": clampi(shots_hit, 0, 20000),
+		"playtime_seconds": clampi(playtime_seconds, 0, 7200),
+		"outcome": outcome if ["win", "loss", "draw", "abandoned"].has(outcome) else "abandoned"
 	}
 	var headers := PackedStringArray([
 		"apikey: " + SUPABASE_KEY,
