@@ -12,7 +12,7 @@ The dedicated server listens on UDP **2456** and accepts up to 32 ENet connectio
 
 ## What the server owns
 
-- Supabase access-token verification through `/auth/v1/user`; identity and profile are fetched using the verified token.
+- Supabase Auth verifies the access token over HTTPS and issues a short-lived, one-time HMAC game ticket. The client sends only that ticket over ENet; the server redeems it once through the Edge Function and receives a server-only session token.
 - CharacterBody3D movement, gravity, jump, sprint, slide, dash, stamina and arena collision. Clients submit input, never positions or scores.
 - Public quick-match assignment and private six-character room codes.
 - Private-room admission based on the Supabase friendship row between the joining player and room owner.
@@ -41,7 +41,7 @@ The Supabase Edge Function is deployed with JWT verification enabled, but it als
 3. On the game-server host, set the exact same value as `OXENWAR_SERVER_SECRET`.
 4. Restart/redeploy the server after setting it.
 
-Without this secret, players can still authenticate and play on the server, but match stats and collection totals will not be persisted; the Edge Function deliberately rejects the sync request.
+Without this secret, the one-time ticket handshake is disabled, so players cannot authenticate to the game server. The Edge Function deliberately rejects ticket issuance, redemption, friend checks and result sync.
 
 ## Deploy template
 
