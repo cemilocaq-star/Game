@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE = "https://raw.githubusercontent.com/blancmathis/Super_Bash_Folds/main/public/assets/audio/open/"
+BASE = "https://raw.githubusercontent.com/blancmathis/Super_Bash_Folds/1028a3b739ef54efdcbe5a2ef0ad1714fe569c47/public/assets/audio/open/"
 AUDIO = {
     "event-start.ogg": ("sfx/ready.ogg", "1b1211b6360aae37ea685fee057bcabd034a749c1dfac6a9d643086d96e9b9aa"),
     "event-freeze.ogg": ("sfx/countdown.ogg", "9d057b918024c787bbe6c00beed13a7ef72a3fa0c259add3cef36582792f4230"),
@@ -23,7 +23,7 @@ LICENSES = {
     "KENNEY_MUSIC_JINGLES.txt": "licenses/KENNEY_MUSIC_JINGLES.txt",
     "KENNEY_INTERFACE_SOUNDS.txt": "licenses/KENNEY_INTERFACE_SOUNDS.txt",
 }
-LICENSES_BASE = "https://raw.githubusercontent.com/blancmathis/Super_Bash_Folds/main/public/assets/audio/"
+LICENSES_BASE = "https://raw.githubusercontent.com/blancmathis/Super_Bash_Folds/1028a3b739ef54efdcbe5a2ef0ad1714fe569c47/public/assets/audio/"
 USER_AGENT = "OxenWar-CC0-Asset-Setup/1.0"
 
 
