@@ -53,3 +53,13 @@ These are original generated prototype meshes and remain blockout-quality, stati
 3. Install the APK on a real Android device and verify touch hitboxes, gyro axes, frame rate and thermal behavior.
 4. Add Godot multiplayer synchronization and test host/join on LAN; then separately plan an online session/backend if internet multiplayer is required.
 5. Revisit visual polish, character model/animation, audio rights and save persistence.
+
+
+## Sonrakı inkişaf: Admin Power Panel və xəritə/event genişlənməsi
+
+- Godot editorindən Play edilərkən `F8` ilə açılan Admin Power Panel əlavə edilib. Bu, yalnız editor feature flag aktiv olduqda görünür; export edilmiş oyunlarda qəsdən bağlıdır.
+- Admin alətləri: uçuş rejimi (WASD + Space/Ctrl), God Mode state flag, Thor tipli çəkic kosmetikası, dekorativ ildırım, UFO və ördək troll effektləri, oyunçu bounce/reset, event-i əl ilə başlatmaq/dayandırmaq.
+- Lokal arena variantları: Lost Mall, Neon City, Space Islands və Candy World. Bunlar hazırkı blokout arenasının əlavə platforma layout-larıdır, ayrıca tamamlanmış yüksək keyfiyyətli səhnələr kimi təqdim edilmir.
+- Random event siyahısına METEOR_SHOWER (dekorativ), ICE_WORLD və DOUBLE_XP əlavə edilib.
+- **Təhlükəsizlik sərhədi:** bu layihənin hazırkı versiyası offline/single-player prototipdir və server autentifikasiyası yoxdur. Buna görə Admin Panel export build-lərdə aktiv deyil. Real multiplayer admin əmrləri serverdə rol yoxlaması və server-authoritative icra tələb edir; gizli düymə və ya client config təhlükəsizlik sayılmır.
+- **Verification:** GitHub faylları və struktur yoxlaması oxunub; Godot editor parse/runtime, real input, xəritə collision, multiplayer və EXE/APK testləri bu mühitdə aparılmayıb.
