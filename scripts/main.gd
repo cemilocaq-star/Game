@@ -434,7 +434,6 @@ func _admin_lightning_show() -> void:
 	visual.add_child(flash)
 	var tween := create_tween()
 	tween.tween_interval(0.22)
-	tween.tween_property(visual, "modulate:a", 0.0, 0.35)
 	tween.tween_callback(visual.queue_free)
 	_show_meme_toast("THUNDER STRIKE! ⚡ (VISUAL EFFECT)")
 
@@ -529,7 +528,7 @@ func _admin_cycle_map() -> void:
 	_apply_map_variant()
 	if is_instance_valid(admin_panel):
 		for child in admin_panel.find_children("Button", "Button", true, false):
-			if child.text.begins_with("Cycle Map:"):
+			if child is Button and child.text.begins_with("Cycle Map:"):
 				child.text = "Cycle Map: %s" % _map_name()
 	_show_meme_toast("MAP: %s" % _map_name())
 
