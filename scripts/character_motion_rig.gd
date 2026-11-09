@@ -44,12 +44,12 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 		var arm := rig.get_node_or_null(arm_name) as Node3D
 		var leg := rig.get_node_or_null(leg_name) as Node3D
 		if is_instance_valid(arm):
-			var arm_target := -swing * side
+			var arm_target: float = -swing * side
 			if sliding:
 				arm_target = -0.72
 			arm.rotation.x = move_toward(arm.rotation.x, arm_target, delta * 9.0)
 		if is_instance_valid(leg):
-			var leg_target := swing * side
+			var leg_target: float = swing * side
 			if sliding:
 				leg_target = -0.55
 			leg.rotation.x = move_toward(leg.rotation.x, leg_target, delta * 10.0)
