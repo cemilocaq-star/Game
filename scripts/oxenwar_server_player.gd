@@ -40,6 +40,7 @@ var _coyote_left := 0.0
 var _collider: CollisionShape3D
 var _capsule: CapsuleShape3D
 var _was_sliding := false
+var sliding_active := false
 
 func _ready() -> void:
 	_collider = get_node_or_null("CollisionShape3D") as CollisionShape3D
@@ -116,6 +117,7 @@ func _set_sliding(enabled: bool) -> void:
 	if _was_sliding == enabled or not is_instance_valid(_collider) or not is_instance_valid(_capsule):
 		return
 	_was_sliding = enabled
+	sliding_active = enabled
 	_capsule.height = 1.0 if enabled else 1.8
 	_collider.position.y = 0.5 if enabled else 0.9
 
