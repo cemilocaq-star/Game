@@ -396,6 +396,8 @@ func _server_submit_input(move: Vector2, yaw: float, jump: bool, sprint: bool, s
 	if room_code.is_empty() or not _rooms.has(room_code) or bool(_rooms[room_code].get("round_finished", false)):
 		return
 	var player = _server_players[peer_id]
+	if player.is_dead:
+		return
 	player.input_vector = move.limit_length(1.0)
 	player.look_yaw = wrapf(yaw, -PI, PI)
 	player.jump_requested = player.jump_requested or jump
@@ -418,7 +420,7 @@ func _server_blaster_fire(direction: Vector3) -> void:
 	if room_code.is_empty() or not _rooms.has(room_code) or bool(_rooms[room_code].get("round_finished", false)):
 		return
 	var shooter = _server_players[peer_id]
-	if str(shooter.event_id) == "FREEZE_FRAME":
+	if shooter.is_dead or str(shooter.event_id) == "FREEZE_FRAME":
 		return
 	var safe_direction := direction.normalized()
 	if absf(safe_direction.y) > 0.94:
