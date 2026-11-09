@@ -190,7 +190,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			"score": int(_server_players[peer_id].score) if _server_players.has(peer_id) else 0,
 			"xp": int(_server_players[peer_id].xp) if _server_players.has(peer_id) else 0,
 			"match_xp": int(_server_players[peer_id].match_xp) if _server_players.has(peer_id) else 0,
-			"collections": _collection_list(_server_players[peer_id]) if _server_players.has(peer_id) else [],
+			"collections": _server_players[peer_id].collection_counts.duplicate(true) if _server_players.has(peer_id) else {},
 			"token": str(_tokens.get(user_id, ""))
 		}
 		if _server_players.has(peer_id):
@@ -575,20 +575,24 @@ func _server_process_rooms(delta: float) -> void:
 		pass
 
 func _collection_list(player) -> Array[String]:
+	return _collection_list_from_counts(player.collection_counts)
+
+func _collection_list_from_counts(counts: Dictionary) -> Array[String]:
 	var result: Array[String] = []
-	for collection_id in player.collection_counts.keys():
-		var quantity := mini(512 - result.size(), int(player.collection_counts[collection_id]))
+	for collection_id in counts.keys():
+		var quantity := mini(512 - result.size(), int(counts[collection_id]))
 		for i in range(maxi(0, quantity)):
 			result.append(str(collection_id))
 	return result
 
 func _persist_session_result(user_id: String, session: Dictionary) -> void:
+	var counts: Dictionary = session.get("collections", {})
 	_persist_result_values(
 		user_id,
 		str(session.get("token", "")),
 		int(session.get("score", 0)),
 		int(session.get("match_xp", 0)),
-		session.get("collections", [])
+		_collection_list_from_counts(counts)
 	)
 
 func _persist_room_member_result(room_code: String, user_id: String, player) -> void:
