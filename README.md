@@ -88,6 +88,9 @@ GitHub Actions validates the structure, imports/parses the project with Godot he
 
 The client arena receives a lightweight procedural art-detail pass with floor inlays, perimeter trims, site markers, corner beacon housings and quality-scaled fill lights. The shared surface shader adds subtle procedural material variation, while the graphics manager applies filmic tonemapping, color grading and quality-scaled glow/fog. These are visual-only additions; the dedicated server skips the art-detail pass and collision/gameplay geometry is unchanged.
 
+## Character model detail pass
+The local player and replicated remote-player proxies now share a lightweight procedural equipment model: helmet/visor, layered vest and chest plate, shoulder pads, sleeves, forearm guards, gloves, utility belt and pouches, separate leg and knee pieces, boots, backpack and small accent panels. Outfit palettes are derived from the selected cosmetic, with dedicated Iron Vanguard and Web Sentinel colors. The detail meshes are visual-only, sit inside the existing movement capsule, and are hidden while the beach outfit is active. This pass does not add a skeletal rig, motion-captured animation, or change collision and server movement.
+
 ## Beach / swimwear
 
 The arena includes a shallow, non-blocking pool. Entering its marked swim zone switches the character to a modest beach outfit (shirt, swim shorts and sunglasses); leaving restores the regular appearance. The server derives the swim-zone state from player position and replicates it in snapshots so remote players see the same outfit. This is a visual zone only; it does not yet implement swimming physics or water movement.
