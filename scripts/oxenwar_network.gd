@@ -298,7 +298,6 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			"kills": int(_server_players[peer_id].kills) if _server_players.has(peer_id) else 0,
 			"deaths": int(_server_players[peer_id].deaths) if _server_players.has(peer_id) else 0,
 			"equipped_weapon_id": str(_server_players[peer_id].equipped_weapon_id) if _server_players.has(peer_id) else "aether",
-			"equipped_weapon_id": str(_server_players[peer_id].equipped_weapon_id) if _server_players.has(peer_id) else "aether",
 			"blaster_mastery_xp": int(_server_players[peer_id].blaster_mastery_xp) if _server_players.has(peer_id) else 0,
 			"grenade_mastery_xp": int(_server_players[peer_id].grenade_mastery_xp) if _server_players.has(peer_id) else 0,
 			"damage_dealt": float(_server_players[peer_id].damage_dealt) if _server_players.has(peer_id) else 0.0,
