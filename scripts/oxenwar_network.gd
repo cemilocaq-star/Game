@@ -200,8 +200,9 @@ func _on_peer_disconnected(peer_id: int) -> void:
 		_server_players.erase(peer_id)
 	_peer_users.erase(peer_id)
 	_last_input_ms.erase(peer_id)
-	_user_peers.erase(user_id)
-	_tokens.erase(user_id)
+	if int(_user_peers.get(user_id, 0)) == peer_id:
+		_user_peers.erase(user_id)
+		_tokens.erase(user_id)
 	_broadcast_room_state(room_code)
 	print("OxenWar peer disconnected: ", peer_id)
 
@@ -301,7 +302,6 @@ func _create_server_player(peer_id: int, profile: Dictionary, stats: Dictionary 
 	player.name = "ServerPlayer_%d" % peer_id
 	player.position = Vector3(0, 1.5, 6)
 	player.xp = int(stats.get("total_xp", 0))
-	var color_id := str(profile.get("avatar_color_id", "color_cyan"))
 	var spawn_offset := Vector3(float(_server_players.size() % 4) * 1.6 - 2.4, 0, float(_server_players.size() / 4) * 1.6)
 	player.position += spawn_offset
 	var collider := CollisionShape3D.new()
@@ -365,6 +365,9 @@ func _server_join_room(code: String) -> void:
 		return
 	var room: Dictionary = _rooms[code]
 	var user_id := str(_peer_users[peer_id])
+	if bool(room.round_finished):
+		rpc_id(peer_id, "_client_room_error", "This round has ended")
+		return
 	if room.members.size() >= int(room.max_players) and not room.members.has(user_id):
 		rpc_id(peer_id, "_client_room_error", "Room is full")
 		return
@@ -394,7 +397,7 @@ func _server_quick_match_for_peer(peer_id: int) -> void:
 	var target := ""
 	for code in _rooms.keys():
 		var room: Dictionary = _rooms[code]
-		if bool(room.is_public) and room.members.size() < int(room.max_players):
+		if bool(room.is_public) and not bool(room.round_finished) and room.members.size() < int(room.max_players):
 			target = str(code)
 			break
 	if target.is_empty():
@@ -581,8 +584,6 @@ func _server_process_rooms(delta: float) -> void:
 		_snapshot_accumulator = 0.0
 		for code in _rooms.keys():
 			_broadcast_snapshot(str(code))
-	if int(now / 1000) % 10 == 0:
-		pass
 
 func _collection_list(player) -> Array[String]:
 	return _collection_list_from_counts(player.collection_counts)
@@ -599,7 +600,7 @@ func _persist_session_result(user_id: String, session: Dictionary) -> void:
 	if bool(session.get("already_persisted", false)):
 		return
 	var counts: Dictionary = session.get("collections", {})
-	_persist_result_values(
+	await _persist_result_values(
 		user_id,
 		str(session.get("token", "")),
 		int(session.get("score", 0)),
@@ -614,20 +615,25 @@ func _persist_room_member_result(room_code: String, user_id: String, player) -> 
 	var persisted: Dictionary = room.get("persisted", {})
 	if persisted.has(user_id):
 		return
-	persisted[user_id] = true
-	room.persisted = persisted
-	_rooms[room_code] = room
-	_persist_user_result(user_id, player)
+	var saved := await _persist_user_result(user_id, player)
+	if saved and _rooms.has(room_code):
+		room = _rooms[room_code]
+		persisted = room.get("persisted", {})
+		persisted[user_id] = true
+		room.persisted = persisted
+		_rooms[room_code] = room
 
-func _persist_user_result(user_id: String, player) -> void:
-	_persist_result_values(user_id, str(_tokens.get(user_id, "")), int(player.score), int(player.match_xp), _collection_list(player))
+func _persist_user_result(user_id: String, player) -> bool:
+	return await _persist_result_values(user_id, str(_tokens.get(user_id, "")), int(player.score), int(player.match_xp), _collection_list(player))
 
-func _persist_result_values(user_id: String, token: String, score: int, xp: int, collections: Array) -> void:
-	if user_id.is_empty() or (score <= 0 and xp <= 0 and collections.is_empty()) or token.is_empty():
-		return
+func _persist_result_values(user_id: String, token: String, score: int, xp: int, collections: Array) -> bool:
+	if user_id.is_empty() or (score <= 0 and xp <= 0 and collections.is_empty()):
+		return true
+	if token.is_empty():
+		return false
 	if _server_secret.is_empty():
 		push_warning("OXENWAR_SERVER_SECRET is not configured; match results remain server-side for this session.")
-		return
+		return false
 	var payload := {
 		"score": clampi(score, 0, 20000),
 		"xp": clampi(xp, 0, 50000),
@@ -642,6 +648,8 @@ func _persist_result_values(user_id: String, token: String, score: int, xp: int,
 	var result := await _http_json(HTTPClient.METHOD_POST, SUPABASE_URL + "/functions/v1/oxenwar-server-sync", headers, payload)
 	if not result.get("ok", false):
 		push_warning("OxenWar result sync failed with HTTP status %d" % int(result.get("status", 0)))
+		return false
+	return true
 
 func _broadcast_snapshot(code: String) -> void:
 	if not _rooms.has(code):
