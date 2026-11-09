@@ -7,10 +7,12 @@ errors = []
 required = [
     "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd",
     "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd",
-    "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "server/README.md", "Dockerfile", "fly.toml",
+    "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "scripts/oxenwar_server_player.gd", "server/README.md", "Dockerfile", "fly.toml",
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
     "supabase/migrations/20261109114619_oxenwar_social_foundation.sql",
     "supabase/migrations/20261109114653_oxenwar_permissions_hardening.sql",
+    "supabase/migrations/20261109123936_oxenwar_server_authoritative_stats.sql",
+    "supabase/functions/oxenwar-server-sync/index.ts",
     "supabase/migrations/20261109114858_oxenwar_free_accessories.sql",
     "assets/LostFoodCourt_Arena_Blockout.glb", "assets/GoldenOrb_Collectible.glb",
     "assets/DuckBeacon_Mascot.glb", "assets/CosmicHalo_Cosmetic.glb",
@@ -53,7 +55,16 @@ checks = [
     ("_on_remote_player_state", main, "remote player rendering"),
     ('@rpc("any_peer", "call_remote", "unreliable_ordered")', read("scripts/oxenwar_network.gd"), "server movement RPC"),
     ("MAX_CLIENTS := 32", read("scripts/oxenwar_network.gd"), "dedicated server capacity"),
-    ("MAX_SPEED := 24.0", read("scripts/oxenwar_network.gd"), "movement relay speed validation"),
+    ("_server_submit_input", read("scripts/oxenwar_network.gd"), "server-owned input handling"),
+    ("move_and_slide()", read("scripts/oxenwar_server_player.gd"), "server-side physics simulation"),
+    ("/auth/v1/user", read("scripts/oxenwar_network.gd"), "Supabase JWT validation"),
+    ("_server_join_room", read("scripts/oxenwar_network.gd"), "friend room join RPC"),
+    ("_server_quick_match", read("scripts/oxenwar_network.gd"), "public matchmaking"),
+    ("ROOM_GRACE_SECONDS := 30.0", read("scripts/oxenwar_network.gd"), "reconnect reservation"),
+    ("orb_available", read("scripts/oxenwar_network.gd"), "server collectible state"),
+    ("player_stats", read("supabase/migrations/20261109123936_oxenwar_server_authoritative_stats.sql"), "server-owned stats schema"),
+    ("oxenwar_apply_server_result", read("supabase/functions/oxenwar-server-sync/index.ts"), "server result persistence function"),
+    ("OXENWAR_SERVER_SECRET", read("scripts/oxenwar_network.gd"), "server-only persistence secret"),
     ("cosmetic_accessory", main, "player accessory integration"),
     ("_add_selected_accessory", player, "visible accessory customization"),
     ("friend_requests", backend, "friend request API"),
@@ -70,7 +81,9 @@ checks = [
     ("OxenWar-Windows-x86_64", workflow, "OxenWar Windows artifact"),
     ("OxenWar-Android-arm64-debug", workflow, "OxenWar Android artifact"),
     ("multiplayer", readme.lower(), "multiplayer scope documented"),
-    ("server-relayed movement prototype", read("server/README.md"), "server relay limitations documented"),
+    ("CharacterBody3D movement", read("server/README.md"), "authoritative physics documented"),
+    ("friendship", read("server/README.md"), "friend-only room admission documented"),
+    ("OXENWAR_SERVER_SECRET", read("server/README.md"), "persistence secret setup documented"),
 ]
 for needle, source, label in checks:
     if needle not in source:
@@ -86,5 +99,5 @@ if errors:
     print("\n".join(f"- {error}" for error in errors))
     raise SystemExit(1)
 
-print(f"VALIDATION PASSED: {len(required)} required files, 4 GLB headers, OxenWar identity, social/auth/cosmetic/localization hooks and export configuration checked")
+print(f"VALIDATION PASSED: {len(required)} required files, 4 GLB headers, OxenWar identity, authenticated authoritative multiplayer, social/cosmetic/localization hooks and export configuration checked")
 print("NOTE: structural validation is not a Godot parse, runtime, online service, multiplayer or device test.")
