@@ -96,6 +96,9 @@ checks = [
     ("get_player_stats", read("scripts/oxenwar_supabase.gd"), "career stats read API"),
     ("_render_stats", read("scripts/oxenwar_menu.gd"), "career statistics profile tab"),
     ("p_playtime_seconds", read("supabase/functions/oxenwar-server-sync/index.ts"), "validated playtime persistence"),
+    ("match_outcome = outcome", read("scripts/oxenwar_network.gd"), "server-derived win/loss outcome"),
+    ("var match_outcome := \"abandoned\"", read("scripts/oxenwar_server_player.gd"), "per-match outcome state"),
+    ("_persist_result_values", read("scripts/oxenwar_network.gd"), "server-side career result persistence"),
 
     ("oxenwar_apply_server_result", read("supabase/functions/oxenwar-server-sync/index.ts"), "server result persistence function"),
     ("OXENWAR_SERVER_SECRET", read("scripts/oxenwar_network.gd"), "server-only persistence secret"),
