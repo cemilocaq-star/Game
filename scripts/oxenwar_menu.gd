@@ -301,18 +301,18 @@ func _render_tab() -> void:
 			_render_character()
 
 func _render_stats() -> void:
-	content.add_child(_large_label("CAREER STATISTICS"))
-	var loading := _label("Loading your verified career record...")
+	content.add_child(_large_label(_t("career_title")))
+	var loading := _label(_t("stats_loading"))
 	content.add_child(loading)
 	var result: Dictionary = await backend.get_player_stats()
 	if not is_instance_valid(loading):
 		return
 	if not result.get("ok", false):
-		loading.text = "Career statistics unavailable. Check your connection and database migration."
+		loading.text = _t("stats_unavailable")
 		return
 	var stats: Dictionary = result.get("data", {})
 	if stats.is_empty():
-		loading.text = "No completed matches recorded yet. Play your first match to start your career record."
+		loading.text = _t("stats_empty")
 		return
 	loading.queue_free()
 	var kills := int(stats.get("total_kills", 0))
@@ -329,13 +329,13 @@ func _render_stats() -> void:
 	var hours := int(playtime / 3600)
 	var minutes := int((playtime % 3600) / 60)
 	var cards := [
-		["MATCHES", str(matches)], ["W / L / D", "%d / %d / %d" % [wins, losses, draws]],
-		["TOTAL KILLS", str(kills)], ["TOTAL DEATHS", str(deaths)],
-		["K/D RATIO", "%.2f" % kd], ["BLASTER ACCURACY", "%.1f%%" % accuracy],
-		["BEST SCORE", str(int(stats.get("best_score", 0)))], ["BEST KILLS", str(int(stats.get("best_kills", 0)))],
-		["BEST DAMAGE", "%.0f" % float(stats.get("best_damage", 0.0))],
-		["TOTAL DAMAGE", "%.0f" % float(stats.get("total_damage_dealt", 0.0))],
-		["TOTAL PLAYTIME", "%dh %02dm" % [hours, minutes]]
+		[_t("stat_matches"), str(matches)], [_t("stat_record"), "%d / %d / %d" % [wins, losses, draws]],
+		[_t("stat_kills"), str(kills)], [_t("stat_deaths"), str(deaths)],
+		[_t("stat_kd"), "%.2f" % kd], [_t("stat_accuracy"), "%.1f%%" % accuracy],
+		[_t("stat_best_score"), str(int(stats.get("best_score", 0)))], [_t("stat_best_kills"), str(int(stats.get("best_kills", 0)))],
+		[_t("stat_best_damage"), "%.0f" % float(stats.get("best_damage", 0.0))],
+		[_t("stat_total_damage"), "%.0f" % float(stats.get("total_damage_dealt", 0.0))],
+		[_t("stat_playtime"), "%dh %02dm" % [hours, minutes]]
 	]
 	for index in range(cards.size()):
 		var row := HBoxContainer.new()
