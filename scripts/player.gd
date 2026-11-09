@@ -53,6 +53,10 @@ var _admin_hammer: Node3D
 var _blaster_audio: AudioStreamPlayer3D
 var _blaster_model: Node3D
 var _blaster_cooldown := 0.0
+var active_emote := ""
+var _emote_clock := 0.0
+var _emote_music: AudioStreamPlayer
+var _emote_base_rotation := Vector3.ZERO
 
 func _ready() -> void:
 	_build_visuals()
@@ -203,9 +207,95 @@ func _add_selected_accessory() -> void:
 
 
 func _process(delta: float) -> void:
+	if Input.is_action_just_pressed("emote_griddy"):
+		play_emote("griddy")
+	elif Input.is_action_just_pressed("emote_goofy"):
+		play_emote("goofy")
+	if active_emote != "":
+		_emote_clock += delta
+		_update_emote_visual()
 	_blaster_cooldown = maxf(0.0, _blaster_cooldown - delta)
 	if Input.is_action_just_pressed("fire") and _blaster_cooldown <= 0.0:
 		_fire_blaster()
+
+func play_emote(emote_id: String) -> void:
+	if emote_id not in ["griddy", "goofy"]:
+		return
+	if active_emote == emote_id:
+		stop_emote()
+		return
+	active_emote = emote_id
+	_emote_clock = 0.0
+	if is_instance_valid(_emote_music):
+		_emote_music.stop()
+	if emote_id == "griddy":
+		_start_emote_music()
+	var net := get_parent().get_node_or_null("OxenWarNet")
+	if is_instance_valid(net) and net.is_authenticated:
+		net.request_emote(emote_id)
+
+func stop_emote() -> void:
+	active_emote = ""
+	_emote_clock = 0.0
+	if is_instance_valid(_body_mesh):
+		_body_mesh.rotation = Vector3.ZERO
+		_body_mesh.position.y = 0.9
+	if is_instance_valid(_emote_music):
+		_emote_music.stop()
+
+func apply_remote_emote(emote_id: String) -> void:
+	if emote_id == active_emote:
+		return
+	active_emote = emote_id if emote_id in ["griddy", "goofy"] else ""
+	_emote_clock = 0.0
+
+func _update_emote_visual() -> void:
+	if not is_instance_valid(_body_mesh):
+		return
+	var phase := _emote_clock * (TAU * (2.0 if active_emote == "griddy" else 1.35))
+	var bounce := absf(sin(phase)) * (0.12 if active_emote == "griddy" else 0.08)
+	_body_mesh.position.y = 0.9 + bounce
+	_body_mesh.rotation.z = sin(phase) * (0.24 if active_emote == "griddy" else 0.34)
+	_body_mesh.rotation.x = sin(phase * 0.5) * 0.12
+
+func _start_emote_music() -> void:
+	if not is_instance_valid(_emote_music):
+		_emote_music = AudioStreamPlayer.new()
+		_emote_music.name = "OriginalGriddyBeat"
+		_emote_music.volume_db = -13.0
+		add_child(_emote_music)
+	_emote_music.stream = _make_emote_music()
+	_emote_music.play()
+
+func _make_emote_music() -> AudioStreamWAV:
+	# Original, locally synthesized short dance beat; no sampled or copyrighted track.
+	const sample_rate := 22050
+	const beat_count := 4
+	const beat_seconds := 0.32
+	var sample_count := int(sample_rate * beat_count * beat_seconds)
+	var bytes := PackedByteArray()
+	bytes.resize(sample_count * 2)
+	for i in range(sample_count):
+		var t := float(i) / sample_rate
+		var beat_phase := fposmod(t, beat_seconds)
+		var beat_index := int(floor(t / beat_seconds))
+		var kick_env := exp(-beat_phase * 18.0)
+		var kick := sin(TAU * (78.0 - 28.0 * beat_phase) * beat_phase) * kick_env
+		var hat_env := exp(-beat_phase * 75.0)
+		var hat := sin(TAU * 7200.0 * t) * hat_env * 0.12
+		var clap_phase := fposmod(t, beat_seconds * 2.0)
+		var clap := (sin(TAU * 190.0 * t) + sin(TAU * 310.0 * t) * 0.4) * exp(-clap_phase * 24.0) * (0.22 if beat_index % 2 == 1 else 0.0)
+		var bass := sin(TAU * [110.0, 110.0, 146.8, 98.0][beat_index % 4] * t) * 0.12
+		var sample := clampf((kick * 0.55 + hat + clap + bass) * 0.65, -1.0, 1.0)
+		bytes.encode_s16(i * 2, int(sample * 32767.0))
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = sample_rate
+	stream.stereo = false
+	stream.data = bytes
+	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	stream.loop_end = sample_count
+	return stream
 
 func _setup_blaster() -> void:
 	if not is_instance_valid(_camera):
