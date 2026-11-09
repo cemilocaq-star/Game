@@ -210,6 +210,8 @@ func _physics_process(delta: float) -> void:
 
 func apply_server_slide(enabled: bool) -> void:
 	_set_sliding(enabled)
+	if is_instance_valid(_camera):
+		_camera.position.y = 1.05 if enabled else 1.55
 
 func _set_sliding(enabled: bool) -> void:
 	if _is_sliding == enabled:
