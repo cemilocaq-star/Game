@@ -149,6 +149,16 @@ checks = [
     ("friendship", read("server/README.md"), "friend-only room admission documented"),
     ("OXENWAR_SERVER_SECRET", read("server/README.md"), "persistence secret setup documented"),
 ]
+checks.extend([
+    ("_build_swimming_pool", main, "visible beach pool area"),
+    ("BeachSwimwear", player, "local beach outfit visual"),
+    ("SwimShorts", player, "swim shorts mesh"),
+    ("set_swimming", player, "local swimwear state toggle"),
+    ("is_swimming", read("scripts/oxenwar_server_player.gd"), "server-authoritative swim-zone state"),
+    ("is_swimming", read("scripts/oxenwar_network.gd"), "multiplayer swimwear replication"),
+    ("_build_remote_swimwear", read("scripts/oxenwar_remote_player.gd"), "remote beach outfit visual"),
+])
+
 for needle, source, label in checks:
     if needle not in source:
         errors.append(f"missing {label}")
