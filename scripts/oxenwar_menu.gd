@@ -239,7 +239,7 @@ func _on_register() -> void:
 		message_label.text = _t("error") + ": enter a display name and a player name using 3–20 letters, numbers or underscores."
 		return
 	message_label.text = "..."
-	var result: Dictionary = await backend.sign_up(email_input.text, password_input.text, chosen_name, chosen_username)
+	var result: Dictionary = await backend.sign_up(email_input.text, password_input.text, chosen_name, chosen_username, locale)
 	if not result.get("ok", false):
 		message_label.text = _t("error") + ": " + str(result.get("message", ""))
 		return
