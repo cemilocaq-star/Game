@@ -64,6 +64,9 @@ checks = [
     ("OnlinePresenceHeartbeat", main, "presence heartbeat"),
     ('get_cmdline_user_args().has("--server")', main, "dedicated server entry point"),
     ("_start_multiplayer_client", main, "multiplayer client startup"),
+    ("func _configured_server_host() -> String:", main, "server host configuration resolver"),
+    ('ProjectSettings.get_setting("oxenwar/server_host", "")', main, "no implicit localhost multiplayer fallback"),
+    ("MULTIPLAYER • Server not configured", main, "explicit multiplayer deployment status"),
     ("_on_remote_player_state", main, "remote player rendering"),
     ('@rpc("any_peer", "call_remote", "unreliable_ordered")', read("scripts/oxenwar_network.gd"), "server movement RPC"),
     ("MAX_CLIENTS := 32", read("scripts/oxenwar_network.gd"), "dedicated server capacity"),
@@ -331,6 +334,8 @@ for needle, source, label in checks:
     if needle not in source:
         errors.append(f"missing {label}")
 
+if 'ProjectSettings.get_setting("oxenwar/server_host", "127.0.0.1")' in main or 'else "127.0.0.1"' in main:
+    errors.append("multiplayer client must not default to localhost when no dedicated server is configured")
 if "email_input" in menu:
     errors.append("email field remains in the account UI")
 if "/auth/v1/signup" in backend or "/auth/v1/token?grant_type=password" in backend:

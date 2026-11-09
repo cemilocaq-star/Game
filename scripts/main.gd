@@ -170,6 +170,12 @@ func _start_dedicated_server() -> void:
 		print("OxenWar dedicated server smoke test passed")
 		get_tree().quit()
 
+func _configured_server_host() -> String:
+	var host := OS.get_environment("OXENWAR_SERVER_HOST").strip_edges()
+	if host.is_empty():
+		host = str(ProjectSettings.get_setting("oxenwar/server_host", "")).strip_edges()
+	return host
+
 func _start_multiplayer_client() -> void:
 	network = NETWORK_SCRIPT.new()
 	network.name = "OxenWarNet"
@@ -187,10 +193,10 @@ func _start_multiplayer_client() -> void:
 	network.room_state_changed.connect(_on_network_room_state)
 	network.invite_received.connect(_on_room_invite_received)
 	network.set_local_player(player, local_player_name, player.cosmetic_color)
-	var host := OS.get_environment("OXENWAR_SERVER_HOST")
+	var host := _configured_server_host()
 	if host.is_empty():
-		host = str(ProjectSettings.get_setting("oxenwar/server_host", "127.0.0.1"))
-	if is_instance_valid(backend) and not str(backend.access_token).is_empty():
+		_on_network_status_changed("Dedicated server not configured")
+	elif is_instance_valid(backend) and not str(backend.access_token).is_empty():
 		network.connect_to_server(host, str(backend.access_token))
 	else:
 		_on_network_status_changed("Sign in required for multiplayer")
@@ -323,8 +329,16 @@ func _on_room_invite_received(owner_name: String, room_code: String) -> void:
 		room_code_input.text = room_code
 
 func _on_network_connect_pressed() -> void:
-	if is_instance_valid(network) and is_instance_valid(network_host_input) and is_instance_valid(backend):
-		network.connect_to_server(network_host_input.text, str(backend.access_token))
+	if not is_instance_valid(network) or not is_instance_valid(network_host_input):
+		return
+	var host := network_host_input.text.strip_edges()
+	if host.is_empty():
+		_on_network_status_changed("Enter a deployed server host")
+		return
+	if not is_instance_valid(backend) or str(backend.access_token).is_empty():
+		_on_network_status_changed("Sign in required for multiplayer")
+		return
+	network.connect_to_server(host, str(backend.access_token))
 
 func _on_create_room_pressed() -> void:
 	if is_instance_valid(network):
@@ -995,12 +1009,13 @@ func _build_hud() -> void:
 	collectibles_label = _make_label(root, "GOLD ORBS (XP ONLY): 0  •  404 SECRET: NOT FOUND", Vector2(500, 145), 14)
 	collectibles_label.add_theme_color_override("font_color", Color("#F5D27A"))
 	status_label = _make_label(root, "WASD move • Space jump • Shift sprint • Ctrl slide • Q dash • Esc mouse", Vector2(22, 84), 14)
-	network_status_label = _make_label(root, "MULTIPLAYER • Connecting...", Vector2(22, 245), 14)
+	var configured_server_host := _configured_server_host()
+	network_status_label = _make_label(root, "MULTIPLAYER • Connecting..." if not configured_server_host.is_empty() else "MULTIPLAYER • Server not configured", Vector2(22, 245), 14)
 	network_host_input = LineEdit.new()
 	network_host_input.position = Vector2(22, 273)
 	network_host_input.size = Vector2(240, 36)
-	network_host_input.placeholder_text = "Server IP / hostname"
-	network_host_input.text = OS.get_environment("OXENWAR_SERVER_HOST") if not OS.get_environment("OXENWAR_SERVER_HOST").is_empty() else "127.0.0.1"
+	network_host_input.placeholder_text = "Dedicated server host • UDP 2456"
+	network_host_input.text = configured_server_host
 	root.add_child(network_host_input)
 	var connect_button := Button.new()
 	connect_button.text = "CONNECT"
