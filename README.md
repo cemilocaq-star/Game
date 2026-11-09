@@ -147,3 +147,16 @@ The roster has 23 server-registered fictional archetypes plus the separate grena
 - Firing presentation now varies by archetype family: heavier arcade props use a short weighty kick, bow/lance archetypes use a draw-like pulse, staffs sweep, orbiting/disc props roll, and playful bubble/slime/duck props wobble.
 - Confirmed beam endpoints now receive a weapon-aware impact burst. Pixel/glitch, bubble/slime, heavy spark, disc/orbit and playful confetti families use different particle silhouettes and inherit the weapon palette.
 - These are client-side cosmetic effects only. They do not change server hit validation, cooldowns, range, damage, or match statistics.
+
+
+## Android phone testing
+
+The Android preset exports an **ARM64 debug APK**. GitHub Actions now checks the APK package ID, launch activity, ARM64 native library and debug signature, then uploads the APK together with its SHA-256 file and Android package report.
+
+1. Open the latest successful **Godot CI - Windows EXE and Android APK** run under the repository's Actions tab.
+2. Download the `OxenWar-Android-arm64-debug` artifact ZIP and extract it. It contains `OxenWar.apk`, `OxenWar.apk.sha256` and `android-badging.txt`.
+3. Install `OxenWar.apk` on an ARM64 Android phone. Android may ask you to allow the file manager/browser used for that one installation to install apps. Do not disable device-wide security protections.
+4. Launch in landscape. Check login form/keyboard, lobby layout, touch movement, right-side camera drag, jump, dash, sprint, slide, HUD buttons and scoreboard.
+5. For an online LAN test, run the dedicated server on a PC connected to the same Wi-Fi and enter that PC's LAN IP in the game's server field. The server listens on UDP port 2456. Ticket-based multiplayer also requires the same server-only `OXENWAR_SERVER_SECRET` on the server and Supabase Edge Function; never put it in the client.
+
+**Important:** the uploaded build is a debug build for device testing, not a Play Store release. CI creates a temporary debug signing key each run, so uninstall an older CI-installed OxenWar build before installing a newer APK if Android reports a signature conflict. A successful APK export proves packaging/signing, not that the app has been exercised on a real phone. Touch responsiveness, frame rate, device thermals, login and live multiplayer still require physical-device testing.
