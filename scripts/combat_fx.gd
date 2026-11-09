@@ -76,7 +76,8 @@ static func grenade_explosion(parent: Node3D, world_position: Vector3) -> void:
 	tween.tween_property(ring, "scale", Vector3.ONE * 8.0, 0.42)
 	tween.tween_property(ring_material, "albedo_color:a", 0.0, 0.42)
 	tween.tween_property(flash, "light_energy", 0.0, 0.30)
-	tween.chain().tween_callback(root.queue_free)
+	tween.chain().tween_interval(0.42)
+	tween.tween_callback(root.queue_free)
 
 
 static func hit_impact(parent: Node3D, world_position: Vector3) -> void:
