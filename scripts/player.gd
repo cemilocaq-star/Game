@@ -229,7 +229,12 @@ func _fire_blaster() -> void:
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	if not hit.is_empty():
 		endpoint = hit.position
-	_show_blaster_beam(origin, endpoint)
+	var net := get_parent().get_node_or_null("OxenWarNet")
+	var online_fire := is_instance_valid(net) and net.is_authenticated
+	if online_fire:
+		net.request_blaster_fire(direction)
+	else:
+		_show_blaster_beam(origin, endpoint)
 	if is_instance_valid(_blaster_audio):
 		_blaster_audio.pitch_scale = randf_range(0.96, 1.04)
 		_blaster_audio.play()
@@ -242,9 +247,6 @@ func _fire_blaster() -> void:
 	flash.position = Vector3(0.0, 0.0, -0.48)
 	_camera.add_child(flash)
 	get_tree().create_timer(0.055).timeout.connect(flash.queue_free)
-	var net := get_parent().get_node_or_null("OxenWarNet")
-	if is_instance_valid(net) and net.is_authenticated:
-		net.request_blaster_fire(direction)
 
 func _show_blaster_beam(origin: Vector3, endpoint: Vector3) -> void:
 	var beam := MeshInstance3D.new()
