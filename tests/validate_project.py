@@ -57,6 +57,7 @@ readme = read("README.md")
 
 checks = [
     ('config/name="OxenWar"', project, "OxenWar application name"),
+    ("textures/vram_compression/import_etc2_astc=true", project, "Android ETC2/ASTC texture import required by Godot export"),
     ("OxenWarMainMenu", main, "OxenWar menu integration"),
     ("OnlinePresenceHeartbeat", main, "presence heartbeat"),
     ('get_cmdline_user_args().has("--server")', main, "dedicated server entry point"),
