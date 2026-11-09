@@ -477,6 +477,7 @@ func _server_blaster_fire(direction: Vector3) -> void:
 		return
 	_last_blaster_ms[peer_id] = now
 	shooter.shots_fired += 1
+	_award_weapon_mastery(shooter, "blaster", 1)
 	var origin: Vector3 = shooter.global_position + Vector3.UP * 1.45
 	var endpoint := origin + safe_direction * 65.0
 	var query := PhysicsRayQueryParameters3D.create(origin, endpoint)
@@ -493,10 +494,12 @@ func _server_blaster_fire(direction: Vector3) -> void:
 						break
 					var was_killed: bool = target.apply_damage(34.0)
 					shooter.shots_hit += 1
+					_award_weapon_mastery(shooter, "blaster", 8)
 					shooter.damage_dealt += 34.0
 					target.damage_received += 34.0
 					if was_killed:
 						shooter.kills += 1
+						_award_weapon_mastery(shooter, "blaster", 35)
 						shooter.kill_streak += 1
 						shooter.best_kill_streak = maxi(shooter.best_kill_streak, shooter.kill_streak)
 						target.deaths += 1
@@ -609,6 +612,7 @@ func _server_detonate_grenade(room_code: String, grenade: Dictionary) -> void:
 			target.damage_received += damage
 			if _server_players.has(owner_peer) and target_peer != owner_peer:
 				_server_players[owner_peer].damage_dealt += damage
+				_award_weapon_mastery(_server_players[owner_peer], "grenade", maxi(1, int(round(damage * 0.2))))
 			damaged[target_peer] = true
 			if killed:
 				target.deaths += 1
@@ -616,6 +620,7 @@ func _server_detonate_grenade(room_code: String, grenade: Dictionary) -> void:
 			if _server_players.has(owner_peer) and target_peer != owner_peer:
 				if killed:
 					_server_players[owner_peer].kills += 1
+					_award_weapon_mastery(_server_players[owner_peer], "grenade", 45)
 					_server_players[owner_peer].kill_streak += 1
 					_server_players[owner_peer].best_kill_streak = maxi(_server_players[owner_peer].best_kill_streak, _server_players[owner_peer].kill_streak)
 					_award_killstreak(room_code, owner_peer)
@@ -627,6 +632,15 @@ func _server_detonate_grenade(room_code: String, grenade: Dictionary) -> void:
 		if member_peer > 0:
 			rpc_id(member_peer, "_client_grenade_explode", int(grenade.get("id", 0)), blast_position)
 
+
+
+func _award_weapon_mastery(player, weapon_id: String, amount: int) -> void:
+	if amount <= 0:
+		return
+	if weapon_id == "blaster":
+		player.blaster_mastery_xp = mini(100000, int(player.blaster_mastery_xp) + amount)
+	elif weapon_id == "grenade":
+		player.grenade_mastery_xp = mini(100000, int(player.grenade_mastery_xp) + amount)
 
 func _award_killstreak(room_code: String, killer_peer: int) -> void:
 	if not _rooms.has(room_code) or not _server_players.has(killer_peer):
@@ -841,6 +855,8 @@ func _assign_user_to_room(user_id: String, peer_id: int, code: String) -> void:
 		_server_players[peer_id].kills = 0
 		_server_players[peer_id].kill_streak = 0
 		_server_players[peer_id].best_kill_streak = 0
+		_server_players[peer_id].blaster_mastery_xp = 0
+		_server_players[peer_id].grenade_mastery_xp = 0
 		_server_players[peer_id].health = 100.0
 		_server_players[peer_id].is_dead = false
 		_server_players[peer_id].respawn_left = 0.0
@@ -1140,7 +1156,7 @@ func _broadcast_snapshot(code: String) -> void:
 			"color": _color_for_profile(_profiles.get(user_id, {})),
 			"outfit_id": str(_profiles.get(user_id, {}).get("outfit_id", "outfit_default")),
 			"team_id": str(player.team_id), "emote_id": str(player.emote_id), "is_swimming": bool(player.is_swimming),
-			"score": player.score, "kills": player.kills, "deaths": player.deaths, "kill_streak": player.kill_streak, "best_kill_streak": player.best_kill_streak, "shots_fired": player.shots_fired, "shots_hit": player.shots_hit, "damage_dealt": player.damage_dealt, "damage_received": player.damage_received, "xp": player.xp, "match_xp": player.match_xp, "stamina": player.stamina, "sliding": player.sliding_active,
+			"score": player.score, "kills": player.kills, "deaths": player.deaths, "kill_streak": player.kill_streak, "best_kill_streak": player.best_kill_streak, "blaster_mastery_xp": player.blaster_mastery_xp, "grenade_mastery_xp": player.grenade_mastery_xp, "shots_fired": player.shots_fired, "shots_hit": player.shots_hit, "damage_dealt": player.damage_dealt, "damage_received": player.damage_received, "xp": player.xp, "match_xp": player.match_xp, "stamina": player.stamina, "sliding": player.sliding_active,
 			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left
 		}
 	for user_id in room.members.keys():
