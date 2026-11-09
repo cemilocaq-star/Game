@@ -14,7 +14,7 @@ AUDIO = {
     "event-start.ogg": ("sfx/ready.ogg", "1b1211b6360aae37ea685fee057bcabd034a749c1dfac6a9d643086d96e9b9aa"),
     "event-freeze.ogg": ("sfx/countdown.ogg", "9d057b918024c787bbe6c00beed13a7ef72a3fa0c259add3cef36582792f4230"),
     "event-reward.ogg": ("sfx/item-pickup.ogg", "43d086d50f90493a98cd2e09aa6dbf150d164f1578e1ec768d21cb185571ad87"),
-    "event-bonk.ogg": ("sfx/hit-heavy.ogg", "4ab53b26f4ea575120dcc1348526c9e0db2afc6af7a442aa0489bdead2ca80b6"),
+    "event-bonk.ogg": ("sfx/item-spawn.ogg", "2379b58f953e3d86982aa8cddcae763022c6258e9820171bf905ce58b4e97766"),
     "event-end.ogg": ("sfx/game-set.ogg", "889d4c2b76c7edd63138b3a976c3f7337aaba3de90019d19bca70ec958c93014"),
     "event-music-loop.ogg": ("music/battle-loop.ogg", "5323dfe7f172e6b85870790f60027a533bd87bfd233e6c99cab0caf923f68f3f"),
 }
