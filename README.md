@@ -5,7 +5,7 @@ OxenWar is a free-to-play Godot 4.4.1 parkour arena project. Its visual directio
 ## Current features
 
 - Godot 4.4.1 parkour arena, server-owned movement physics, dash, slide, collectibles, rounds and gameplay events.
-- Supabase email/password accounts; Supabase Auth verifies the player's token over HTTPS and issues a one-time game ticket; the dedicated server redeems that ticket before spawning a player.
+- Username/password accounts with no user-facing email field. A server-only Edge Function maps usernames to Supabase Auth identities, creates accounts with a non-routable internal alias, applies database-backed attempt limits, and returns normal Supabase sessions. Existing email-based accounts can continue signing in with their existing password using their OxenWar username. Supabase Auth verifies the player's token over HTTPS and issues a one-time game ticket; the dedicated server redeems that ticket before spawning a player.
 - Friend search, friend requests, friend list and online presence.
 - Private friend rooms with six-character join codes; private-room joins are checked against the Supabase friendship table.
 - Public quick-match rooms, lobby roster and 8-player room capacity.
@@ -42,7 +42,7 @@ Database schema source is in `supabase/migrations/`. Apply all new migrations, i
 2. From the repository root, run `python3 tools/fetch_open_audio_assets.py` (on Windows, `py tools/fetch_open_audio_assets.py`). The script downloads the CC0 audio files and verifies each SHA-256 hash.
 3. Open `project.godot`.
 4. Run `main.tscn`.
-5. Register/sign in with Supabase.
+5. Register/sign in with an OxenWar username and password. Registration also asks for a display name; no email address is requested. Password recovery is not yet implemented, so players must keep their password safe.
 6. Run a dedicated server in another terminal: `godot --headless --path . -- --server`.
 7. In the game, enter the server's LAN address or public hostname and press **CONNECT**.
 8. Choose **FREE FOR ALL** or **TEAM DEATHMATCH** in the in-game mode selector. Use **CREATE ROOM** to make a private friend room, **JOIN** with its code, or **QUICK MATCH** to enter a public room of the selected mode. The current arena is the original Dust II-inspired desert blockout.
