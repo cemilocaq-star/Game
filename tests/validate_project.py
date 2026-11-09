@@ -112,6 +112,10 @@ checks = [
 
     ("oxenwar_apply_server_result", read("supabase/functions/oxenwar-server-sync/index.ts"), "server result persistence function"),
     ("OXENWAR_SERVER_SECRET", read("scripts/oxenwar_network.gd"), "server-only persistence secret"),
+    ('if _server_secret.is_empty():', read("scripts/oxenwar_network.gd"), "dedicated server refuses missing authentication secret"),
+    ('OXENWAR_SERVER_SECRET is required; refusing to start dedicated server.', read("scripts/oxenwar_network.gd"), "clear fail-closed server configuration error"),
+    ('Verify dedicated server rejects missing secret', workflow, "CI negative test for missing server secret"),
+    ('ci-smoke-test-only-not-production', workflow, "CI server smoke test uses a non-production test secret"),
     ("FREEZE FRAME — MOVEMENT PAUSED", main, "freeze event localization label"),
     ("cosmetic_accessory", main, "player accessory integration"),
     ("_add_selected_accessory", player, "visible accessory customization"),
