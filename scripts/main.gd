@@ -592,6 +592,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_select_weapon(str(number_to_weapon[event.keycode]))
 			get_viewport().set_input_as_handled()
 			return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_H:
+		_inspect_current_weapon()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_V:
 		_toggle_arsenal()
 		get_viewport().set_input_as_handled()
@@ -1224,6 +1228,10 @@ func _build_arsenal_panel(root: Control) -> void:
 	title.add_theme_color_override("font_color", Color("#6FEAF2"))
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
+	var inspect_button := Button.new()
+	inspect_button.text = "INSPECT  [H]"
+	inspect_button.pressed.connect(_inspect_current_weapon)
+	header.add_child(inspect_button)
 	var close_button := Button.new()
 	close_button.text = "CLOSE  [V]"
 	close_button.pressed.connect(_toggle_arsenal)
@@ -1252,6 +1260,10 @@ func _build_arsenal_panel(root: Control) -> void:
 		weapon_button.add_theme_color_override("font_color", Color("#EAF8FF"))
 		weapon_button.pressed.connect(_select_weapon.bind(weapon_id))
 		grid.add_child(weapon_button)
+
+func _inspect_current_weapon() -> void:
+	if is_instance_valid(player):
+		player.inspect_weapon()
 
 func _toggle_arsenal() -> void:
 	if not is_instance_valid(arsenal_panel):
