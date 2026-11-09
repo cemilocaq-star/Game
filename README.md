@@ -94,6 +94,9 @@ The local player and replicated remote-player proxies now share a lightweight pr
 ## Aether Blaster detail pass
 The first-person Aether Blaster now has a layered barrel shroud, receiver rails, cooling vents, grip inset, trigger guard, front/rear sights, muzzle ring and framed energy cell. Firing adds a small visual-only recoil offset that eases back to its resting position. The existing ray query, server-validated fire request, cooldown, damage and hit scoring are unchanged.
 
+## Combat visual effects pass
+Grenade detonations now use a client-only layered effect with an expanding shock ring, short orange light flash, rising smoke puffs and outward sparks. Remote Aether Blaster impacts receive a brief cyan energy flash and ring at the reported endpoint. These effects are cosmetic only: authoritative grenade movement, blast radius, damage, hit validation and score logic remain on the server.
+
 ## Beach / swimwear
 
 The arena includes a shallow, non-blocking pool. Entering its marked swim zone switches the character to a modest beach outfit (shirt, swim shorts and sunglasses); leaving restores the regular appearance. The server derives the swim-zone state from player position and replicates it in snapshots so remote players see the same outfit. This is a visual zone only; it does not yet implement swimming physics or water movement.
