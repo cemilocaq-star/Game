@@ -11,6 +11,8 @@ signal local_state_received(state: Dictionary)
 signal room_state_changed(state: Dictionary)
 signal invite_received(owner_name: String, room_code: String)
 signal blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Vector3)
+signal grenade_spawn_received(grenade_id: int, origin: Vector3, velocity: Vector3)
+signal grenade_exploded_received(grenade_id: int, position: Vector3)
 
 const PORT := 2456
 const MAX_CLIENTS := 32
@@ -47,6 +49,8 @@ var _snapshot_accumulator := 0.0
 var _server_players: Dictionary = {} # peer id -> CharacterBody3D
 var _last_input_ms: Dictionary = {}
 var _last_blaster_ms: Dictionary = {}
+var _last_grenade_ms: Dictionary = {}
+var _next_grenade_id := 1
 var _client_peer_ids: Dictionary = {}
 var _peer_users: Dictionary = {} # peer id -> Supabase user id
 var _user_peers: Dictionary = {} # Supabase user id -> peer id
@@ -138,9 +142,20 @@ func set_local_player(player: Node3D, display_name: String, color: Color) -> voi
 	local_player_name = display_name.substr(0, 24)
 	local_player_color = color
 
-func request_create_room(private_room: bool = true) -> void:
+func request_create_room(private_room: bool = true, mode: String = "ffa") -> void:
 	if is_authenticated and not is_dedicated_server:
-		rpc_id(1, "_server_create_room", private_room)
+		rpc_id(1, "_server_create_room", private_room, _sanitize_mode(mode))
+
+func request_quick_match(mode: String = "ffa") -> void:
+	if is_authenticated and not is_dedicated_server:
+		rpc_id(1, "_server_quick_match", _sanitize_mode(mode))
+
+func _sanitize_mode(mode: String) -> String:
+	return "team_deathmatch" if mode == "team_deathmatch" else "ffa"
+
+func request_grenade_throw(direction: Vector3) -> void:
+	if is_authenticated and not is_dedicated_server and direction.length() > 0.9:
+		rpc_id(1, "_server_throw_grenade", direction.normalized())
 
 func request_join_room(code: String) -> void:
 	if is_authenticated and not is_dedicated_server:
@@ -441,6 +456,8 @@ func _server_blaster_fire(direction: Vector3) -> void:
 		if target is CharacterBody3D and target != shooter and target.has_method("apply_damage") and not bool(target.get("is_dead")):
 			for target_peer in _server_players.keys():
 				if _server_players[target_peer] == target:
+					if str(shooter.team_id) != "" and str(shooter.team_id) == str(target.get("team_id")):
+						break
 					var was_killed: bool = target.apply_damage(34.0)
 					shooter.score += 10 + (50 if was_killed else 0)
 					break
@@ -450,13 +467,124 @@ func _server_blaster_fire(direction: Vector3) -> void:
 		if member_peer > 0:
 			rpc_id(member_peer, "_client_blaster_fx", peer_id, origin, endpoint)
 
+@rpc("any_peer", "call_remote", "reliable")
+func _server_throw_grenade(direction: Vector3) -> void:
+	if not multiplayer.is_server() or not is_finite(direction.x) or not is_finite(direction.y) or not is_finite(direction.z) or direction.length() < 0.9 or direction.length() > 1.1:
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _peer_users.has(peer_id) or not _server_players.has(peer_id):
+		return
+	var now := Time.get_ticks_msec()
+	if now - int(_last_grenade_ms.get(peer_id, 0)) < 5000:
+		return
+	var user_id := str(_peer_users[peer_id])
+	var room_code := str(_user_rooms.get(user_id, ""))
+	if room_code.is_empty() or not _rooms.has(room_code) or bool(_rooms[room_code].get("round_finished", false)):
+		return
+	var thrower = _server_players[peer_id]
+	if thrower.is_dead or str(thrower.event_id) == "FREEZE_FRAME":
+		return
+	var forward := Vector3(sin(thrower.look_yaw), 0.0, -cos(thrower.look_yaw))
+	if direction.normalized().dot(forward) < 0.05:
+		return
+	_last_grenade_ms[peer_id] = now
+	var grenade_id := _next_grenade_id
+	_next_grenade_id += 1
+	var origin: Vector3 = thrower.global_position + Vector3.UP * 1.35 + forward * 0.55
+	var launch_velocity := direction.normalized() * 13.0 + Vector3.UP * 4.2
+	var room: Dictionary = _rooms[room_code]
+	var grenades: Array = room.get("grenades", [])
+	grenades.append({"id": grenade_id, "owner": peer_id, "team": str(thrower.team_id), "position": origin, "velocity": launch_velocity, "fuse": 2.5})
+	room.grenades = grenades
+	_rooms[room_code] = room
+	for member_uid in room.members.keys():
+		var member_peer := int(room.members[member_uid])
+		if member_peer > 0:
+			rpc_id(member_peer, "_client_grenade_spawn", grenade_id, origin, launch_velocity)
+
+func _server_step_grenades(room_code: String, room: Dictionary, delta: float) -> Dictionary:
+	var grenades: Array = room.get("grenades", [])
+	var keep: Array = []
+	for grenade_value in grenades:
+		var grenade: Dictionary = grenade_value
+		var velocity: Vector3 = grenade.get("velocity", Vector3.ZERO)
+		var position: Vector3 = grenade.get("position", Vector3.ZERO)
+		velocity.y -= 9.8 * delta
+		var next_position := position + velocity * delta
+		var query := PhysicsRayQueryParameters3D.create(position, next_position)
+		query.collide_with_areas = false
+		var collision := get_world_3d().direct_space_state.intersect_ray(query)
+		if not collision.is_empty():
+			next_position = collision.position + collision.normal * 0.08
+			velocity = velocity.bounce(collision.normal) * 0.42
+			if velocity.length() < 1.2:
+				velocity = Vector3.ZERO
+		grenade.position = next_position
+		grenade.velocity = velocity
+		grenade.fuse = float(grenade.get("fuse", 0.0)) - delta
+		if float(grenade.fuse) <= 0.0:
+			_server_detonate_grenade(room_code, grenade)
+		else:
+			keep.append(grenade)
+	room.grenades = keep
+	return room
+
+func _server_detonate_grenade(room_code: String, grenade: Dictionary) -> void:
+	var blast_position: Vector3 = grenade.get("position", Vector3.ZERO)
+	var owner_peer := int(grenade.get("owner", 0))
+	var owner_team := str(grenade.get("team", ""))
+	var sphere := SphereShape3D.new()
+	sphere.radius = 5.0
+	var shape_query := PhysicsShapeQueryParameters3D.new()
+	shape_query.shape = sphere
+	shape_query.transform = Transform3D(Basis.IDENTITY, blast_position)
+	shape_query.collide_with_areas = false
+	var hits := get_world_3d().direct_space_state.intersect_shape(shape_query, 64)
+	var damaged: Dictionary = {}
+	for hit in hits:
+		var target: Object = hit.get("collider")
+		if not target is CharacterBody3D or not target.has_method("apply_damage"):
+			continue
+		var target_peer := 0
+		for candidate in _server_players.keys():
+			if _server_players[candidate] == target:
+				target_peer = int(candidate)
+				break
+		if target_peer <= 0 or damaged.has(target_peer) or bool(target.get("is_dead")):
+			continue
+		var target_team := str(target.get("team_id"))
+		if owner_team != "" and target_team == owner_team:
+			continue
+		var distance := blast_position.distance_to(target.global_position)
+		var damage := 85.0 * (1.0 - clampf(distance / 5.0, 0.0, 1.0))
+		if damage >= 8.0:
+			var killed: bool = target.apply_damage(damage)
+			damaged[target_peer] = true
+			if _server_players.has(owner_peer) and target_peer != owner_peer:
+				_server_players[owner_peer].score += 8 + (45 if killed else 0)
+	var room: Dictionary = _rooms.get(room_code, {})
+	for member_uid in room.get("members", {}).keys():
+		var member_peer := int(room.members[member_uid])
+		if member_peer > 0:
+			rpc_id(member_peer, "_client_grenade_explode", int(grenade.get("id", 0)), blast_position)
+
+@rpc("authority", "call_remote", "unreliable")
+func _client_grenade_spawn(grenade_id: int, origin: Vector3, launch_velocity: Vector3) -> void:
+	if not multiplayer.is_server():
+		grenade_spawn_received.emit(grenade_id, origin, launch_velocity)
+
+@rpc("authority", "call_remote", "reliable")
+func _client_grenade_explode(grenade_id: int, position_value: Vector3) -> void:
+	if not multiplayer.is_server():
+		grenade_exploded_received.emit(grenade_id, position_value)
+
 @rpc("authority", "call_remote", "unreliable")
 func _client_blaster_fx(shooter_peer_id: int, origin: Vector3, endpoint: Vector3) -> void:
 	if not multiplayer.is_server():
 		blaster_fx_received.emit(shooter_peer_id, origin, endpoint)
 
 @rpc("any_peer", "call_remote", "reliable")
-func _server_create_room(private_room: bool = true) -> void:
+func _server_create_room(private_room: bool = true, mode: String = "ffa") -> void:
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
@@ -465,7 +593,7 @@ func _server_create_room(private_room: bool = true) -> void:
 	var user_id := str(_peer_users[peer_id])
 	_server_remove_from_room(user_id)
 	var code := _generate_room_code()
-	_rooms[code] = _new_room(code, user_id, not private_room)
+	_rooms[code] = _new_room(code, user_id, not private_room, _sanitize_mode(mode))
 	_assign_user_to_room(user_id, peer_id, code)
 	_broadcast_room_state(code)
 
@@ -498,15 +626,15 @@ func _server_join_room(code: String) -> void:
 	_broadcast_room_state(code)
 
 @rpc("any_peer", "call_remote", "reliable")
-func _server_quick_match() -> void:
+func _server_quick_match(mode: String = "ffa") -> void:
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
 	if not _peer_users.has(peer_id):
 		return
-	_server_quick_match_for_peer(peer_id)
+	_server_quick_match_for_peer(peer_id, _sanitize_mode(mode))
 
-func _server_quick_match_for_peer(peer_id: int) -> void:
+func _server_quick_match_for_peer(peer_id: int, mode: String = "ffa") -> void:
 	var user_id := str(_peer_users.get(peer_id, ""))
 	if user_id.is_empty():
 		return
@@ -514,12 +642,12 @@ func _server_quick_match_for_peer(peer_id: int) -> void:
 	var target := ""
 	for code in _rooms.keys():
 		var room: Dictionary = _rooms[code]
-		if bool(room.is_public) and not bool(room.round_finished) and room.members.size() < int(room.max_players):
+		if bool(room.is_public) and str(room.get("mode", "ffa")) == _sanitize_mode(mode) and not bool(room.round_finished) and room.members.size() < int(room.max_players):
 			target = str(code)
 			break
 	if target.is_empty():
 		target = _generate_room_code()
-		_rooms[target] = _new_room(target, user_id, true)
+		_rooms[target] = _new_room(target, user_id, true, _sanitize_mode(mode))
 	_assign_user_to_room(user_id, peer_id, target)
 	_broadcast_room_state(target)
 
@@ -562,14 +690,14 @@ func _server_are_friends(user_id: String, other_id: String, session_token: Strin
 	var data: Dictionary = result.get("data", {})
 	return bool(data.get("is_friend", false))
 
-func _new_room(code: String, owner_uid: String, public_room: bool) -> Dictionary:
+func _new_room(code: String, owner_uid: String, public_room: bool, mode: String = "ffa") -> Dictionary:
 	var availability := {}
 	var respawn := {}
 	for i in range(ORB_POSITIONS.size()):
 		availability[i] = true
 		respawn[i] = 0
 	return {
-		"code": code, "owner_uid": owner_uid, "is_public": public_room,
+		"code": code, "owner_uid": owner_uid, "is_public": public_room, "mode": _sanitize_mode(mode), "grenades": [],
 		"max_players": ROOM_CAPACITY, "members": {}, "orb_available": availability,
 		"orb_respawn": respawn, "event_id": "", "event_left": 0.0,
 		"event_clock": EVENT_INTERVAL, "round_left": ROUND_SECONDS,
@@ -583,12 +711,25 @@ func _assign_user_to_room(user_id: String, peer_id: int, code: String) -> void:
 		return
 	var room: Dictionary = _rooms[code]
 	room.members[user_id] = peer_id
+	if _sanitize_mode(str(room.get("mode", "ffa"))) == "team_deathmatch":
+		var red_count := 0
+		var blue_count := 0
+		for member_uid in room.members.keys():
+			var member_peer := int(room.members[member_uid])
+			if member_peer > 0 and _server_players.has(member_peer) and str(_server_players[member_peer].team_id) == "red":
+				red_count += 1
+			elif member_peer > 0 and _server_players.has(member_peer) and str(_server_players[member_peer].team_id) == "blue":
+				blue_count += 1
+		_server_players[peer_id].team_id = "red" if red_count <= blue_count else "blue"
+	else:
+		_server_players[peer_id].team_id = ""
 	_rooms[code] = room
 	_user_rooms[user_id] = code
 	_last_room_code = code
 	if _server_players.has(peer_id):
 		_server_players[peer_id].set_physics_process(true)
-		_server_players[peer_id].global_position = Vector3(0, 1.5, 6)
+		var team_spawn_x := -10.0 if str(_server_players[peer_id].team_id) == "red" else (10.0 if str(_server_players[peer_id].team_id) == "blue" else 0.0)
+		_server_players[peer_id].global_position = Vector3(team_spawn_x, 1.5, 6)
 		_server_players[peer_id].velocity = Vector3.ZERO
 		_server_players[peer_id].score = 0
 		_server_players[peer_id].health = 100.0
@@ -657,6 +798,7 @@ func _server_process_rooms(delta: float) -> void:
 		if bool(room.round_finished):
 			_rooms[code] = room
 			continue
+		room = _server_step_grenades(str(code), room, delta)
 		room.event_clock = float(room.event_clock) - delta
 		room.event_left = maxf(0.0, float(room.event_left) - delta)
 		room.round_left = maxf(0.0, float(room.round_left) - delta)
@@ -683,7 +825,8 @@ func _server_process_rooms(delta: float) -> void:
 				respawn_player.respawn_left = maxf(0.0, respawn_player.respawn_left - delta)
 				if respawn_player.respawn_left <= 0.0:
 					var spawn_offset := Vector3(float(respawn_peer % 4) * 1.6 - 2.4, 0.0, float(int(respawn_peer / 4) % 4) * 1.6)
-					respawn_player.respawn_at(Vector3(0, 1.5, 6) + spawn_offset)
+					var team_spawn_x := -10.0 if str(respawn_player.team_id) == "red" else (10.0 if str(respawn_player.team_id) == "blue" else 0.0)
+					respawn_player.respawn_at(Vector3(team_spawn_x, 1.5, 6) + spawn_offset)
 		for orb_index in range(ORB_POSITIONS.size()):
 			if not bool(room.orb_available[orb_index]) and now >= int(room.orb_respawn[orb_index]):
 				room.orb_available[orb_index] = true
@@ -809,8 +952,10 @@ func _broadcast_snapshot(code: String) -> void:
 			"display_name": str(_profiles.get(user_id, {}).get("display_name", "Player")),
 			"color": _color_for_profile(_profiles.get(user_id, {})),
 			"outfit_id": str(_profiles.get(user_id, {}).get("outfit_id", "outfit_default")),
+			"team_id": str(player.team_id),
 			"score": player.score, "xp": player.xp, "stamina": player.stamina, "sliding": player.sliding_active,
-			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left
+			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left,
+		"team_id": str(player.team_id)
 		}
 	for user_id in room.members.keys():
 		var peer_id := int(room.members[user_id])
@@ -828,9 +973,10 @@ func _broadcast_room_state(code: String) -> void:
 		roster.append({
 			"user_id": user_id,
 			"display_name": str(_profiles.get(user_id, {}).get("display_name", "Player")),
-			"online": peer_id > 0
+			"online": peer_id > 0,
+			"team_id": str(_server_players[peer_id].team_id) if peer_id > 0 and _server_players.has(peer_id) else ""
 		})
-	var state := {"code": code, "is_public": bool(room.is_public), "members": roster, "max_players": int(room.max_players)}
+	var state := {"code": code, "is_public": bool(room.is_public), "mode": str(room.get("mode", "ffa")), "members": roster, "max_players": int(room.max_players)}
 	for user_id in room.members.keys():
 		var peer_id := int(room.members[user_id])
 		if peer_id > 0:
