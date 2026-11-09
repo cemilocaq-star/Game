@@ -96,7 +96,20 @@ func _apply_quality() -> void:
 		sunlight.shadow_enabled = resolved_quality in ["HIGH", "ULTRA"]
 		sunlight.light_energy = 1.25 if resolved_quality in ["HIGH", "ULTRA"] else 1.0
 	if is_instance_valid(environment):
-		environment.ambient_light_energy = 0.78 if resolved_quality in ["HIGH", "ULTRA"] else 0.62
+		var high_quality := resolved_quality in ["HIGH", "ULTRA"]
+		environment.ambient_light_energy = 0.82 if high_quality else (0.68 if resolved_quality == "MEDIUM" else 0.58)
+		environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+		environment.glow_enabled = high_quality
+		environment.glow_intensity = 0.72 if resolved_quality == "ULTRA" else 0.52
+		environment.glow_bloom = 0.12
+		environment.glow_hdr_threshold = 1.15
+		environment.adjustment_enabled = true
+		environment.adjustment_brightness = 1.02
+		environment.adjustment_contrast = 1.07 if high_quality else 1.03
+		environment.adjustment_saturation = 1.10 if high_quality else 1.04
+		environment.fog_enabled = resolved_quality == "ULTRA"
+		environment.fog_light_color = Color("#8298B8")
+		environment.fog_density = 0.004
 
 func make_material(color: Color) -> Material:
 	if resolved_quality == "LOW":
