@@ -297,7 +297,6 @@ func _process(delta: float) -> void:
 		_blaster_model.position.z = -0.48 + _blaster_recoil
 	var selected_cooldown := float(ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"]).get("cooldown", 0.24))
 	if Input.is_action_pressed("fire") and _blaster_cooldown <= 0.0:
-		_blaster_cooldown = selected_cooldown
 		_fire_blaster()
 
 func play_emote(emote_id: String) -> void:
@@ -498,7 +497,7 @@ func _make_blaster_stream() -> AudioStreamWAV:
 func _fire_blaster() -> void:
 	if not is_instance_valid(_camera) or _blaster_cooldown > 0.0:
 		return
-	_blaster_cooldown = 0.24
+	_blaster_cooldown = float(ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"]).get("cooldown", 0.24))
 	_blaster_recoil = 0.055
 	var origin := _camera.global_position
 	var direction := -_camera.global_basis.z.normalized()
