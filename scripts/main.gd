@@ -504,6 +504,9 @@ func _build_environment() -> void:
 	var sky_material := ProceduralSkyMaterial.new()
 	sky_material.sky_top_color = Color(0.015, 0.025, 0.08)
 	sky_material.sky_horizon_color = Color(0.18, 0.10, 0.25)
+	sky_material.ground_bottom_color = Color("#111827")
+	sky_material.ground_horizon_color = Color("#3B3550")
+	sky_material.sun_angle_max = 28.0
 	sky.sky_material = sky_material
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -516,6 +519,10 @@ func _build_environment() -> void:
 	sun.rotation_degrees = Vector3(-48, -32, 0)
 	sun.light_energy = 1.2
 	sun.shadow_enabled = true
+	sun.shadow_bias = 0.045
+	sun.shadow_normal_bias = 1.2
+	sun.directional_shadow_max_distance = 52.0
+	sun.shadow_blur = 2.0
 	add_child(sun)
 	graphics.configure(env, sun)
 
@@ -538,6 +545,60 @@ func _build_arena() -> void:
 	_make_box("EastRampBlock", Vector3(7, 0.7, 3.0), Vector3(8.3, 0.55, 0.8), Color(0.96, 0.62, 0.12))
 	_apply_map_variant()
 	_build_swimming_pool()
+	if not OS.get_cmdline_user_args().has("--server"):
+		_build_arena_detail_pass()
+
+func _build_arena_detail_pass() -> void:
+	# Lightweight, collision-free art pass; dedicated servers skip all decorative nodes.
+	var root := Node3D.new()
+	root.name = "ArenaArtDetailPass"
+	add_child(root)
+	var trim := Color("#21DCCB")
+	var pale := Color("#8BEAFF")
+	var dark := Color("#18283A")
+	_add_detail_box(root, "NorthFloorTrim", Vector3(34.8, 0.035, 0.10), Vector3(0, 0.025, -14.02), trim, 0.65)
+	_add_detail_box(root, "SouthFloorTrim", Vector3(34.8, 0.035, 0.10), Vector3(0, 0.025, 14.02), trim, 0.65)
+	_add_detail_box(root, "EastFloorTrim", Vector3(0.10, 0.035, 27.8), Vector3(17.02, 0.025, 0), pale, 0.55)
+	_add_detail_box(root, "WestFloorTrim", Vector3(0.10, 0.035, 27.8), Vector3(-17.02, 0.025, 0), pale, 0.55)
+	for x_index in range(-5, 6):
+		var x := float(x_index) * 3.0
+		_add_detail_box(root, "FloorGridX_%d" % x_index, Vector3(0.018, 0.012, 27.0), Vector3(x, 0.012, 0), dark, 0.0)
+	for z_index in range(-4, 5):
+		var z := float(z_index) * 3.0
+		_add_detail_box(root, "FloorGridZ_%d" % z_index, Vector3(33.0, 0.012, 0.018), Vector3(0, 0.012, z), dark, 0.0)
+	for corner in [Vector2(-16.2, -13.0), Vector2(16.2, -13.0), Vector2(-16.2, 13.0), Vector2(16.2, 13.0)]:
+		_add_detail_box(root, "CornerBeaconHousing", Vector3(0.42, 3.0, 0.42), Vector3(corner.x, 1.5, corner.y), dark, 0.0)
+		_add_detail_box(root, "CornerBeaconCap", Vector3(0.54, 0.12, 0.54), Vector3(corner.x, 2.95, corner.y), pale, 1.1)
+		var beacon := OmniLight3D.new()
+		beacon.name = "CornerBeaconLight"
+		beacon.position = Vector3(corner.x, 2.65, corner.y)
+		beacon.light_color = trim
+		beacon.light_energy = 0.48 if graphics.resolved_quality in ["HIGH", "ULTRA"] else 0.22
+		beacon.omni_range = 5.5
+		beacon.shadow_enabled = graphics.resolved_quality == "ULTRA"
+		root.add_child(beacon)
+	_add_detail_box(root, "A_Site_Inlay", Vector3(2.2, 0.018, 0.08), Vector3(-11.0, 0.205, -13.0), Color("#FFB45C"), 0.3)
+	_add_detail_box(root, "B_Site_Inlay", Vector3(2.2, 0.018, 0.08), Vector3(11.0, 0.205, 13.0), Color("#64B7FF"), 0.3)
+	_add_detail_box(root, "Mid_Inlay", Vector3(0.08, 0.018, 2.2), Vector3(0, 0.205, -4.0), pale, 0.25)
+
+func _add_detail_box(parent: Node3D, node_name: String, size: Vector3, position: Vector3, color: Color, emission_strength: float) -> MeshInstance3D:
+	var mesh_node := MeshInstance3D.new()
+	mesh_node.name = node_name
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	mesh_node.mesh = mesh
+	mesh_node.position = position
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 0.42
+	material.metallic = 0.28
+	if emission_strength > 0.0:
+		material.emission_enabled = true
+		material.emission = color
+		material.emission_energy_multiplier = emission_strength
+	mesh_node.material_override = material
+	parent.add_child(mesh_node)
+	return mesh_node
 
 func _build_swimming_pool() -> void:
 	var water := MeshInstance3D.new()
