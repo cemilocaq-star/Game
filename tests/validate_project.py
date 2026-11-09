@@ -19,7 +19,7 @@ required = [
     "supabase/migrations/20261109114858_oxenwar_free_accessories.sql",
     "assets/LostFoodCourt_Arena_Blockout.glb", "assets/GoldenOrb_Collectible.glb",
     "assets/DuckBeacon_Mascot.glb", "assets/CosmicHalo_Cosmetic.glb",
-    "scripts/progression.gd", "scripts/graphics_manager.gd", "shaders/neon_surface.gdshader",
+    "scripts/progression.gd", "scripts/graphics_manager.gd", "scripts/oxenwar_event_fx.gd", "shaders/neon_surface.gdshader",
 ]
 for rel in required:
     if not (ROOT / rel).is_file():
@@ -60,6 +60,9 @@ checks = [
     ("MAX_CLIENTS := 32", read("scripts/oxenwar_network.gd"), "dedicated server capacity"),
     ("_server_submit_input", read("scripts/oxenwar_network.gd"), "server-owned input handling"),
     ("move_and_slide()", read("scripts/oxenwar_server_player.gd"), "server-side physics simulation"),
+    ("FREEZE_FRAME", read("scripts/oxenwar_server_player.gd"), "server-authoritative freeze event"),
+    ("FrostedArenaFloor", read("scripts/oxenwar_event_fx.gd"), "ice event visuals"),
+    ("_start_synth_music", read("scripts/oxenwar_event_fx.gd"), "original event audio"),
     ("_redeem_game_ticket", read("scripts/oxenwar_network.gd"), "one-time ticket redemption"),
     ("issue_ticket", read("scripts/oxenwar_network.gd"), "HTTPS game ticket issuance"),
     ("HMAC", read("supabase/functions/oxenwar-server-sync/index.ts"), "signed one-time ticket validation"),
