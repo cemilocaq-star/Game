@@ -188,6 +188,7 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 	player.health = float(state.get("health", player.health))
 	player.is_dead = bool(state.get("dead", false))
 	player.respawn_left = float(state.get("respawn_left", 0.0))
+	player.set_swimming(bool(state.get("is_swimming", false)))
 	player.apply_server_slide(bool(state.get("sliding", false)))
 	var team_label := hud_layer.get_node_or_null("Control/TeamLabel") if is_instance_valid(hud_layer) else null
 	if team_label:
@@ -304,7 +305,7 @@ func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
 		add_child(remote)
 		remote_players[peer_id] = remote
 		remote.set_player_identity(str(state.get("display_name", "Player")), Color.from_string(str(state.get("color", "#27D7E7")), Color("#27D7E7")), str(state.get("outfit_id", "outfit_default")) )
-	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)), bool(state.get("sliding", false)), float(state.get("health", 100.0)), bool(state.get("dead", false)), str(state.get("team_id", "")), str(state.get("emote_id", "")))
+	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)), bool(state.get("sliding", false)), float(state.get("health", 100.0)), bool(state.get("dead", false)), str(state.get("team_id", "")), str(state.get("emote_id", "")), bool(state.get("is_swimming", false)))
 
 func _make_remote_blaster_stream() -> AudioStreamWAV:
 	const sample_rate := 22050
@@ -536,6 +537,34 @@ func _build_arena() -> void:
 	_make_box("WestRampBlock", Vector3(7, 0.7, 3.0), Vector3(-8.3, 0.55, 0.8), Color(0.96, 0.62, 0.12))
 	_make_box("EastRampBlock", Vector3(7, 0.7, 3.0), Vector3(8.3, 0.55, 0.8), Color(0.96, 0.62, 0.12))
 	_apply_map_variant()
+	_build_swimming_pool()
+
+func _build_swimming_pool() -> void:
+	var water := MeshInstance3D.new()
+	water.name = "BeachPoolWater"
+	var water_mesh := BoxMesh.new()
+	water_mesh.size = Vector3(8.0, 0.12, 8.0)
+	water.mesh = water_mesh
+	water.position = Vector3(-12.0, 0.12, -9.0)
+	var water_material := StandardMaterial3D.new()
+	water_material.albedo_color = Color(0.05, 0.48, 0.78, 0.78)
+	water_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	water_material.roughness = 0.18
+	water_material.metallic = 0.12
+	water_material.emission_enabled = true
+	water_material.emission = Color(0.02, 0.16, 0.25)
+	water_material.emission_energy_multiplier = 0.25
+	water.material_override = water_material
+	add_child(water)
+	var pool_label := Label3D.new()
+	pool_label.name = "SwimZoneLabel"
+	pool_label.text = "BEACH / SWIM ZONE"
+	pool_label.position = Vector3(-12.0, 0.45, -13.1)
+	pool_label.font_size = 30
+	pool_label.outline_size = 6
+	pool_label.pixel_size = 0.008
+	pool_label.modulate = Color("#BCEFFF")
+	add_child(pool_label)
 
 func _make_box(node_name: String, size: Vector3, position: Vector3, color: Color) -> void:
 	var body := StaticBody3D.new()
