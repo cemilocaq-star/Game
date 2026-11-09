@@ -47,10 +47,14 @@ var admin_fly_enabled := false
 var admin_god_mode := false
 var admin_hammer_equipped := false
 var _admin_hammer: Node3D
+var _blaster_audio: AudioStreamPlayer3D
+var _blaster_model: Node3D
+var _blaster_cooldown := 0.0
 
 func _ready() -> void:
 	_build_visuals()
 	_setup_footstep_audio()
+	_setup_blaster()
 	if not OS.has_feature("mobile"):
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -127,6 +131,144 @@ func _add_selected_accessory() -> void:
 			ear.position = Vector3(side * 0.31, -0.02, 0)
 			ear.material_override = _material(cosmetic_color)
 			accessory_root.add_child(ear)
+
+
+func _process(delta: float) -> void:
+	_blaster_cooldown = maxf(0.0, _blaster_cooldown - delta)
+	if Input.is_action_just_pressed("fire") and _blaster_cooldown <= 0.0:
+		_fire_blaster()
+
+func _setup_blaster() -> void:
+	if not is_instance_valid(_camera):
+		return
+	_blaster_model = Node3D.new()
+	_blaster_model.name = "AetherBlaster"
+	_blaster_model.position = Vector3(0.27, -0.24, -0.48)
+	_camera.add_child(_blaster_model)
+	var core := MeshInstance3D.new()
+	var core_mesh := BoxMesh.new()
+	core_mesh.size = Vector3(0.16, 0.18, 0.62)
+	core.mesh = core_mesh
+	core.material_override = _blaster_material(Color("#26384E"), 0.35)
+	_blaster_model.add_child(core)
+	var top := MeshInstance3D.new()
+	var top_mesh := BoxMesh.new()
+	top_mesh.size = Vector3(0.12, 0.07, 0.36)
+	top.mesh = top_mesh
+	top.position = Vector3(0.0, 0.12, -0.04)
+	top.material_override = _blaster_material(Color("#3C5B78"), 0.5)
+	_blaster_model.add_child(top)
+	var emitter := MeshInstance3D.new()
+	var emitter_mesh := CylinderMesh.new()
+	emitter_mesh.top_radius = 0.075
+	emitter_mesh.bottom_radius = 0.095
+	emitter_mesh.height = 0.18
+	emitter.mesh = emitter_mesh
+	emitter.rotation_degrees.x = 90.0
+	emitter.position.z = -0.37
+	emitter.material_override = _blaster_material(Color("#31E8FF"), 0.2, true)
+	_blaster_model.add_child(emitter)
+	var cell := MeshInstance3D.new()
+	var cell_mesh := SphereMesh.new()
+	cell_mesh.radius = 0.085
+	cell_mesh.height = 0.18
+	cell.mesh = cell_mesh
+	cell.position = Vector3(0.105, -0.015, 0.02)
+	cell.material_override = _blaster_material(Color("#9C7BFF"), 0.25, true)
+	_blaster_model.add_child(cell)
+	_blaster_audio = AudioStreamPlayer3D.new()
+	_blaster_audio.name = "AetherPulseAudio"
+	_blaster_audio.volume_db = -7.0
+	_blaster_audio.max_distance = 42.0
+	_blaster_audio.unit_size = 9.0
+	_blaster_audio.stream = _make_blaster_stream()
+	_blaster_model.add_child(_blaster_audio)
+
+func _blaster_material(color: Color, metallic_value: float, emissive: bool = false) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.metallic = metallic_value
+	material.roughness = 0.28
+	if emissive:
+		material.emission_enabled = true
+		material.emission = color
+		material.emission_energy_multiplier = 1.8
+	return material
+
+func _make_blaster_stream() -> AudioStreamWAV:
+	# Original synthetic sci-fi pulse; not a recording or imitation of a real firearm.
+	const sample_rate := 22050
+	const duration := 0.19
+	var count := int(sample_rate * duration)
+	var bytes := PackedByteArray()
+	bytes.resize(count * 2)
+	for i in range(count):
+		var t := float(i) / float(sample_rate)
+		var envelope := pow(maxf(0.0, 1.0 - float(i) / float(count)), 2.0)
+		var sweep := sin(TAU * (260.0 - 105.0 * t / duration) * t)
+		var overtone := sin(TAU * 520.0 * t) * 0.22
+		var sample := clampf((sweep * 0.58 + overtone) * envelope * 0.72, -1.0, 1.0)
+		bytes.encode_s16(i * 2, int(sample * 32767.0))
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = sample_rate
+	stream.stereo = false
+	stream.data = bytes
+	return stream
+
+func _fire_blaster() -> void:
+	if not is_instance_valid(_camera) or _blaster_cooldown > 0.0:
+		return
+	_blaster_cooldown = 0.24
+	var origin := _camera.global_position
+	var direction := -_camera.global_basis.z.normalized()
+	var endpoint := origin + direction * 65.0
+	var query := PhysicsRayQueryParameters3D.create(origin, endpoint)
+	query.exclude = [get_rid()]
+	query.collide_with_areas = false
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if not hit.is_empty():
+		endpoint = hit.position
+	_show_blaster_beam(origin, endpoint)
+	if is_instance_valid(_blaster_audio):
+		_blaster_audio.pitch_scale = randf_range(0.96, 1.04)
+		_blaster_audio.play()
+	var flash := MeshInstance3D.new()
+	var flash_mesh := SphereMesh.new()
+	flash_mesh.radius = 0.065
+	flash_mesh.height = 0.13
+	flash.mesh = flash_mesh
+	flash.material_override = _blaster_material(Color("#9AF7FF"), 0.0, true)
+	flash.position = Vector3(0.0, 0.0, -0.48)
+	_camera.add_child(flash)
+	get_tree().create_timer(0.055).timeout.connect(flash.queue_free)
+	var net := get_parent().get_node_or_null("OxenWarNet")
+	if is_instance_valid(net) and net.is_authenticated:
+		net.request_blaster_fire(direction)
+
+func _show_blaster_beam(origin: Vector3, endpoint: Vector3) -> void:
+	var beam := MeshInstance3D.new()
+	beam.name = "AetherPulseTrail"
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(0.035, 0.035, 1.0)
+	beam.mesh = mesh
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.25, 0.9, 1.0, 0.92)
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.emission_enabled = true
+	material.emission = Color("#35EFFF")
+	material.emission_energy_multiplier = 2.4
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	beam.material_override = material
+	var scene := get_tree().current_scene
+	if not is_instance_valid(scene):
+		return
+	scene.add_child(beam)
+	beam.global_position = (origin + endpoint) * 0.5
+	var up := Vector3.RIGHT if absf((endpoint - origin).normalized().dot(Vector3.UP)) > 0.97 else Vector3.UP
+	beam.look_at(endpoint, up)
+	beam.scale.z = maxf(0.05, origin.distance_to(endpoint))
+	get_tree().create_timer(0.085).timeout.connect(beam.queue_free)
 
 func _physics_process(delta: float) -> void:
 	if admin_fly_enabled:
