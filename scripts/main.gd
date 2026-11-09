@@ -54,6 +54,11 @@ var friend_name_input: LineEdit
 var room_status_label: Label
 var remote_players: Dictionary = {}
 var match_killboard: Dictionary = {}
+var match_stats: Dictionary = {}
+var kill_feed_container: VBoxContainer
+var scoreboard_panel: PanelContainer
+var scoreboard_rows: VBoxContainer
+var scoreboard_local_stats: Label
 var active_room_mode := "ffa"
 
 const EVENT_NAMES := {
@@ -146,6 +151,7 @@ func _start_multiplayer_client() -> void:
 	network.blaster_fx_received.connect(_on_blaster_fx_received)
 	network.grenade_spawn_received.connect(_on_grenade_spawn_received)
 	network.grenade_exploded_received.connect(_on_grenade_exploded_received)
+	network.kill_feed_received.connect(_on_kill_feed_received)
 	network.player_disconnected.connect(_on_remote_player_left)
 	network.connection_status_changed.connect(_on_network_status_changed)
 	network.authentication_changed.connect(_on_network_authentication_changed)
@@ -185,6 +191,7 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 	player.rotation.y = float(state.get("yaw", player.rotation.y))
 	player.score = int(state.get("score", player.score))
 	match_killboard[local_player_name] = int(state.get("kills", 0))
+	_update_player_match_stats(local_player_name, int(state.get("kills", 0)), int(state.get("deaths", 0)), int(state.get("score", 0)))
 	player.stamina = float(state.get("stamina", player.stamina))
 	player.health = float(state.get("health", player.health))
 	player.is_dead = bool(state.get("dead", false))
@@ -298,7 +305,9 @@ func _on_invite_friend_pressed() -> void:
 		room_status_label.text = "Friend username not found"
 
 func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
-	match_killboard[str(state.get("display_name", "Player"))] = int(state.get("kills", 0))
+	var remote_name := str(state.get("display_name", "Player"))
+	match_killboard[remote_name] = int(state.get("kills", 0))
+	_update_player_match_stats(remote_name, int(state.get("kills", 0)), int(state.get("deaths", 0)), int(state.get("score", 0)))
 	var remote = remote_players.get(peer_id)
 	if not is_instance_valid(remote):
 		remote = REMOTE_PLAYER_SCRIPT.new()
@@ -385,6 +394,56 @@ func _on_grenade_exploded_received(grenade_id: int, position_value: Vector3) -> 
 	_client_grenade_visuals.erase(grenade_id)
 	COMBAT_FX_SCRIPT.grenade_explosion(self, position_value)
 
+func _update_player_match_stats(player_name: String, kills: int, deaths: int, score: int) -> void:
+	match_stats[player_name] = {"kills": kills, "deaths": deaths, "score": score}
+	_refresh_scoreboard()
+
+func _refresh_scoreboard() -> void:
+	if not is_instance_valid(scoreboard_rows):
+		return
+	for child in scoreboard_rows.get_children():
+		child.queue_free()
+	var entries: Array[Dictionary] = []
+	for player_name in match_stats.keys():
+		var stats: Dictionary = match_stats[player_name]
+		entries.append({"name": str(player_name), "kills": int(stats.get("kills", 0)), "deaths": int(stats.get("deaths", 0)), "score": int(stats.get("score", 0))})
+	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if int(a.kills) == int(b.kills):
+			return int(a.score) > int(b.score)
+		return int(a.kills) > int(b.kills)
+	)
+	var local_stats: Dictionary = match_stats.get(local_player_name, {})
+	if is_instance_valid(scoreboard_local_stats):
+		scoreboard_local_stats.text = "YOU  •  K %d   D %d   SCORE %d" % [int(local_stats.get("kills", 0)), int(local_stats.get("deaths", 0)), int(local_stats.get("score", 0))]
+	for index in range(mini(entries.size(), 8)):
+		var entry: Dictionary = entries[index]
+		var row := Label.new()
+		row.text = "%d. %-22s %3d   %3d   %6d" % [index + 1, str(entry.name).substr(0, 22), int(entry.kills), int(entry.deaths), int(entry.score)]
+		row.add_theme_color_override("font_color", Color("#E7F4FF") if str(entry.name) == local_player_name else Color("#AFC4D4"))
+		scoreboard_rows.add_child(row)
+
+func _toggle_scoreboard() -> void:
+	if is_instance_valid(scoreboard_panel):
+		scoreboard_panel.visible = not scoreboard_panel.visible
+		if scoreboard_panel.visible:
+			_refresh_scoreboard()
+
+func _on_kill_feed_received(killer_name: String, victim_name: String, weapon_name: String) -> void:
+	if not is_instance_valid(kill_feed_container):
+		return
+	var entry := Label.new()
+	entry.text = "%s   ▸   %s   [%s]" % [killer_name, victim_name, weapon_name]
+	entry.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	entry.add_theme_font_size_override("font_size", 15)
+	entry.add_theme_color_override("font_color", Color("#E9F8FF"))
+	kill_feed_container.add_child(entry)
+	while kill_feed_container.get_child_count() > 5:
+		kill_feed_container.get_child(0).queue_free()
+	var fade := create_tween()
+	fade.tween_interval(5.0)
+	fade.tween_property(entry, "modulate:a", 0.0, 0.45)
+	fade.tween_callback(entry.queue_free)
+
 func _on_remote_player_left(peer_id: int) -> void:
 	var remote: Node = remote_players.get(peer_id)
 	if is_instance_valid(remote):
@@ -430,6 +489,10 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("throw_grenade") and is_instance_valid(network) and network.is_authenticated and is_instance_valid(player):
 		network.request_grenade_throw(-player.global_basis.z + Vector3.UP * 0.12)
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB:
+		_toggle_scoreboard()
 		get_viewport().set_input_as_handled()
 		return
 	if not admin_available or not event is InputEventKey or not event.pressed or event.echo:
@@ -889,8 +952,73 @@ func _build_hud() -> void:
 	round_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	round_label.name = "RoundLabel"
 
+	kill_feed_container = VBoxContainer.new()
+	kill_feed_container.name = "KillFeed"
+	kill_feed_container.anchor_left = 0.68
+	kill_feed_container.anchor_right = 0.985
+	kill_feed_container.anchor_top = 0.17
+	kill_feed_container.anchor_bottom = 0.17
+	kill_feed_container.offset_left = 0
+	kill_feed_container.offset_right = 0
+	kill_feed_container.offset_top = 0
+	kill_feed_container.offset_bottom = 180
+	kill_feed_container.add_theme_constant_override("separation", 5)
+	root.add_child(kill_feed_container)
+
+	scoreboard_panel = PanelContainer.new()
+	scoreboard_panel.name = "MatchScoreboard"
+	scoreboard_panel.anchor_left = 0.5
+	scoreboard_panel.anchor_right = 0.5
+	scoreboard_panel.anchor_top = 0.16
+	scoreboard_panel.anchor_bottom = 0.16
+	scoreboard_panel.offset_left = -235
+	scoreboard_panel.offset_right = 235
+	scoreboard_panel.offset_top = 0
+	scoreboard_panel.offset_bottom = 340
+	scoreboard_panel.visible = false
+	var scoreboard_style := StyleBoxFlat.new()
+	scoreboard_style.bg_color = Color(0.018, 0.04, 0.07, 0.96)
+	scoreboard_style.border_color = Color("#27D7E7")
+	scoreboard_style.set_border_width_all(2)
+	scoreboard_style.set_corner_radius_all(12)
+	scoreboard_style.content_margin_left = 16
+	scoreboard_style.content_margin_right = 16
+	scoreboard_style.content_margin_top = 12
+	scoreboard_style.content_margin_bottom = 12
+	scoreboard_panel.add_theme_stylebox_override("panel", scoreboard_style)
+	root.add_child(scoreboard_panel)
+	var scoreboard_column := VBoxContainer.new()
+	scoreboard_column.add_theme_constant_override("separation", 8)
+	scoreboard_panel.add_child(scoreboard_column)
+	var scoreboard_title := Label.new()
+	scoreboard_title.text = "MATCH SCOREBOARD"
+	scoreboard_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	scoreboard_title.add_theme_font_size_override("font_size", 22)
+	scoreboard_title.add_theme_color_override("font_color", Color("#42E7F0"))
+	scoreboard_column.add_child(scoreboard_title)
+	scoreboard_local_stats = Label.new()
+	scoreboard_local_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	scoreboard_column.add_child(scoreboard_local_stats)
+	var scoreboard_header := Label.new()
+	scoreboard_header.text = "PLAYER                              K     D      SCORE"
+	scoreboard_header.add_theme_color_override("font_color", Color("#9CB8C9"))
+	scoreboard_column.add_child(scoreboard_header)
+	scoreboard_rows = VBoxContainer.new()
+	scoreboard_rows.add_theme_constant_override("separation", 4)
+	scoreboard_column.add_child(scoreboard_rows)
+	_refresh_scoreboard()
+
 	if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available():
 		_build_touch_controls(root)
+		var score_button := Button.new()
+		score_button.text = "SCOREBOARD"
+		score_button.anchor_left = 0.72
+		score_button.anchor_right = 0.98
+		score_button.anchor_top = 0.02
+		score_button.anchor_bottom = 0.02
+		score_button.offset_bottom = 42
+		score_button.pressed.connect(_toggle_scoreboard)
+		root.add_child(score_button)
 	if admin_available:
 		_build_admin_panel(root)
 		var admin_button := Button.new()
