@@ -57,6 +57,7 @@ var _peer_users: Dictionary = {} # peer id -> Supabase user id
 var _user_peers: Dictionary = {} # Supabase user id -> peer id
 var _profiles: Dictionary = {}
 var _session_tokens: Dictionary = {} # server memory only; never persisted/logged
+var _player_joined_at_ms: Dictionary = {} # server monotonic join times
 var _rooms: Dictionary = {} # room code -> room state
 var _user_rooms: Dictionary = {} # user id -> room code
 var _sessions: Dictionary = {} # user id -> reconnect reservation
@@ -277,6 +278,13 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			"health": float(_server_players[peer_id].health) if _server_players.has(peer_id) else 100.0,
 			"dead": bool(_server_players[peer_id].is_dead) if _server_players.has(peer_id) else false,
 			"respawn_left": float(_server_players[peer_id].respawn_left) if _server_players.has(peer_id) else 0.0,
+			"kills": int(_server_players[peer_id].kills) if _server_players.has(peer_id) else 0,
+			"deaths": int(_server_players[peer_id].deaths) if _server_players.has(peer_id) else 0,
+			"damage_dealt": float(_server_players[peer_id].damage_dealt) if _server_players.has(peer_id) else 0.0,
+			"shots_fired": int(_server_players[peer_id].shots_fired) if _server_players.has(peer_id) else 0,
+			"shots_hit": int(_server_players[peer_id].shots_hit) if _server_players.has(peer_id) else 0,
+			"playtime_seconds": maxi(0, int((Time.get_ticks_msec() - int(_player_joined_at_ms.get(user_id, Time.get_ticks_msec()))) / 1000)),
+			"outcome": str(_server_players[peer_id].match_outcome) if _server_players.has(peer_id) else "abandoned",
 			"session_token": str(_session_tokens.get(user_id, "")),
 			"already_persisted": bool(room.get("persisted", {}).has(user_id))
 		}
@@ -334,6 +342,13 @@ func _server_authenticate(ticket: String) -> void:
 		player.health = clampf(float(restored.get("health", 100.0)), 0.0, 100.0)
 		player.is_dead = bool(restored.get("dead", false))
 		player.respawn_left = maxf(0.0, float(restored.get("respawn_left", 0.0)))
+		player.kills = int(restored.get("kills", 0))
+		player.deaths = int(restored.get("deaths", 0))
+		player.damage_dealt = float(restored.get("damage_dealt", 0.0))
+		player.shots_fired = int(restored.get("shots_fired", 0))
+		player.shots_hit = int(restored.get("shots_hit", 0))
+		player.match_outcome = str(restored.get("outcome", "abandoned"))
+		_player_joined_at_ms[user_id] = Time.get_ticks_msec() - int(restored.get("playtime_seconds", 0)) * 1000
 		var room: Dictionary = _rooms[restored_room]
 		room.members[user_id] = peer_id
 		player.apply_event(str(room.event_id))
@@ -753,6 +768,7 @@ func _new_room(code: String, owner_uid: String, public_room: bool, mode: String 
 		"orb_respawn": respawn, "event_id": "", "event_left": 0.0,
 		"event_clock": EVENT_INTERVAL, "round_left": ROUND_SECONDS,
 		"round_id": str(Time.get_unix_time_from_system()) + "-" + code,
+		"started_at_ms": Time.get_ticks_msec(),
 		"round_finished": false,
 		"persisted": {}
 	}
@@ -788,6 +804,13 @@ func _assign_user_to_room(user_id: String, peer_id: int, code: String) -> void:
 		_server_players[peer_id].is_dead = false
 		_server_players[peer_id].respawn_left = 0.0
 		_server_players[peer_id].match_xp = 0
+		_server_players[peer_id].deaths = 0
+		_server_players[peer_id].shots_fired = 0
+		_server_players[peer_id].shots_hit = 0
+		_server_players[peer_id].damage_dealt = 0.0
+		_server_players[peer_id].damage_received = 0.0
+		_server_players[peer_id].match_outcome = "abandoned"
+		_player_joined_at_ms[user_id] = Time.get_ticks_msec()
 		_server_players[peer_id].collection_counts.clear()
 		_server_players[peer_id].secret_404_found = false
 		_server_players[peer_id].apply_event(str(room.event_id))
