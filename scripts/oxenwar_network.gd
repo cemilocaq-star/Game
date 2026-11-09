@@ -536,7 +536,7 @@ func _server_process_rooms(delta: float) -> void:
 					var pid := int(room.members[uid])
 					if pid <= 0 or not _server_players.has(pid):
 						continue
-					var player: CharacterBody3D = _server_players[pid]
+					var player = _server_players[pid]
 					if player.global_position.distance_to(ORB_POSITIONS[orb_index]) <= 1.15:
 						room.orb_available[orb_index] = false
 						room.orb_respawn[orb_index] = now + 8000
@@ -580,7 +580,7 @@ func _collection_list(player) -> Array[String]:
 			result.append(str(collection_id))
 	return result
 
-func _persist_room_member_result(room_code: String, user_id: String, player: CharacterBody3D) -> void:
+func _persist_room_member_result(room_code: String, user_id: String, player) -> void:
 	if not _rooms.has(room_code):
 		return
 	var room: Dictionary = _rooms[room_code]
@@ -625,7 +625,7 @@ func _broadcast_snapshot(code: String) -> void:
 		var peer_id := int(room.members[user_id])
 		if peer_id <= 0 or not _server_players.has(peer_id):
 			continue
-		var player: CharacterBody3D = _server_players[peer_id]
+		var player = _server_players[peer_id]
 		states[peer_id] = {
 			"position": player.global_position, "yaw": player.rotation.y,
 			"display_name": str(_profiles.get(user_id, {}).get("display_name", "Player")),
