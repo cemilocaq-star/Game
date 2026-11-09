@@ -8,6 +8,7 @@ var profile: Dictionary = {}
 var authenticated := false
 var is_admin := false
 var active_tab := "play"
+var registration_mode := false
 var password_input: LineEdit
 var display_input: LineEdit
 var username_input: LineEdit
@@ -136,7 +137,8 @@ func _build_auth(parent: VBoxContainer) -> void:
 	form.add_child(username_input)
 	password_input = _field(_t("password") + " (8+)", "••••••••", true)
 	form.add_child(password_input)
-	display_input = _field(_t("display_name") + " (register)", "Player")
+	display_input = _field(_t("display_name"), "Player")
+	display_input.visible = false
 	form.add_child(display_input)
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 10)
@@ -212,6 +214,8 @@ func _on_language_selected(index: int) -> void:
 	_build()
 
 func _on_login() -> void:
+	registration_mode = false
+	display_input.hide()
 	if username_input.text.strip_edges().is_empty() or password_input.text.is_empty():
 		message_label.text = _t("error") + ": " + _t("username") + " / " + _t("password")
 		return
@@ -225,6 +229,11 @@ func _on_login() -> void:
 	_build()
 
 func _on_register() -> void:
+	if not registration_mode:
+		registration_mode = true
+		display_input.show()
+		message_label.text = "Enter your display name, then tap Register again."
+		return
 	if password_input.text.length() < 8:
 		message_label.text = _t("error") + ": password must be at least 8 characters."
 		return
