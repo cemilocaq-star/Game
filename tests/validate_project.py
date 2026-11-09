@@ -110,6 +110,8 @@ checks = [
     ("_server_blaster_fire", read("scripts/oxenwar_network.gd"), "server-validated blaster fire"),
     ("_client_blaster_fx", read("scripts/oxenwar_network.gd"), "multiplayer blaster visual replication"),
     ("_last_blaster_ms", read("scripts/oxenwar_network.gd"), "server fire-rate validation"),
+    ("_make_remote_blaster_stream", main, "remote positional blaster audio"),
+    ("RemoteAetherPulseAudio", main, "3D remote blaster sound source"),
     ("OxenWar.exe", presets, "OxenWar Windows export name"),
     ("OxenWar.apk", presets, "OxenWar Android export name"),
     ("OxenWar-Windows-x86_64", workflow, "OxenWar Windows artifact"),
