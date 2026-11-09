@@ -28,11 +28,11 @@ func restore_session() -> Dictionary:
 		return await refresh_session()
 	return {"ok": not access_token.is_empty(), "user_id": user_id}
 
-func sign_up(email: String, password: String, display_name: String) -> Dictionary:
+func sign_up(email: String, password: String, display_name: String, username: String = "") -> Dictionary:
 	var result := await _request(HTTPClient.METHOD_POST, "/auth/v1/signup", {
 		"email": email.strip_edges(),
 		"password": password,
-		"data": {"display_name": display_name.strip_edges()}
+		"data": {"display_name": display_name.strip_edges(), "username": username.strip_edges()}
 	})
 	if not result.get("ok", false):
 		return result

@@ -108,6 +108,13 @@ func _build() -> void:
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 12)
 	outer.add_child(content)
+	var heartbeat := Timer.new()
+	heartbeat.name = "MenuPresenceHeartbeat"
+	heartbeat.wait_time = 30.0
+	heartbeat.autostart = true
+	heartbeat.timeout.connect(_send_presence_heartbeat)
+	add_child(heartbeat)
+	_send_presence_heartbeat()
 	_render_tab()
 
 func _build_auth(parent: VBoxContainer) -> void:
@@ -226,7 +233,7 @@ func _on_register() -> void:
 		message_label.text = _t("error") + ": enter a display name and a 3–20 character player name."
 		return
 	message_label.text = "..."
-	var result: Dictionary = await backend.sign_up(email_input.text, password_input.text, chosen_name)
+	var result: Dictionary = await backend.sign_up(email_input.text, password_input.text, chosen_name, chosen_username)
 	if not result.get("ok", false):
 		message_label.text = _t("error") + ": " + str(result.get("message", ""))
 		return
@@ -253,6 +260,10 @@ func _load_account() -> void:
 	cosmetics = await backend.get_cosmetics()
 	authenticated = true
 	await backend.update_presence()
+
+func _send_presence_heartbeat() -> void:
+	if is_instance_valid(backend) and authenticated:
+		await backend.update_presence()
 
 func _on_tab_pressed(tab: String) -> void:
 	active_tab = tab
@@ -304,7 +315,10 @@ func _render_friends() -> void:
 		for request in requests.get("data", []):
 			var incoming := str(request.get("receiver_id")) == str(backend.user_id)
 			var row := HBoxContainer.new()
-			row.add_child(_label(("From " if incoming else "To ") + str(request.get("sender_id", "")).substr(0, 8)))
+			var other_id := str(request.get("sender_id", "") if incoming else request.get("receiver_id", ""))
+			var other_profile: Dictionary = await backend.get_profile_by_id(other_id)
+			var other_name := str(other_profile.get("username", other_id.substr(0, 8)))
+			row.add_child(_label(("From " if incoming else "To ") + other_name))
 			if incoming:
 				var accept := _button(_t("accept"), true)
 				accept.pressed.connect(func():
