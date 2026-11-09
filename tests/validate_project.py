@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 errors = []
 
 required = [
-    "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/character_visuals.gd", "scripts/character_motion_rig.gd", "scripts/combat_fx.gd",
+    "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/arcade_weapon_visuals.gd", "scripts/character_visuals.gd", "scripts/character_motion_rig.gd", "scripts/combat_fx.gd",
     "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd",
     "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "scripts/oxenwar_server_player.gd", "server/README.md", "Dockerfile", "fly.toml",
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
@@ -255,6 +255,18 @@ checks.extend([
     ("is_swimming", read("scripts/oxenwar_network.gd"), "multiplayer swimwear replication"),
     ("_build_remote_swimwear", read("scripts/oxenwar_remote_player.gd"), "remote beach outfit visual"),
 ])
+
+new_weapon_ids = ["prism_scepter", "vortex_orbiter", "comet_bow", "bubble_burst", "glitch_ray", "meteor_mallet", "frost_wand", "solar_lance", "slime_slinger", "pixel_storm", "thunder_drum", "moon_disc", "jellyfish_staff", "portal_popper", "rubber_chicken"]
+if len(new_weapon_ids) != 15:
+    errors.append("expected exactly 15 new arcade weapon archetypes")
+for weapon_id in new_weapon_ids:
+    checks.append((f'"{weapon_id}"', read("scripts/oxenwar_network.gd"), f"server weapon registry: {weapon_id}"))
+    checks.append((f'"{weapon_id}"', player, f"local weapon profile: {weapon_id}"))
+    checks.append((f'"{weapon_id}"', read("scripts/arcade_weapon_visuals.gd"), f"procedural weapon silhouette: {weapon_id}"))
+if "ARSENAL  •  23" not in main or "_build_arsenal_panel" not in main:
+    errors.append("23-slot arcade arsenal selection screen is missing")
+if "set_selected_weapon" not in player or "ARCADE_WEAPON_VISUALS.build_weapon" not in player:
+    errors.append("weapon equip flow does not rebuild the selected first-person model")
 
 for needle, source, label in checks:
     if needle not in source:
