@@ -264,6 +264,13 @@ checks.extend([
     ("KEY_H", main, "keyboard weapon inspect shortcut"),
     ("INSPECT  [H]", main, "arsenal weapon inspect control"),
     ("_inspect_current_weapon", main, "inspect UI action routing"),
+    ("func _animate_weapon_fire() -> void:", player, "weapon-family firing animation"),
+    ('"comet_bow", "star_piercer", "solar_lance"', player, "precision archetype firing animation"),
+    ('"prism_scepter", "frost_wand", "jellyfish_staff"', player, "staff archetype firing animation"),
+    ("ArcadeWeaponImpactFX_", read("scripts/combat_fx.gd"), "weapon-specific impact effects"),
+    ('shard_shape = "pixel"', read("scripts/combat_fx.gd"), "pixel/glitch impact variant"),
+    ('shard_shape = "bubble"', read("scripts/combat_fx.gd"), "bubble/slime impact variant"),
+    ("weapon_id, beam_color", main, "impact receives authoritative weapon identity and palette"),
 ])
 new_weapon_ids = ["prism_scepter", "vortex_orbiter", "comet_bow", "bubble_burst", "glitch_ray", "meteor_mallet", "frost_wand", "solar_lance", "slime_slinger", "pixel_storm", "thunder_drum", "moon_disc", "jellyfish_staff", "portal_popper", "rubber_chicken"]
 if len(new_weapon_ids) != 15:
