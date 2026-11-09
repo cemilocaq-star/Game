@@ -142,6 +142,19 @@ jobs:
           mkdir -p build
           godot --headless --path . --export-debug "Android" build/OxenWar.apk
 
+      - name: Verify Android package, architecture and debug signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$AAPT" dump badging build/OxenWar.apk | tee build/android-badging.txt
+          grep -Fq "package: name='org.oxenwar.game'" build/android-badging.txt
+          grep -Fq "launchable-activity:" build/android-badging.txt
+          grep -Fq "native-code: 'arm64-v8a'" build/android-badging.txt
+          "$APKSIGNER" verify --verbose build/OxenWar.apk
+          sha256sum build/OxenWar.apk | tee build/OxenWar.apk.sha256
+
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
         with:
@@ -155,7 +168,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: OxenWar-Android-arm64-debug
-          path: build/OxenWar.apk
+          path: |
+            build/OxenWar.apk
+            build/OxenWar.apk.sha256
+            build/android-badging.txt
           if-no-files-found: error
           compression-level: 6
-          retention-days: 14
+          retention-days: 30
