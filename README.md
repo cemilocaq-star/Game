@@ -38,7 +38,7 @@ When the local player name is `FixerPly`, press **F8** (or use the ADMIN touch b
 
 ### FixerPly admin identity
 
-The current offline prototype assigns the local player the display name `FixerPly`; the Admin Power Panel is enabled only when `player.player_name == ADMIN_PLAYER_NAME`. Desktop uses F8 and a visible ADMIN button is also provided for touch devices. This is a local prototype identity check, **not secure online authentication**: when multiplayer accounts are implemented, the server must assign and verify the immutable account ID/role for FixerPly. A player-controlled nickname alone must never grant server privileges.
+At startup, every player enters a display name. If the exact name `FixerPly` is entered, a masked admin-code field appears. The Admin Power Panel (F8 on desktop, ADMIN button on touch devices) is enabled only after the code is accepted. The local prototype compares a SHA-256 digest rather than storing the code as readable text. This remains a client-side offline gate, not secure authentication: anyone who can inspect or modify the game client can bypass it. An online release must validate credentials and admin roles on a trusted server.
 
 
 ### FixerPly admin code

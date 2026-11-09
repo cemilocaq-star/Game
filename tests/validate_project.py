@@ -60,7 +60,10 @@ for needle, text, label in [
     ("effect_strength", shader_script, "adjustable neon shader"),
     ("ADMIN POWER PANEL", main_script, "admin power panel"),
     ('ADMIN_PLAYER_NAME := "FixerPly"', main_script, "FixerPly admin identity"),
-    ("player.is_admin = local_admin_authorized and player.player_name == ADMIN_PLAYER_NAME", main_script, "code-gated admin authorization"),\n    ("_request_player_identity", main_script, "player name prompt"),\n    ("code_input.secret = true", main_script, "masked admin code input"),\n    ("code_input.text.sha256_text() != ADMIN_CODE_SHA256", main_script, "admin code verification"),
+    ("player.is_admin = local_admin_authorized and player.player_name == ADMIN_PLAYER_NAME", main_script, "code-gated admin authorization"),
+    ("_request_player_identity", main_script, "player name prompt"),
+    ("code_input.secret = true", main_script, "masked admin code input"),
+    ("code_input.text.sha256_text() != ADMIN_CODE_SHA256", main_script, "admin code verification"),
     ("if not admin_available", main_script, "admin action guards"),
     ("_admin_lightning_show", main_script, "admin lightning effect"),
     ("_admin_ufo_troll", main_script, "admin UFO troll"),
@@ -75,7 +78,8 @@ for needle, text, label in [
 
 if errors:
     print("VALIDATION FAILED")
-    print("\n".join(f"- {e}" for e in errors))
+    print("
+".join(f"- {e}" for e in errors))
     raise SystemExit(1)
 print(f"VALIDATION PASSED: {len(required)} required paths, 4 GLB headers, gameplay/progression/graphics hooks and both local export presets checked")
 print("NOTE: this is a structural check, not a Godot parse, runtime, network, or platform-build test.")

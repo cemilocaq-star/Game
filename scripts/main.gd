@@ -2,7 +2,9 @@ extends Node3D
 
 const PLAYER_SCRIPT = preload("res://scripts/player.gd")
 const ADMIN_PLAYER_NAME := "FixerPly"
-const ADMIN_CODE_SHA256 := "735441830457f2280da8f91397f367b729451573e2cb6ce14846ed7a40da708c"\nvar local_player_name := "Player"\nvar local_admin_authorized := false
+const ADMIN_CODE_SHA256 := "735441830457f2280da8f91397f367b729451573e2cb6ce14846ed7a40da708c"
+var local_player_name := "Player"
+var local_admin_authorized := false
 const ROUND_SECONDS := 300.0
 const EVENT_INTERVAL := 30.0
 const EVENT_DURATION := 12.0
