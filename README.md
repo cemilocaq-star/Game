@@ -121,3 +121,6 @@ The authenticated profile menu now has a Career Statistics tab. It reads the pla
 
 ## XP rank progression
 The Career Statistics tab derives a player's rank directly from the existing server-persisted `total_xp` field; no second XP wallet or client-side rank writes are introduced. Thresholds are Bronze (0), Silver (500), Gold (1,500), Platinum (3,500), Diamond (7,000) and Master (12,000). The profile shows the current rank, XP progress toward the next tier and remaining XP. Rank labels are localized in Azerbaijani, English, Turkish and Russian. The rank is a display tier, not a separate competitive matchmaking rating.
+
+## Match XP reward and rank-up presentation
+The server snapshot now includes the authoritative per-match XP total. The results overlay shows XP earned, career XP, the rank badge and progress bar, and animates the card when a rank threshold is crossed. Offline orb and secret rewards are counted in the local match summary as well. Online rank progress uses server-synchronized career XP; clients cannot award themselves online XP.
