@@ -62,7 +62,7 @@ GitHub Actions validates the structure, imports/parses the project with Godot he
 - The Edge Function returns 403 until the same `OXENWAR_SERVER_SECRET` is set in Supabase Edge Function secrets and the game-server host environment. Do not put this secret in the client or GitHub.
 - Rooms and active matches are held in server memory. Reconnect reservations last 30 seconds; a server process restart ends active rooms.
 - Match results are written at match completion, room leave, or reconnect-reservation expiry. An unexpected host shutdown before one of those points can lose the in-progress match.
-- Friend invitations are currently shared by room code; direct invite notifications are supported by the server RPC but are not yet wired into the friends UI.
+- Online friends can be invited by username from the in-game lobby; the invite sends a private room code. Offline friends can join later using the shared code.
 - Godot CI parsing/export and live multi-device tests must pass before calling the complete game runtime production-ready.
 
 ## Security
