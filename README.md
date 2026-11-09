@@ -141,3 +141,9 @@ The roster has 23 server-registered fictional archetypes plus the separate grena
 - Press **H** to inspect the equipped arcade weapon, or open the Arsenal and use **INSPECT [H]**. The inspect motion briefly presents the prop at an angle, then restores its first-person position; a subtle idle sway continues between actions.
 - Each of the 23 weapons now has a separately synthesized original sound profile built from its own frequency/sweep/overtone mix. These are generated locally at runtime and are not recordings or imitations of real-world weapons.
 - The new pass is presentation-only: server-side damage, range, cooldown and selection validation remain unchanged. There is no magazine/ammunition/reload economy in this phase.
+
+
+### Weapon animation and impact FX pass
+- Firing presentation now varies by archetype family: heavier arcade props use a short weighty kick, bow/lance archetypes use a draw-like pulse, staffs sweep, orbiting/disc props roll, and playful bubble/slime/duck props wobble.
+- Confirmed beam endpoints now receive a weapon-aware impact burst. Pixel/glitch, bubble/slime, heavy spark, disc/orbit and playful confetti families use different particle silhouettes and inherit the weapon palette.
+- These are client-side cosmetic effects only. They do not change server hit validation, cooldowns, range, damage, or match statistics.
