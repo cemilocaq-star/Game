@@ -121,14 +121,8 @@ func _start_dedicated_server() -> void:
 		get_tree().quit(1)
 		return
 	if OS.get_cmdline_user_args().has("--smoke-test"):
-		_finish_server_smoke_test()
-
-func _finish_server_smoke_test() -> void:
-	var timer := get_tree().create_timer(1.0)
-	timer.timeout.connect(func() -> void:
 		print("OxenWar dedicated server smoke test passed")
 		get_tree().quit()
-	)
 
 func _start_multiplayer_client() -> void:
 	network = NETWORK_SCRIPT.new()
