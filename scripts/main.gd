@@ -65,6 +65,7 @@ var hill_points_red := 0.0
 var hill_points_blue := 0.0
 var hill_control := 0.0
 var objective_label: Label
+var killstreak_label: Label
 
 const RANK_THRESHOLDS := [
 	{"id":"bronze", "xp":0, "color":Color("#B87945")},
@@ -166,6 +167,7 @@ func _start_multiplayer_client() -> void:
 	network.grenade_spawn_received.connect(_on_grenade_spawn_received)
 	network.grenade_exploded_received.connect(_on_grenade_exploded_received)
 	network.kill_feed_received.connect(_on_kill_feed_received)
+	network.killstreak_received.connect(_on_killstreak_received)
 	network.player_disconnected.connect(_on_remote_player_left)
 	network.connection_status_changed.connect(_on_network_status_changed)
 	network.authentication_changed.connect(_on_network_authentication_changed)
@@ -204,6 +206,10 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 		player.global_position = position_value
 	player.rotation.y = float(state.get("yaw", player.rotation.y))
 	player.score = int(state.get("score", player.score))
+	if is_instance_valid(killstreak_label):
+		var streak_now := int(state.get("kill_streak", 0))
+		killstreak_label.text = "KILL STREAK  x%d" % streak_now if streak_now >= 2 else ""
+		killstreak_label.visible = streak_now >= 2
 	match_killboard[local_player_name] = int(state.get("kills", 0))
 	_update_player_match_stats(local_player_name, state)
 	player.stamina = float(state.get("stamina", player.stamina))
@@ -471,6 +477,11 @@ func _on_kill_feed_received(killer_name: String, victim_name: String, weapon_nam
 	fade.tween_interval(5.0)
 	fade.tween_property(entry, "modulate:a", 0.0, 0.45)
 	fade.tween_callback(entry.queue_free)
+
+
+func _on_killstreak_received(player_name: String, streak: int, bonus: int) -> void:
+	var title := "DOMINATING" if streak >= 10 else ("UNSTOPPABLE" if streak >= 7 else ("RAMPAGE" if streak >= 5 else "KILL STREAK"))
+	_show_meme_toast("%s  •  %s x%d  •  +%d SCORE" % [player_name.to_upper(), title, streak, bonus])
 
 func _on_remote_player_left(peer_id: int) -> void:
 	var remote: Node = remote_players.get(peer_id)
@@ -932,6 +943,9 @@ func _build_hud() -> void:
 	objective_label = _make_label(root, "HILL NEUTRAL", Vector2(500, 18), 17)
 	objective_label.visible = false
 	objective_label.add_theme_color_override("font_color", Color("#F5D27A"))
+	killstreak_label = _make_label(root, "", Vector2(500, 52), 21)
+	killstreak_label.visible = false
+	killstreak_label.add_theme_color_override("font_color", Color("#FFB84D"))
 	var team_label := _make_label(root, "TEAM FREE", Vector2(22, 148), 14)
 	team_label.name = "TeamLabel"
 	health_bar = ProgressBar.new()
