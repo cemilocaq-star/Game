@@ -74,7 +74,7 @@ GitHub Actions validates the structure, imports/parses the project with Godot he
 
 ## Important limitations
 
-- The server code and Supabase database/Edge Function are deployed in the repository/project, but **no public game server instance has been launched yet**. `fly.toml` is a UDP-host template; `render.yaml` is an optional WebSocket-host blueprint and requires a live deployment plus the shared server secret.
+- The server code and Supabase database/Edge Function are deployed in the repository/project, but **no public game server instance has been launched yet**. `fly.toml` is a UDP-host template; `render.yaml` is an optional WebSocket-host blueprint. Its HTTP health endpoint and WebSocket tunnel are provided by `server/render_entrypoint.py`; a live deployment and the shared server secret are still required.
 - Multiplayer authentication and match-result persistence require the same `OXENWAR_SERVER_SECRET` in Supabase Edge Function secrets and the game-server host environment. Without it, the secure ticket handshake is disabled. Do not put this secret in the client or GitHub.
 - Rooms and active matches are held in server memory. Reconnect reservations last 30 seconds; a server process restart ends active rooms.
 - Match results are written at match completion, room leave, or reconnect-reservation expiry. An unexpected host shutdown before one of those points can lose the in-progress match.

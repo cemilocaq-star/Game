@@ -108,11 +108,13 @@ func start_server() -> bool:
 	if transport == "websocket":
 		# Hosted web platforms terminate TLS at their edge and forward WebSocket
 		# upgrades to the container's injected PORT. Clients connect with wss://.
-		var websocket_port := int(OS.get_environment("PORT"))
+		# Render's public HTTP port is handled by the lightweight health/WebSocket
+		# tunnel in server/render_entrypoint.py. Godot listens on a private port.
+		var websocket_port := int(OS.get_environment("OXENWAR_PORT"))
 		if websocket_port <= 0:
-			websocket_port = int(OS.get_environment("OXENWAR_PORT"))
+			websocket_port = int(OS.get_environment("PORT"))
 		if websocket_port <= 0:
-			websocket_port = 8080
+			websocket_port = 8081
 		var websocket_peer := WebSocketMultiplayerPeer.new()
 		error = websocket_peer.create_server(websocket_port, "0.0.0.0")
 		if error != OK:

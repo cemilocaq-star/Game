@@ -3,10 +3,15 @@ services:
     name: oxenwar-game-server
     runtime: docker
     plan: free
+    region: frankfurt
     dockerfilePath: ./Dockerfile
     dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: false
     envVars:
       - key: OXENWAR_TRANSPORT
         value: websocket
+      - key: OXENWAR_PORT
+        value: "8081"
       - key: OXENWAR_SERVER_SECRET
         sync: false

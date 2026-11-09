@@ -45,7 +45,7 @@ Without this secret, the one-time ticket handshake is disabled, so players canno
 
 ## Deploy template
 
-`Dockerfile` and `fly.toml` describe a Fly.io UDP service. `render.yaml` describes an optional Render WebSocket service for platforms that route HTTP/WebSocket traffic rather than UDP. Deployment is not performed by this repository change and no public server is online yet. A free web-service plan may sleep when idle and is suitable only for a prototype, not a reliability guarantee. From an authenticated host CLI, after reviewing the provider's current price, UDP support and account terms:
+`Dockerfile` and `fly.toml` describe a Fly.io UDP service. `render.yaml` describes an optional Render WebSocket service. `server/render_entrypoint.py` exposes `/health` on Render's HTTP port and tunnels WebSocket traffic to Godot's private port. Deployment is not performed by this repository change and no public server is online yet. A free web-service plan may sleep when idle and is suitable only for a prototype, not a reliability guarantee. From an authenticated host CLI, after reviewing the provider's current price, UDP support and account terms:
 
 ```bash
 fly launch --no-deploy --copy-config
