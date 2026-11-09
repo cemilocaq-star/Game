@@ -38,7 +38,7 @@ func set_player_identity(player_name: String, color: Color, outfit_id: String = 
 		material.roughness = 0.65
 		_visual.material_override = material
 
-func apply_network_state(position_value: Vector3, yaw_value: float, sliding: bool = false, health: float = 100.0, dead: bool = false) -> void:
+func apply_network_state(position_value: Vector3, yaw_value: float, sliding: bool = false, health: float = 100.0, dead: bool = false, team_id: String = "") -> void:
 	target_position = position_value
 	target_yaw = yaw_value
 	if is_instance_valid(_name_tag):
@@ -46,7 +46,8 @@ func apply_network_state(position_value: Vector3, yaw_value: float, sliding: boo
 	if is_instance_valid(_visual):
 		var material := _visual.material_override as StandardMaterial3D
 		if is_instance_valid(material):
-			material.albedo_color = _base_color.darkened(0.65) if dead else _base_color
+			var team_color := Color("#F05A66") if team_id == "red" else (Color("#4C91FF") if team_id == "blue" else _base_color)
+			material.albedo_color = team_color.darkened(0.65) if dead else team_color
 		_visual.visible = not dead
 	if _sliding != sliding:
 		_sliding = sliding
