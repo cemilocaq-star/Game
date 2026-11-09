@@ -307,8 +307,6 @@ func _make_remote_blaster_stream() -> AudioStreamWAV:
 	return stream
 
 func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Vector3) -> void:
-	if is_instance_valid(network) and shooter_peer_id == multiplayer.get_unique_id():
-		return
 	var remote_audio := AudioStreamPlayer3D.new()
 	remote_audio.name = "RemoteAetherPulseAudio"
 	remote_audio.stream = _make_remote_blaster_stream()
