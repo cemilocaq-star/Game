@@ -97,9 +97,8 @@ Deno.serve(async (request: Request) => {
   if (!serverSecret) return json(503, { error: "server_secret_not_configured" });
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!supabaseUrl || !anonKey || !serviceRoleKey) return json(503, { error: "server_configuration_incomplete" });
+  if (!supabaseUrl || !serviceRoleKey) return json(503, { error: "server_configuration_incomplete" });
 
   let body: Record<string, unknown>;
   try {
@@ -116,10 +115,7 @@ Deno.serve(async (request: Request) => {
   if (action === "issue_ticket") {
     const token = bearerToken(request);
     if (!token) return json(401, { error: "missing_user_token" });
-    const userClient = createClient(supabaseUrl, anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data: authData, error: authError } = await userClient.auth.getUser(token);
+    const { data: authData, error: authError } = await admin.auth.getUser(token);
     if (authError || !authData.user) return json(401, { error: "invalid_user_token" });
 
     const userId = authData.user.id;
