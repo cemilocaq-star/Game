@@ -399,7 +399,7 @@ func _server_submit_input(move: Vector2, yaw: float, jump: bool, sprint: bool, s
 
 @rpc("any_peer", "call_remote", "unreliable")
 func _server_blaster_fire(direction: Vector3) -> void:
-	if not multiplayer.is_server() or direction.length() < 0.9 or direction.length() > 1.1:
+	if not multiplayer.is_server() or not is_finite(direction.x) or not is_finite(direction.y) or not is_finite(direction.z) or direction.length() < 0.9 or direction.length() > 1.1:
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
 	if not _peer_users.has(peer_id) or not _server_players.has(peer_id):
