@@ -286,9 +286,39 @@ func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
 		remote.set_player_identity(str(state.get("display_name", "Player")), Color.from_string(str(state.get("color", "#27D7E7")), Color("#27D7E7")))
 	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)), bool(state.get("sliding", false)))
 
+func _make_remote_blaster_stream() -> AudioStreamWAV:
+	const sample_rate := 22050
+	const duration := 0.19
+	var count := int(sample_rate * duration)
+	var bytes := PackedByteArray()
+	bytes.resize(count * 2)
+	for i in range(count):
+		var t := float(i) / float(sample_rate)
+		var envelope := pow(maxf(0.0, 1.0 - float(i) / float(count)), 2.0)
+		var sweep := sin(TAU * (260.0 - 105.0 * t / duration) * t)
+		var overtone := sin(TAU * 520.0 * t) * 0.22
+		var sample := clampf((sweep * 0.58 + overtone) * envelope * 0.72, -1.0, 1.0)
+		bytes.encode_s16(i * 2, int(sample * 32767.0))
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = sample_rate
+	stream.stereo = false
+	stream.data = bytes
+	return stream
+
 func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Vector3) -> void:
 	if is_instance_valid(network) and shooter_peer_id == multiplayer.get_unique_id():
 		return
+	var remote_audio := AudioStreamPlayer3D.new()
+	remote_audio.name = "RemoteAetherPulseAudio"
+	remote_audio.stream = _make_remote_blaster_stream()
+	remote_audio.volume_db = -7.0
+	remote_audio.max_distance = 42.0
+	remote_audio.unit_size = 9.0
+	add_child(remote_audio)
+	remote_audio.global_position = origin
+	remote_audio.play()
+	remote_audio.finished.connect(remote_audio.queue_free)
 	var beam := MeshInstance3D.new()
 	beam.name = "RemoteAetherPulse"
 	var mesh := BoxMesh.new()
