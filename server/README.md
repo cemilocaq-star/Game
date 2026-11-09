@@ -58,6 +58,6 @@ Hosting may incur charges. Do not create a paid instance without the account own
 
 - Room state and reconnect reservations live in memory. A process restart closes rooms and drops active sessions.
 - The server uses the existing arena geometry for collision; adding/changing maps requires updating the dedicated-server collision world too.
-- Private room code sharing is supported; direct friend invite notifications are not yet connected to the friends-page UI.
+- Online friends can be invited from the in-game lobby by username; offline friends can use the shared private room code.
 - The server runs a single match round per room. At round completion, results are synced and the room stops accepting movement; use quick match/create room for a new round.
 - Real multi-device latency, reconnect and exploit testing remain required before public release.
