@@ -534,7 +534,7 @@ func _server_blaster_fire(weapon_id: String, direction: Vector3) -> void:
 	var query := PhysicsRayQueryParameters3D.create(origin, endpoint)
 	query.exclude = [shooter.get_rid()]
 	query.collide_with_areas = false
-	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	var hit: Dictionary = get_viewport().world_3d.direct_space_state.intersect_ray(query)
 	if not hit.is_empty():
 		endpoint = hit.position
 		var target: Object = hit.get("collider")
@@ -617,7 +617,7 @@ func _server_step_grenades(room_code: String, room: Dictionary, delta: float) ->
 		if _server_players.has(owner_peer):
 			query.exclude = [_server_players[owner_peer].get_rid()]
 		query.collide_with_areas = false
-		var collision := get_world_3d().direct_space_state.intersect_ray(query)
+		var collision: Dictionary = get_viewport().world_3d.direct_space_state.intersect_ray(query)
 		if not collision.is_empty():
 			next_position = collision.position + collision.normal * 0.08
 			velocity = velocity.bounce(collision.normal) * 0.42
@@ -643,7 +643,7 @@ func _server_detonate_grenade(room_code: String, grenade: Dictionary) -> void:
 	shape_query.shape = sphere
 	shape_query.transform = Transform3D(Basis.IDENTITY, blast_position)
 	shape_query.collide_with_areas = false
-	var hits := get_world_3d().direct_space_state.intersect_shape(shape_query, 64)
+	var hits: Array[Dictionary] = get_viewport().world_3d.direct_space_state.intersect_shape(shape_query, 64)
 	var damaged: Dictionary = {}
 	for hit in hits:
 		var target: Object = hit.get("collider")
