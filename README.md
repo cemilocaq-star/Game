@@ -11,7 +11,7 @@ OxenWar is a free-to-play Godot 4.4.1 parkour arena project. Its visual directio
 - Public quick-match rooms, lobby roster and 8-player room capacity.
 - 30-second reconnect reservation for a disconnected player.
 - Server-owned score, XP awards, collectible inventory and event timers.
-- Match results are persisted through a JWT-protected Supabase Edge Function, gated by a separate server-only secret.
+- Match results are persisted through a Supabase Edge Function using one-time HMAC game tickets and a server-only session/secret.
 - Free starter cosmetics and Azerbaijani, English, Turkish and Russian menu localization.
 - Admin role is read-only from the client and must be assigned through trusted database administration.
 
@@ -23,7 +23,7 @@ API URL: `https://lznnfwhlsquiitkhjzlc.supabase.co`
 
 The game client contains only the project's publishable key. Never add a Supabase secret/service-role key to the game or repository. RLS protects the stats and collection tables; players can read only their own rows. Writes are restricted to the server-only result function.
 
-Database schema source is in `supabase/migrations/`. The server sync Edge Function is in `supabase/functions/oxenwar-server-sync/index.ts` and is deployed with JWT verification enabled.
+Database schema source is in `supabase/migrations/`. The server sync Edge Function is in `supabase/functions/oxenwar-server-sync/index.ts`. It validates user JWTs over HTTPS when issuing a 60-second, single-use game ticket; the game server redeems it and receives a 12-hour server-only session token.
 
 ## Run locally
 
