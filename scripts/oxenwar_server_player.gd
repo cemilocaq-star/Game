@@ -31,6 +31,7 @@ var is_dead := false
 var respawn_left := 0.0
 var score := 0
 var kills := 0
+var deaths := 0
 var emote_id := ""
 var is_swimming := false
 var xp := 0
