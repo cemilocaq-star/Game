@@ -10,6 +10,7 @@ signal authentication_changed(authenticated: bool, message: String)
 signal local_state_received(state: Dictionary)
 signal room_state_changed(state: Dictionary)
 signal invite_received(owner_name: String, room_code: String)
+signal blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Vector3)
 
 const PORT := 2456
 const MAX_CLIENTS := 32
@@ -45,6 +46,7 @@ var _pending_dash := false
 var _snapshot_accumulator := 0.0
 var _server_players: Dictionary = {} # peer id -> CharacterBody3D
 var _last_input_ms: Dictionary = {}
+var _last_blaster_ms: Dictionary = {}
 var _client_peer_ids: Dictionary = {}
 var _peer_users: Dictionary = {} # peer id -> Supabase user id
 var _user_peers: Dictionary = {} # Supabase user id -> peer id
@@ -156,6 +158,10 @@ func request_invite_friend(friend_user_id: String) -> void:
 	if is_authenticated and not is_dedicated_server and not friend_user_id.is_empty():
 		rpc_id(1, "_server_invite_friend", friend_user_id)
 
+func request_blaster_fire(direction: Vector3) -> void:
+	if is_authenticated and not is_dedicated_server and direction.length() > 0.9:
+		rpc_id(1, "_server_blaster_fire", direction.normalized())
+
 func _process(delta: float) -> void:
 	if is_dedicated_server:
 		_server_process_rooms(delta)
@@ -224,6 +230,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			_server_players.erase(peer_id)
 		_peer_users.erase(peer_id)
 		_last_input_ms.erase(peer_id)
+	_last_blaster_ms.erase(peer_id)
 		return
 	var room_code := str(_user_rooms.get(user_id, ""))
 	if not room_code.is_empty() and _rooms.has(room_code):
@@ -388,6 +395,55 @@ func _server_submit_input(move: Vector2, yaw: float, jump: bool, sprint: bool, s
 	player.sprinting = sprint
 	player.slide_requested = player.slide_requested or slide
 	player.dash_requested = player.dash_requested or dash
+
+@rpc("any_peer", "call_remote", "unreliable")
+func _server_blaster_fire(direction: Vector3) -> void:
+	if not multiplayer.is_server() or direction.length() < 0.9 or direction.length() > 1.1:
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _peer_users.has(peer_id) or not _server_players.has(peer_id):
+		return
+	var now := Time.get_ticks_msec()
+	if now - int(_last_blaster_ms.get(peer_id, 0)) < 220:
+		return
+	var user_id := str(_peer_users[peer_id])
+	var room_code := str(_user_rooms.get(user_id, ""))
+	if room_code.is_empty() or not _rooms.has(room_code) or bool(_rooms[room_code].get("round_finished", false)):
+		return
+	var shooter = _server_players[peer_id]
+	if str(shooter.event_id) == "FREEZE_FRAME":
+		return
+	var safe_direction := direction.normalized()
+	if absf(safe_direction.y) > 0.94:
+		return
+	var facing := Vector3(sin(shooter.look_yaw), 0.0, -cos(shooter.look_yaw))
+	if safe_direction.dot(facing) < 0.12:
+		return
+	_last_blaster_ms[peer_id] = now
+	var origin: Vector3 = shooter.global_position + Vector3.UP * 1.45
+	var endpoint := origin + safe_direction * 65.0
+	var query := PhysicsRayQueryParameters3D.create(origin, endpoint)
+	query.exclude = [shooter.get_rid()]
+	query.collide_with_areas = false
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if not hit.is_empty():
+		endpoint = hit.position
+		var target: Object = hit.get("collider")
+		if target is CharacterBody3D and target != shooter:
+			for target_peer in _server_players.keys():
+				if _server_players[target_peer] == target:
+					shooter.score += 10
+					break
+	var room: Dictionary = _rooms[room_code]
+	for member_user in room.members.keys():
+		var member_peer := int(room.members[member_user])
+		if member_peer > 0:
+			rpc_id(member_peer, "_client_blaster_fx", peer_id, origin, endpoint)
+
+@rpc("authority", "call_remote", "unreliable")
+func _client_blaster_fx(shooter_peer_id: int, origin: Vector3, endpoint: Vector3) -> void:
+	if not multiplayer.is_server():
+		blaster_fx_received.emit(shooter_peer_id, origin, endpoint)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _server_create_room(private_room: bool = true) -> void:
