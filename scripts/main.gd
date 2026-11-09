@@ -106,6 +106,8 @@ func _request_player_identity() -> void:
 func _send_presence_heartbeat() -> void:
 	if is_instance_valid(backend) and not str(backend.user_id).is_empty():
 		await backend.update_presence()
+		if is_instance_valid(network):
+			network.update_access_token(str(backend.access_token))
 
 func _start_dedicated_server() -> void:
 	# Dedicated server builds the same collision arena before accepting players.
