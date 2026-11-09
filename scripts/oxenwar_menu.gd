@@ -95,7 +95,7 @@ func _build() -> void:
 	var nav := HBoxContainer.new()
 	nav.add_theme_constant_override("separation", 10)
 	outer.add_child(nav)
-	for tab in ["play", "friends", "character"]:
+	for tab in ["play", "stats", "friends", "character"]:
 		var button := _button(_t(tab), tab == active_tab)
 		button.pressed.connect(_on_tab_pressed.bind(tab))
 		nav.add_child(button)
@@ -293,10 +293,57 @@ func _render_tab() -> void:
 			var logout := _button(_t("logout"), false)
 			logout.pressed.connect(_on_logout)
 			content.add_child(logout)
+		"stats":
+			await _render_stats()
 		"friends":
 			await _render_friends()
 		"character":
 			_render_character()
+
+func _render_stats() -> void:
+	content.add_child(_large_label("CAREER STATISTICS"))
+	var loading := _label("Loading your verified career record...")
+	content.add_child(loading)
+	var result: Dictionary = await backend.get_player_stats()
+	if not result.get("ok", false):
+		loading.text = "Career statistics unavailable. Check your connection and database migration."
+		return
+	var stats: Dictionary = result.get("data", {})
+	if stats.is_empty():
+		loading.text = "No completed matches recorded yet. Play your first match to start your career record."
+		return
+	loading.queue_free()
+	var kills := int(stats.get("total_kills", 0))
+	var deaths := int(stats.get("total_deaths", 0))
+	var matches := int(stats.get("matches_played", 0))
+	var wins := int(stats.get("matches_won", 0))
+	var losses := int(stats.get("matches_lost", 0))
+	var draws := int(stats.get("matches_drawn", 0))
+	var shots := int(stats.get("total_shots_fired", 0))
+	var hits := int(stats.get("total_shots_hit", 0))
+	var accuracy := 100.0 * float(hits) / float(shots) if shots > 0 else 0.0
+	var kd := float(kills) / float(maxi(1, deaths))
+	var playtime := int(stats.get("total_playtime_seconds", 0))
+	var hours := int(playtime / 3600)
+	var minutes := int((playtime % 3600) / 60)
+	var cards := [
+		["MATCHES", str(matches)], ["W / L / D", "%d / %d / %d" % [wins, losses, draws]],
+		["TOTAL KILLS", str(kills)], ["TOTAL DEATHS", str(deaths)],
+		["K/D RATIO", "%.2f" % kd], ["BLASTER ACCURACY", "%.1f%%" % accuracy],
+		["BEST SCORE", str(int(stats.get("best_score", 0)))], ["BEST KILLS", str(int(stats.get("best_kills", 0)))],
+		["BEST DAMAGE", "%.0f" % float(stats.get("best_damage", 0.0))],
+		["TOTAL DAMAGE", "%.0f" % float(stats.get("total_damage_dealt", 0.0))],
+		["TOTAL PLAYTIME", "%dh %02dm" % [hours, minutes]]
+	]
+	for index in range(cards.size()):
+		var row := HBoxContainer.new()
+		var key_label := _label(str(cards[index][0]))
+		key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(key_label)
+		var value_label := _label(str(cards[index][1]))
+		value_label.add_theme_color_override("font_color", ACCENT)
+		row.add_child(value_label)
+		content.add_child(row)
 
 func _render_friends() -> void:
 	content.add_child(_large_label(_t("friends")))
