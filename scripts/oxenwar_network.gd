@@ -512,6 +512,9 @@ func _server_step_grenades(room_code: String, room: Dictionary, delta: float) ->
 		velocity.y -= 9.8 * delta
 		var next_position := position + velocity * delta
 		var query := PhysicsRayQueryParameters3D.create(position, next_position)
+		var owner_peer := int(grenade.get("owner", 0))
+		if _server_players.has(owner_peer):
+			query.exclude = [_server_players[owner_peer].get_rid()]
 		query.collide_with_areas = false
 		var collision := get_world_3d().direct_space_state.intersect_ray(query)
 		if not collision.is_empty():
