@@ -49,6 +49,10 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	rotation.y = look_yaw
+	if event_id == "FREEZE_FRAME":
+		velocity = Vector3.ZERO
+		move_and_slide()
+		return
 	_dash_left = maxf(0.0, _dash_left - delta)
 	_dash_cooldown = maxf(0.0, _dash_cooldown - delta)
 	_jump_buffer_left = maxf(0.0, _jump_buffer_left - delta)
