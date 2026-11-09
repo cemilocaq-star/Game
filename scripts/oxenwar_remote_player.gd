@@ -9,6 +9,8 @@ var _base_color := Color("#27D7E7")
 var _outfit_id := "outfit_default"
 var _visual: MeshInstance3D
 var _name_tag: Label3D
+var _emote_id := ""
+var _emote_clock := 0.0
 
 func _ready() -> void:
 	_visual = MeshInstance3D.new()
@@ -38,9 +40,12 @@ func set_player_identity(player_name: String, color: Color, outfit_id: String = 
 		material.roughness = 0.65
 		_visual.material_override = material
 
-func apply_network_state(position_value: Vector3, yaw_value: float, sliding: bool = false, health: float = 100.0, dead: bool = false, team_id: String = "") -> void:
+func apply_network_state(position_value: Vector3, yaw_value: float, sliding: bool = false, health: float = 100.0, dead: bool = false, team_id: String = "", emote_id: String = "") -> void:
 	target_position = position_value
 	target_yaw = yaw_value
+	if emote_id != _emote_id:
+		_emote_id = emote_id if emote_id in ["griddy", "goofy"] else ""
+		_emote_clock = 0.0
 	if is_instance_valid(_name_tag):
 		_name_tag.text = "%s  •  K.O." % display_name if dead else "%s  •  HP %d" % [display_name, int(ceil(health))]
 	if is_instance_valid(_visual):
@@ -59,5 +64,14 @@ func apply_network_state(position_value: Vector3, yaw_value: float, sliding: boo
 		rotation.y = target_yaw
 
 func _process(delta: float) -> void:
+	if _emote_id != "":
+		_emote_clock += delta
+		var rate := 2.0 if _emote_id == "griddy" else 1.35
+		var phase := _emote_clock * TAU * rate
+		_visual.position.y = 0.9 + absf(sin(phase)) * 0.12
+		_visual.rotation.z = sin(phase) * (0.24 if _emote_id == "griddy" else 0.34)
+	else:
+		_visual.position.y = move_toward(_visual.position.y, 0.9, delta * 4.0)
+		_visual.rotation.z = move_toward(_visual.rotation.z, 0.0, delta * 2.0)
 	global_position = global_position.lerp(target_position, minf(1.0, delta * 14.0))
 	rotation.y = lerp_angle(rotation.y, target_yaw, minf(1.0, delta * 14.0))
