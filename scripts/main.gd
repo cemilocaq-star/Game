@@ -412,7 +412,7 @@ func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Ve
 	beam.scale.z = maxf(0.05, origin.distance_to(endpoint))
 	get_tree().create_timer(0.085).timeout.connect(beam.queue_free)
 	if origin.distance_to(endpoint) < 64.0:
-		COMBAT_FX_SCRIPT.hit_impact(self, endpoint)
+		COMBAT_FX_SCRIPT.hit_impact(self, endpoint, weapon_id, beam_color)
 	if weapon_id == "duck_launcher" or weapon_id == "banana_boomerang" or weapon_id == "confetti_cannon":
 		var gag := MeshInstance3D.new()
 		gag.name = "ArcadeWeaponImpact"
