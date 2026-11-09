@@ -4,6 +4,7 @@ const PLAYER_SCRIPT = preload("res://scripts/player.gd")
 const BACKEND_SCRIPT = preload("res://scripts/oxenwar_supabase.gd")
 const MENU_SCRIPT = preload("res://scripts/oxenwar_menu.gd")
 const NETWORK_SCRIPT = preload("res://scripts/oxenwar_network.gd")
+const EVENT_FX_SCRIPT = preload("res://scripts/oxenwar_event_fx.gd")
 const REMOTE_PLAYER_SCRIPT = preload("res://scripts/oxenwar_remote_player.gd")
 var local_player_name := "Player"
 var local_admin_authorized := false
@@ -39,6 +40,7 @@ var admin_available := false
 var admin_panel: PanelContainer
 var admin_hint: Label
 var network: Node
+var event_fx: Node3D
 var network_status_label: Label
 var network_host_input: LineEdit
 var room_code_input: LineEdit
@@ -57,6 +59,7 @@ const EVENT_NAMES := {
 	"DUCK_EXE": "DUCK.EXE HAS STOPPED RESPONDING",
 	"METEOR_SHOWER": "METEOR SHOWER!",
 	"ICE_WORLD": "ICE WORLD!",
+	"FREEZE_FRAME": "FREEZE FRAME — DON'T BLINK!",
 	"DOUBLE_XP": "DOUBLE XP!"
 }
 
@@ -75,6 +78,9 @@ func _ready() -> void:
 	_setup_input()
 	_build_environment()
 	_build_arena()
+	event_fx = EVENT_FX_SCRIPT.new()
+	event_fx.name = "OxenWarEventFX"
+	add_child(event_fx)
 	_spawn_player()
 	_start_multiplayer_client()
 	_build_hud()
@@ -199,6 +205,8 @@ func _on_network_room_state(state: Dictionary) -> void:
 	_update_hud()
 
 func _on_server_event_changed(event_id: String) -> void:
+	if is_instance_valid(event_fx):
+		event_fx.set_event(event_id)
 	if is_instance_valid(player):
 		player.apply_event(event_id)
 	if event_id.is_empty():
@@ -483,11 +491,13 @@ func _on_orb_body_entered(body: Node3D, orb: Area3D, index: int) -> void:
 func _start_random_event() -> void:
 	if is_instance_valid(network) and network.is_authenticated:
 		return
-	var choices: Array[String] = ["DUCK_PARADE", "PINK_SKY", "GOLDEN_ORB_RUSH", "CONFETTI_STORM", "LOW_GRAVITY", "BONK_MODE", "NPC_MODE", "DUCK_EXE", "METEOR_SHOWER", "ICE_WORLD", "DOUBLE_XP"]
+	var choices: Array[String] = ["DUCK_PARADE", "PINK_SKY", "GOLDEN_ORB_RUSH", "CONFETTI_STORM", "LOW_GRAVITY", "BONK_MODE", "NPC_MODE", "DUCK_EXE", "METEOR_SHOWER", "ICE_WORLD", "FREEZE_FRAME", "DOUBLE_XP"]
 	active_event = choices[rng.randi_range(0, choices.size() - 1)]
 	event_left = EVENT_DURATION
 	event_clock = EVENT_INTERVAL
 	player.apply_event(active_event)
+	if is_instance_valid(event_fx):
+		event_fx.set_event(active_event)
 	if active_event == "PINK_SKY":
 		RenderingServer.set_default_clear_color(Color(0.20, 0.045, 0.18))
 	if active_event == "DUCK_PARADE" or active_event == "DUCK_EXE":
@@ -531,6 +541,8 @@ func _end_event() -> void:
 	event_left = 0.0
 	event_clock = EVENT_INTERVAL
 	player.apply_event("")
+	if is_instance_valid(event_fx):
+		event_fx.set_event("")
 	RenderingServer.set_default_clear_color(Color(0.015, 0.025, 0.055))
 
 func _build_hud() -> void:
@@ -682,6 +694,9 @@ func _build_admin_panel(root: Control) -> void:
 	_admin_button(column, "Event: LOW GRAVITY", func(): _admin_trigger_event("LOW_GRAVITY"))
 	_admin_button(column, "Event: BONK MODE", func(): _admin_trigger_event("BONK_MODE"))
 	_admin_button(column, "Event: METEOR SHOWER", func(): _admin_trigger_event("METEOR_SHOWER"))
+	_admin_button(column, "Event: ICE WORLD", func(): _admin_trigger_event("ICE_WORLD"))
+	_admin_button(column, "Event: FREEZE FRAME", func(): _admin_trigger_event("FREEZE_FRAME"))
+	_admin_button(column, "Event: CONFETTI STORM", func(): _admin_trigger_event("CONFETTI_STORM"))
 	_admin_button(column, "Event: DOUBLE XP", func(): _admin_trigger_event("DOUBLE_XP"))
 	_admin_button(column, "Stop Current Event", _end_event)
 	_admin_button(column, "Close Panel", _toggle_admin_panel)
@@ -812,6 +827,8 @@ func _admin_trigger_event(event_id: String) -> void:
 	event_left = EVENT_DURATION * 2.0
 	event_clock = EVENT_INTERVAL
 	player.apply_event(event_id)
+	if is_instance_valid(event_fx):
+		event_fx.set_event(event_id)
 	if event_id == "DUCK_EXE" or event_id == "DUCK_PARADE":
 		_spawn_duck_mascot()
 	if event_id == "METEOR_SHOWER":
