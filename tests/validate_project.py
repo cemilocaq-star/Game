@@ -51,6 +51,7 @@ project = read("project.godot")
 main = read("scripts/main.gd")
 player = read("scripts/player.gd")
 backend = read("scripts/oxenwar_supabase.gd")
+network = read("scripts/oxenwar_network.gd")
 menu = read("scripts/oxenwar_menu.gd")
 i18n = read("scripts/oxenwar_i18n.gd")
 workflow = read(".github/workflows/godot-ci.yml")
@@ -95,6 +96,10 @@ checks = [
     ("sync_result", read("supabase/functions/oxenwar-server-sync/index.ts"), "server-only result sync"),
     ("_server_join_room", read("scripts/oxenwar_network.gd"), "friend room join RPC"),
     ("_server_quick_match", read("scripts/oxenwar_network.gd"), "public matchmaking"),
+
+    ("session_restored_on_auth", network, "client receives reconnect restoration state"),
+    ("if pending_launch_action.is_empty():", main, "reconnect does not blindly start a second match"),
+    ("if not network.session_restored_on_auth:", main, "only new sessions are auto-queued after reconnect"),
     ("ROOM_GRACE_SECONDS := 30.0", read("scripts/oxenwar_network.gd"), "reconnect reservation"),
     ("orb_available", read("scripts/oxenwar_network.gd"), "server collectible state"),
     ("player_stats", read("supabase/migrations/20261109123936_oxenwar_server_authoritative_stats.sql"), "server-owned stats schema"),

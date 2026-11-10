@@ -441,7 +441,7 @@ func _server_authenticate(ticket: String) -> void:
 	# The client sends its selected lobby action after receiving this result.
 	# Do not auto-create a quick-match room here: that would race CREATE/JOIN
 	# and persist a false "abandoned" match before the player has entered one.
-	rpc_id(peer_id, "_client_auth_result", true, "Authenticated", user_id, str(profile.get("display_name", "Player")), str(profile.get("avatar_color_id", "color_cyan")))
+	rpc_id(peer_id, "_client_auth_result", true, "Authenticated", user_id, str(profile.get("display_name", "Player")), str(profile.get("avatar_color_id", "color_cyan")), can_restore)
 
 func _redeem_game_ticket(ticket: String) -> Dictionary:
 	if _server_secret.is_empty():
@@ -1289,10 +1289,13 @@ func _color_for_profile(profile: Dictionary) -> String:
 	return str(colors.get(str(profile.get("avatar_color_id", "color_cyan")), "#27D7E7"))
 
 @rpc("authority", "call_remote", "reliable")
-func _client_auth_result(ok: bool, message: String, user_id: String = "", display_name: String = "", color_id: String = "") -> void:
+var session_restored_on_auth := false
+
+func _client_auth_result(ok: bool, message: String, user_id: String = "", display_name: String = "", color_id: String = "", session_restored: bool = false) -> void:
 	if multiplayer.is_server():
 		return
 	is_authenticated = ok
+	session_restored_on_auth = ok and session_restored
 	if ok:
 		local_player_name = display_name
 		connection_status_changed.emit("Authenticated • " + display_name)

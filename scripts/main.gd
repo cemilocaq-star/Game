@@ -288,13 +288,19 @@ func _on_network_authentication_changed(authenticated: bool, message: String) ->
 		for area in get_tree().get_nodes_in_group("local_collectibles"):
 			if area is Area3D:
 				area.monitoring = false
-		match pending_launch_action:
-			"create_room":
-				network.request_create_room(true, selected_game_mode)
-			"join_room":
-				network.request_join_room(pending_launch_room_code)
-			_:
+		if pending_launch_action.is_empty():
+			# A reconnect may already have restored the previous room on the server.
+			# Only re-queue when no valid reconnect reservation was restored.
+			if not network.session_restored_on_auth:
 				network.request_quick_match(selected_game_mode)
+		else:
+			match pending_launch_action:
+				"create_room":
+					network.request_create_room(true, selected_game_mode)
+				"join_room":
+					network.request_join_room(pending_launch_room_code)
+				_:
+					network.request_quick_match(selected_game_mode)
 		pending_launch_action = ""
 		_show_meme_toast("SERVER VERIFIED • " + message)
 	elif is_instance_valid(player) and not authenticated:

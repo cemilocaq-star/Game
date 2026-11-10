@@ -128,6 +128,9 @@ jobs:
       - name: Test mobile joystick input transitions
         run: timeout 45s godot --headless --path . --script tests/test_mobile_joystick.gd
 
+      - name: Test matchmaking room state and reconnect modes
+        run: timeout 45s godot --headless --path . --script tests/test_matchmaking_logic.gd
+
       - name: Verify dedicated server rejects missing secret
         shell: bash
         run: |
