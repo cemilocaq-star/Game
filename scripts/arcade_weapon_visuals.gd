@@ -353,7 +353,9 @@ static func build_weapon(weapon_id: String, tint: Color) -> Node3D:
 			_orb(root, "ChickenEyeR", 0.022, Vector3(0.06, 0.20, -0.40), ink, PLASTIC)
 			_prism(root, "ChickenWingL", Vector3(0.20, 0.04, 0.16), Vector3(-0.19, -0.02, -0.16), Color("#E7C85A"), PLASTIC, Vector3(0.0, 0.0, deg_to_rad(90.0)))
 			_prism(root, "ChickenWingR", Vector3(0.20, 0.04, 0.16), Vector3(0.19, -0.02, -0.16), Color("#E7C85A"), PLASTIC, Vector3(0.0, 0.0, deg_to_rad(-90.0)))
-			_caps(root, "ChickenLegHandle", 0.05, 0.24, Vector3(0.0, -0.21, 0.07), Color("#FF8D3D"), GRIP, Vector3(deg_to_rad(14.0), 0.0, 0.0))
+			_orb(root, "ChickenSqueakerGlow", 0.06, Vector3(0.0, -0.03, -0.355), tint, GLOW)
+			_ring(root, "ChickenSqueakerRing", 0.075, 0.012, Vector3(0.0, -0.03, -0.35), steel, METAL)
+			_caps(root, "ChickenLegHandle", 0.05, 0.24, Vector3(0.0, -0.21, 0.07), Color("#FF8D3D"), GRIP, Vector3(deg_to_rad(-90.0 - 14.0), 0.0, 0.0))
 		"ranger_rifle":
 			_ell(root, "RangerMainHousing", Vector3(0.23, 0.21, 0.74), Vector3(0.0, 0.0, -0.12), body)
 			_box(root, "RangerRearShell", Vector3(0.22, 0.14, 0.30), Vector3(0.0, 0.015, 0.37), rubber, GRIP, Vector3(deg_to_rad(-4.0), 0.0, 0.0))
