@@ -99,6 +99,9 @@ checks = [
     ("_server_quick_match", read("scripts/oxenwar_network.gd"), "public matchmaking"),
 
     ("session_restored_on_auth", network, "client receives reconnect restoration state"),
+    ("actions/cache@v4", workflow, "persistent Android debug signing key cache"),
+    ("oxenwar-android-debug-keystore-v1", workflow, "stable Android signing cache key"),
+    ("set_android_version.py", workflow, "unique Android version code per CI build"),
     ('"team_id": str(_server_players[peer_id].team_id)', network, "reconnect session stores team assignment"),
     ('player.team_id = restored_team if restored_team in ["red", "blue"] else ""', network, "reconnect restores validated team assignment"),
     ('"kill_streak": int(_server_players[peer_id].kill_streak)', network, "reconnect session stores kill streak"),
