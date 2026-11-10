@@ -354,6 +354,8 @@ checks.extend([
     ("_build_objective_sites(root)", read("scripts/map_world_builder.gd"), "A/B sites on every generated map"),
     ("ObjectiveSite_%s_EnergyRing", read("scripts/map_world_builder.gd"), "A/B site energy ring visuals"),
     ("objective_interact", read("scripts/main.gd"), "keyboard/mobile plant and defuse input"),
+    ("PlantedEnergyCore_", read("scripts/main.gd"), "visible animated planted energy core"),
+    ("CORE DETONATED", read("scripts/main.gd"), "objective-specific detonation VFX trigger"),
     ("ExpandingShockRing", read("scripts/combat_fx.gd"), "grenade shockwave ring"),
     ("ImpactCore", read("scripts/combat_fx.gd"), "weapon-aware arcade impact core visual"),
     ("COMBAT_FX_SCRIPT.grenade_explosion", main, "grenade explosion FX integration"),
