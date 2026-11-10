@@ -99,6 +99,11 @@ checks = [
     ("_server_quick_match", read("scripts/oxenwar_network.gd"), "public matchmaking"),
 
     ("session_restored_on_auth", network, "client receives reconnect restoration state"),
+    ('"team_id": str(_server_players[peer_id].team_id)', network, "reconnect session stores team assignment"),
+    ('player.team_id = restored_team if restored_team in ["red", "blue"] else ""', network, "reconnect restores validated team assignment"),
+    ('"kill_streak": int(_server_players[peer_id].kill_streak)', network, "reconnect session stores kill streak"),
+    ('player.stamina = clampf(float(restored.get("stamina", 100.0)), 0.0, 100.0)', network, "reconnect restores bounded stamina"),
+    ('"secret_404_found": bool(_server_players[peer_id].secret_404_found)', network, "reconnect session stores secret collectible state"),
     ("if pending_launch_action.is_empty():", main, "reconnect does not blindly start a second match"),
     ("if not network.session_restored_on_auth:", main, "only new sessions are auto-queued after reconnect"),
     ("ROOM_GRACE_SECONDS := 30.0", read("scripts/oxenwar_network.gd"), "reconnect reservation"),

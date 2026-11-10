@@ -38,6 +38,34 @@ func _run_tests() -> void:
 	for index in range(12):
 		_assert_equal("collectible %d initially available" % index, bool(available.get(index, false)), true)
 
+	var network_source_file := FileAccess.open("res://scripts/oxenwar_network.gd", FileAccess.READ)
+	_assert_true("network source readable", network_source_file != null)
+	var network_source := network_source_file.get_as_text() if network_source_file != null else ""
+	var auth_start := network_source.find("func _server_authenticate")
+	var auth_end := network_source.find("\nfunc _redeem_game_ticket", auth_start)
+	var auth_body := network_source.substr(auth_start, auth_end - auth_start) if auth_start >= 0 and auth_end > auth_start else ""
+	_assert_true("auth reports reconnect restoration", auth_body.contains("can_restore)"))
+	_assert_false("auth does not create a phantom quick-match room", auth_body.contains("_server_quick_match_for_peer"))
+	for required_state in [
+		'"team_id": str(_server_players[peer_id].team_id)',
+		'"kill_streak": int(_server_players[peer_id].kill_streak)',
+		'"best_kill_streak": int(_server_players[peer_id].best_kill_streak)',
+		'"stamina": float(_server_players[peer_id].stamina)',
+		'"damage_received": float(_server_players[peer_id].damage_received)',
+		'"secret_404_found": bool(_server_players[peer_id].secret_404_found)',
+		'"emote_id": str(_server_players[peer_id].emote_id)',
+		'"is_swimming": bool(_server_players[peer_id].is_swimming)'
+	]:
+		_assert_true("reconnect saves " + required_state, network_source.contains(required_state))
+	for required_restore in [
+		'player.team_id = restored_team if restored_team in ["red", "blue"] else ""',
+		'player.kill_streak = maxi(0, int(restored.get("kill_streak", 0)))',
+		'player.stamina = clampf(float(restored.get("stamina", 100.0)), 0.0, 100.0)',
+		'player.secret_404_found = bool(restored.get("secret_404_found", false))',
+		'player.is_swimming = bool(restored.get("is_swimming", false))'
+	]:
+		_assert_true("reconnect restores " + required_restore, network_source.contains(required_restore))
+
 	var generated: Dictionary = {}
 	for index in range(64):
 		var code := str(network.call("_generate_room_code"))

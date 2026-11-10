@@ -353,6 +353,14 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			"kills": int(_server_players[peer_id].kills) if _server_players.has(peer_id) else 0,
 			"deaths": int(_server_players[peer_id].deaths) if _server_players.has(peer_id) else 0,
 			"equipped_weapon_id": str(_server_players[peer_id].equipped_weapon_id) if _server_players.has(peer_id) else "aether",
+			"team_id": str(_server_players[peer_id].team_id) if _server_players.has(peer_id) else "",
+			"kill_streak": int(_server_players[peer_id].kill_streak) if _server_players.has(peer_id) else 0,
+			"best_kill_streak": int(_server_players[peer_id].best_kill_streak) if _server_players.has(peer_id) else 0,
+			"stamina": float(_server_players[peer_id].stamina) if _server_players.has(peer_id) else 100.0,
+			"damage_received": float(_server_players[peer_id].damage_received) if _server_players.has(peer_id) else 0.0,
+			"secret_404_found": bool(_server_players[peer_id].secret_404_found) if _server_players.has(peer_id) else false,
+			"emote_id": str(_server_players[peer_id].emote_id) if _server_players.has(peer_id) else "",
+			"is_swimming": bool(_server_players[peer_id].is_swimming) if _server_players.has(peer_id) else false,
 			"blaster_mastery_xp": int(_server_players[peer_id].blaster_mastery_xp) if _server_players.has(peer_id) else 0,
 			"grenade_mastery_xp": int(_server_players[peer_id].grenade_mastery_xp) if _server_players.has(peer_id) else 0,
 			"damage_dealt": float(_server_players[peer_id].damage_dealt) if _server_players.has(peer_id) else 0.0,
@@ -422,6 +430,16 @@ func _server_authenticate(ticket: String) -> void:
 		player.blaster_mastery_xp = int(restored.get("blaster_mastery_xp", 0))
 		player.grenade_mastery_xp = int(restored.get("grenade_mastery_xp", 0))
 		player.equipped_weapon_id = str(restored.get("equipped_weapon_id", "aether"))
+		var restored_team := str(restored.get("team_id", ""))
+		player.team_id = restored_team if restored_team in ["red", "blue"] else ""
+		player.kill_streak = maxi(0, int(restored.get("kill_streak", 0)))
+		player.best_kill_streak = maxi(player.kill_streak, int(restored.get("best_kill_streak", 0)))
+		player.stamina = clampf(float(restored.get("stamina", 100.0)), 0.0, 100.0)
+		player.damage_received = maxf(0.0, float(restored.get("damage_received", 0.0)))
+		player.secret_404_found = bool(restored.get("secret_404_found", false))
+		var restored_emote := str(restored.get("emote_id", ""))
+		player.emote_id = restored_emote if restored_emote in ["griddy", "goofy", "robot", "wave"] else ""
+		player.is_swimming = bool(restored.get("is_swimming", false))
 		player.damage_dealt = float(restored.get("damage_dealt", 0.0))
 		player.shots_fired = int(restored.get("shots_fired", 0))
 		player.shots_hit = int(restored.get("shots_hit", 0))
