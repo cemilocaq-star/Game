@@ -67,6 +67,8 @@ checks = [
     ("OnlinePresenceHeartbeat", main, "presence heartbeat"),
     ('get_cmdline_user_args().has("--server")', main, "dedicated server entry point"),
     ("_start_multiplayer_client", main, "multiplayer client startup"),
+    ("SCRIPT ERROR: (Parse Error|Compile Error)", workflow, "CI import fails on GDScript parse/compile errors"),
+    ("ERROR: Failed to load script", workflow, "CI import fails on unloaded GDScript resources"),
     ("func _configured_server_host() -> String:", main, "server host configuration resolver"),
     ('ProjectSettings.get_setting("oxenwar/server_host", "")', main, "no implicit localhost multiplayer fallback"),
     ("MULTIPLAYER • Server not configured", main, "explicit multiplayer deployment status"),
