@@ -300,6 +300,8 @@ checks.extend([
     ("class MobileJoystick extends Control", main, "custom circular analog movement joystick"),
     ("StandoffStyleMovementJoystick", main, "Standoff-style joystick UI"),
     ("_set_mobile_move_input", main, "analog joystick maps to analog movement actions"),
+    ("NOTIFICATION_APPLICATION_FOCUS_OUT", main, "mobile focus loss resets active touch input"),
+    ("func _release_all_touch_actions() -> void:", main, "all touch actions released on app focus loss"),
     ('Input.action_release("move_right")', main, "joystick releases old horizontal direction before reversing"),
     ('Input.action_release("move_left")', main, "joystick releases opposite horizontal direction before pressing"),
     ('Input.action_release("move_back")', main, "joystick releases old vertical direction before reversing"),

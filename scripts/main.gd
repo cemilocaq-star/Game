@@ -61,6 +61,11 @@ class MobileJoystick extends Control:
 		vector_changed.emit(_value)
 		queue_redraw()
 
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+			_finger_index = -1
+			_set_stick(Vector2.ZERO)
+
 	func _exit_tree() -> void:
 		_finger_index = -1
 		_value = Vector2.ZERO
@@ -692,6 +697,10 @@ func _process(delta: float) -> void:
 		if event_left <= 0.0:
 			_end_event()
 	_update_hud()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		_release_all_touch_actions()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("weapon_next"):
@@ -1740,6 +1749,10 @@ func _build_touch_controls(root: Control) -> void:
 	_add_touch_button(root, "WEAPON +", "weapon_next", Vector2(-190, -330), Vector2(82, 48), false)
 	_add_touch_button(root, "WEAPON -", "weapon_prev", Vector2(-98, -316), Vector2(76, 48), false)
 	_build_emote_wheel(root)
+
+func _release_all_touch_actions() -> void:
+	for action in ["move_left", "move_right", "move_forward", "move_back", "jump", "dash", "sprint", "slide", "fire", "throw_grenade"]:
+		Input.action_release(action)
 
 func _set_mobile_move_input(value: Vector2) -> void:
 	var x := clampf(value.x, -1.0, 1.0)

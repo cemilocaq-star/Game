@@ -76,6 +76,15 @@ func _run_tests() -> void:
 		"move_back": false
 	})
 
+	var touch_actions := ["move_left", "move_right", "move_forward", "move_back", "jump", "dash", "sprint", "slide", "fire", "throw_grenade"]
+	for action in touch_actions:
+		if not InputMap.has_action(action):
+			InputMap.add_action(action)
+		Input.action_press(action)
+	harness.call("_release_all_touch_actions")
+	for action in touch_actions:
+		_assert_equal("focus loss releases %s" % action, Input.is_action_pressed(action), false)
+
 	var menu_harness := CanvasLayer.new()
 	menu_harness.set_script(MENU_SCRIPT)
 	_assert_true("valid WSS URL", bool(menu_harness.call("_is_server_address_valid", "wss://oxenwar.example.onrender.com")))
@@ -115,6 +124,11 @@ func _assert_strength(label: String, action: String, expected: float) -> void:
 	var actual := Input.get_action_strength(action)
 	if absf(actual - expected) > 0.02:
 		failures.append("%s: expected strength %.2f, got %.2f" % [label, expected, actual])
+
+func _assert_equal(label: String, actual: Variant, expected: Variant) -> void:
+	if actual != expected:
+		failures.append("%s: expected %s, got %s" % [label, str(expected), str(actual)])
+
 
 func _assert_true(label: String, actual: bool) -> void:
 	if not actual:
