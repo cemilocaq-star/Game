@@ -363,8 +363,35 @@ func _process(delta: float) -> void:
 		if (_weapon_inspect_tween == null or not _weapon_inspect_tween.is_running()) and (_weapon_fire_tween == null or not _weapon_fire_tween.is_running()):
 			_blaster_model.rotation.z = sin(_weapon_idle_clock * 1.35) * 0.012
 			_blaster_model.position.y = -0.24 + sin(_weapon_idle_clock * 1.7) * 0.006
+	if is_instance_valid(_blaster_model):
+		_animate_weapon_details()
 	if Input.is_action_pressed("fire") and _blaster_cooldown <= 0.0 and not arsenal_open:
 		_fire_blaster()
+
+
+func _animate_weapon_details() -> void:
+	# Client-only decorative motion: spinning energy rings, orbiting accents and pulsing cores.
+	var phase := _weapon_idle_clock
+	var vortex_ring := _blaster_model.get_node_or_null("VortexRing") as Node3D
+	if is_instance_valid(vortex_ring):
+		vortex_ring.rotation.z = phase * 1.35
+	var rotary_ring := _blaster_model.get_node_or_null("RotaryArcFrontRing") as Node3D
+	if is_instance_valid(rotary_ring):
+		rotary_ring.rotation.z = phase * 2.8
+	var moon_a := _blaster_model.get_node_or_null("OrbitingMoon_0") as Node3D
+	var moon_b := _blaster_model.get_node_or_null("OrbitingMoon_1") as Node3D
+	var moon_c := _blaster_model.get_node_or_null("OrbitingMoon_2") as Node3D
+	for index in range(3):
+		var moon := _blaster_model.get_node_or_null("OrbitingMoon_%d" % index) as Node3D
+		if is_instance_valid(moon):
+			var angle := phase * 1.6 + TAU * float(index) / 3.0
+			moon.position = Vector3(cos(angle) * 0.25, sin(angle) * 0.18, -0.28)
+	var pulse := 1.0 + sin(phase * 4.0) * 0.055
+	for core_name in ["AetherCell", "PulseCore", "RangerSideCell", "SidearmChargeGem", "LongshotChargeCell", "RotaryArcPowerCore"]:
+		var core := _blaster_model.get_node_or_null(core_name) as Node3D
+		if is_instance_valid(core):
+			core.scale = Vector3.ONE * pulse
+
 
 func play_emote(emote_id: String) -> void:
 	if emote_id not in ["griddy", "goofy", "robot", "wave"]:
