@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 errors = []
 
 required = [
-    "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/arcade_weapon_visuals.gd", "scripts/character_visuals.gd", "scripts/character_motion_rig.gd", "scripts/combat_fx.gd",
+    "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/arcade_weapon_visuals.gd", "scripts/character_visuals.gd", "scripts/character_motion_rig.gd", "scripts/map_world_builder.gd", "scripts/combat_fx.gd",
     "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd",
     "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "scripts/oxenwar_server_player.gd", "server/README.md", "Dockerfile", "fly.toml", "render.yaml",
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
@@ -59,11 +59,25 @@ i18n = read("scripts/oxenwar_i18n.gd")
 workflow = read(".github/workflows/godot-ci.yml")
 presets = read("export_presets.cfg")
 readme = read("README.md")
+map_builder = read("scripts/map_world_builder.gd")
+character_visuals = read("scripts/character_visuals.gd")
+character_rig = read("scripts/character_motion_rig.gd")
 
 checks = [
     ('config/name="OxenWar"', project, "OxenWar application name"),
     ("textures/vram_compression/import_etc2_astc=true", project, "Android ETC2/ASTC texture import required by Godot export"),
     ("OxenWarMainMenu", main, "OxenWar menu integration"),
+    ('const MAP_WORLD_SCRIPT = preload("res://scripts/map_world_builder.gd")', main, "procedural exploration map builder integration"),
+    ("SUNKEN OASIS", main, "first desert exploration map selection"),
+    ("JUNGLE TEMPLE", main, "jungle exploration map selection"),
+    ("REDSTONE CANYON", main, "second desert exploration map selection"),
+    ("func _build_sunken_oasis(root: Node3D)", map_builder, "oasis environment geometry"),
+    ("func _build_jungle_temple(root: Node3D)", map_builder, "jungle temple environment geometry"),
+    ("func _build_redstone_canyon(root: Node3D)", map_builder, "canyon environment geometry"),
+    ("HeadPivot", character_visuals, "oversized animated troll head"),
+    ("EyeWhite_", character_visuals, "expressive troll face geometry"),
+    ("FriendlyBadge", character_visuals, "non-combat character costume details"),
+    ("CharacterDetailPass/HeadPivot", character_rig, "head animation linked to motion rig"),
     ("OnlinePresenceHeartbeat", main, "presence heartbeat"),
     ('get_cmdline_user_args().has("--server")', main, "dedicated server entry point"),
     ("_start_multiplayer_client", main, "multiplayer client startup"),
