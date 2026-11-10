@@ -21,7 +21,7 @@ OxenWar is a free-to-play Godot 4.4.1 parkour arena project. Its visual directio
 - Weapon mastery is awarded by the game server from accepted combat events. Match XP is synced through the authenticated server-sync function into `player_weapon_mastery`; the Career Stats page reads persistent Aether Blaster and Grenade totals and shows Recruit/Bronze/Silver/Gold progression (100/300/600 XP). The migration `20261109193000_oxenwar_weapon_mastery.sql` and updated `oxenwar-server-sync` Edge Function must be deployed before hosted persistence works. Weapon skin unlock/equip is not yet implemented.
 - Free-for-all and Team Deathmatch room modes. Team assignment is server-owned, with team spawns, team HUD colours and friendly-fire protection.
 - Server-simulated grenades with a 2.5-second fuse, 5-metre blast radius, distance-scaled damage, cooldown validation and replicated projectile/explosion visuals.
-- Original Dust II-inspired desert three-lane map blockout (A Long/site, Mid, connector and B site) built from procedural geometry; no Valve assets are copied.
+- Seven themed procedural arena variants, including Sunken Oasis, Jungle Temple and Redstone Canyon. The new maps add sandstone courtyards, market stalls, palm trees, river bridges, temple ruins, a waterfall, canyon arches and lookout structures.
 - Match results are persisted through a Supabase Edge Function using one-time HMAC game tickets and a server-only session/secret.
 - Free starter cosmetics plus two original hero-inspired outfits: Iron Vanguard (red/gold armored hero) and Web Sentinel (red/blue masked agility hero); outfit selection uses the existing character customization tab and is replicated to remote players.
 - Azerbaijani, English, Turkish and Russian menu localization.
@@ -46,7 +46,7 @@ Database schema source is in `supabase/migrations/`. Apply all new migrations, i
 5. Register/sign in with an OxenWar username and password. Registration also asks for a display name; no email address is requested. Password recovery is not yet implemented, so players must keep their password safe.
 6. Run a dedicated server in another terminal: `godot --headless --path . -- --server`.
 7. In the game, enter the server's LAN address or public hostname and press **CONNECT**.
-8. Choose **FREE FOR ALL** or **TEAM DEATHMATCH** in the in-game mode selector. Use **CREATE ROOM** to make a private friend room, **JOIN** with its code, or **QUICK MATCH** to enter a public room of the selected mode. The current arena is the original Dust II-inspired desert blockout.
+8. Choose **FREE FOR ALL** or **TEAM DEATHMATCH** in the in-game mode selector. Use **CREATE ROOM** to make a private friend room, **JOIN** with its code, or **QUICK MATCH** to enter a public room of the selected mode. The default arena is Sunken Oasis; an authorized admin can cycle through the available themed arenas.
 
 For a private room, share its six-character code with an existing OxenWar friend. The server checks the friendship relationship before allowing entry. Public quick-match rooms are available to all authenticated players.
 
@@ -91,10 +91,10 @@ GitHub Actions validates the structure, imports/parses the project with Godot he
 
 ## Visual quality pass
 
-The client arena receives a lightweight procedural art-detail pass with floor inlays, perimeter trims, site markers, corner beacon housings and quality-scaled fill lights. The shared surface shader adds subtle procedural material variation, while the graphics manager applies filmic tonemapping, color grading and quality-scaled glow/fog. These are visual-only additions; the dedicated server skips the art-detail pass and collision/gameplay geometry is unchanged.
+The client arena uses a lightweight procedural environment builder with themed props and traversal pieces. Sunken Oasis adds sandstone halls, market awnings, palms, a fountain and rock gardens; Jungle Temple adds a river, bridges, ruins, columns and a waterfall; Redstone Canyon adds rock formations, an aqueduct walkway, caravan tents and a lookout. These are original low-poly procedural blockouts with collision on major structures, not finished AAA or imported production map assets.
 
 ## Character model detail pass
-The local player and replicated remote-player proxies now share a lightweight procedural equipment model: helmet/visor, layered vest and chest plate, shoulder pads, sleeves, forearm guards, gloves, utility belt and pouches, separate leg and knee pieces, boots, backpack and small accent panels. Outfit palettes are derived from the selected cosmetic, with dedicated Iron Vanguard and Web Sentinel colors. The detail meshes are visual-only, sit inside the existing movement capsule, and are hidden while the beach outfit is active. This pass does not add a skeletal rig, motion-captured animation, or change collision and server movement.
+The local player, remote players and 3D customization preview now share the same original cartoon-troll detail model: rounded oversized heads, expressive eyes and brows, ears, cheeks, smiles, hair and outfit accents. Pilot/goggle, neon and other costume variations reuse the selected cosmetic outfit. The meshes are procedural low-poly visuals, not imported character assets; the existing movement capsule, server physics and network snapshots remain unchanged.
 
 ## Aether Blaster detail pass
 The Aether Blaster retains its original procedural model. The selectable arcade weapon registry now adds distinct server-validated damage/cooldown/range profiles and color-coded impact effects for each fictional archetype. Duck Launcher, Banana Boomerang and Confetti Cannon use intentionally silly visual impact cues. Weapon models are currently represented by the shared first-person device; unique first-person meshes and per-weapon mastery are follow-up work.
@@ -103,7 +103,7 @@ The Aether Blaster retains its original procedural model. The selectable arcade 
 Grenade detonations now use a client-only layered effect with an expanding shock ring, short orange light flash, rising smoke puffs and outward sparks. Remote Aether Blaster impacts receive a brief cyan energy flash and ring at the reported endpoint. These effects are cosmetic only: authoritative grenade movement, blast radius, damage, hit validation and score logic remain on the server.
 
 ## Character movement animation pass
-Local and remote characters now share a lightweight procedural limb rig with separate arm and leg pivots. The rig animates alternating arm/leg swings while moving, a restrained idle breathing/bob motion, and a forward-lean pose while sliding. Existing CharacterBody3D movement, collision shapes, server input simulation and network snapshots are unchanged. This is procedural animation, not a skeletal/retargeted animation asset.
+Local and remote characters share the articulated procedural limb rig. It animates alternating arm/leg swings, idle breathing, slide and emote poses; the troll head now adds a small movement-aware tilt/bounce during running, jumping, sliding and emotes. Existing CharacterBody3D movement, collision shapes, server input simulation and network snapshots are unchanged. This is procedural animation, not skeletal or motion-captured animation.
 
 ## Beach / swimwear
 
