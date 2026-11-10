@@ -6,6 +6,8 @@ const MENU_SCRIPT = preload("res://scripts/oxenwar_menu.gd")
 const NETWORK_SCRIPT = preload("res://scripts/oxenwar_network.gd")
 const EVENT_FX_SCRIPT = preload("res://scripts/oxenwar_event_fx.gd")
 const COMBAT_FX_SCRIPT = preload("res://scripts/combat_fx.gd")
+const MAP_WORLD_SCRIPT = preload("res://scripts/map_world_builder.gd")
+const MAP_NAMES := ["LOST MALL", "NEON CITY", "SPACE ISLANDS", "CANDY WORLD", "SUNKEN OASIS", "JUNGLE TEMPLE", "REDSTONE CANYON"]
 const REMOTE_PLAYER_SCRIPT = preload("res://scripts/oxenwar_remote_player.gd")
 var local_player_name := "Player"
 var local_admin_authorized := false
@@ -830,24 +832,29 @@ func _build_environment() -> void:
 	graphics.configure(env, sun)
 
 func _build_arena() -> void:
-	_make_box("ArenaFloor", Vector3(36, 0.8, 30), Vector3(0, -0.4, 0), Color(0.07, 0.12, 0.19))
-	_make_box("NorthWall", Vector3(36, 3.6, 0.9), Vector3(0, 1.8, -14.55), Color(0.045, 0.07, 0.12))
-	_make_box("SouthWall", Vector3(36, 3.6, 0.9), Vector3(0, 1.8, 14.55), Color(0.045, 0.07, 0.12))
-	_make_box("EastWall", Vector3(0.9, 3.6, 28.2), Vector3(17.55, 1.8, 0), Color(0.045, 0.07, 0.12))
-	_make_box("WestWall", Vector3(0.9, 3.6, 28.2), Vector3(-17.55, 1.8, 0), Color(0.045, 0.07, 0.12))
-	_make_box("CentralStage", Vector3(9, 1.2, 6.2), Vector3(0, 0.6, 0), Color(0.19, 0.26, 0.36))
-	_make_box("WestUpperPlatform", Vector3(6.5, 1.2, 5.2), Vector3(-11.2, 1.9, -5.6), Color(0.08, 0.72, 0.58))
-	_make_box("EastUpperPlatform", Vector3(6.5, 1.2, 5.2), Vector3(11.2, 1.9, -5.6), Color(0.12, 0.35, 0.92))
-	_make_box("SouthPlatform", Vector3(8.2, 1.2, 4.0), Vector3(0, 1.5, 9.5), Color(0.88, 0.15, 0.42))
-	_make_box("NorthBridge", Vector3(12, 0.8, 2.2), Vector3(0, 1.8, -10), Color(0.22, 0.29, 0.39))
-	_make_box("WestHop", Vector3(2.2, 1.3, 2.2), Vector3(-5.2, 0.65, -3.8), Color(0.22, 0.29, 0.39))
-	_make_box("EastHop", Vector3(2.2, 1.3, 2.2), Vector3(5.2, 0.65, -3.8), Color(0.22, 0.29, 0.39))
-	_make_box("SouthHop", Vector3(2.2, 1.3, 2.2), Vector3(-5.2, 0.65, 3.8), Color(0.22, 0.29, 0.39))
-	_make_box("NorthHop", Vector3(2.2, 1.3, 2.2), Vector3(5.2, 0.65, 3.8), Color(0.22, 0.29, 0.39))
-	_make_box("WestRampBlock", Vector3(7, 0.7, 3.0), Vector3(-8.3, 0.55, 0.8), Color(0.96, 0.62, 0.12))
-	_make_box("EastRampBlock", Vector3(7, 0.7, 3.0), Vector3(8.3, 0.55, 0.8), Color(0.96, 0.62, 0.12))
+	var desert_palette := active_map_index in [4, 6]
+	var jungle_palette := active_map_index == 5
+	var floor_color := Color("#CDB17D") if desert_palette else (Color("#385846") if jungle_palette else Color(0.07, 0.12, 0.19))
+	var wall_color := Color("#806349") if desert_palette else (Color("#263F36") if jungle_palette else Color(0.045, 0.07, 0.12))
+	var stage_color := Color("#A77B50") if desert_palette else (Color("#6C8060") if jungle_palette else Color(0.19, 0.26, 0.36))
+	var platform_color := Color("#B88C5B") if desert_palette else (Color("#718E65") if jungle_palette else Color(0.22, 0.29, 0.39))
+	_make_box("ArenaFloor", Vector3(36, 0.8, 30), Vector3(0, -0.4, 0), floor_color)
+	_make_box("NorthWall", Vector3(36, 3.6, 0.9), Vector3(0, 1.8, -14.55), wall_color)
+	_make_box("SouthWall", Vector3(36, 3.6, 0.9), Vector3(0, 1.8, 14.55), wall_color)
+	_make_box("EastWall", Vector3(0.9, 3.6, 28.2), Vector3(17.55, 1.8, 0), wall_color)
+	_make_box("WestWall", Vector3(0.9, 3.6, 28.2), Vector3(-17.55, 1.8, 0), wall_color)
+	_make_box("CentralStage", Vector3(9, 1.2, 6.2), Vector3(0, 0.6, 0), stage_color)
+	_make_box("WestUpperPlatform", Vector3(6.5, 1.2, 5.2), Vector3(-11.2, 1.9, -5.6), platform_color)
+	_make_box("EastUpperPlatform", Vector3(6.5, 1.2, 5.2), Vector3(11.2, 1.9, -5.6), platform_color)
+	_make_box("SouthPlatform", Vector3(8.2, 1.2, 4.0), Vector3(0, 1.5, 9.5), platform_color)
+	_make_box("NorthBridge", Vector3(12, 0.8, 2.2), Vector3(0, 1.8, -10), platform_color)
+	_make_box("WestHop", Vector3(2.2, 1.3, 2.2), Vector3(-5.2, 0.65, -3.8), platform_color)
+	_make_box("EastHop", Vector3(2.2, 1.3, 2.2), Vector3(5.2, 0.65, -3.8), platform_color)
+	_make_box("SouthHop", Vector3(2.2, 1.3, 2.2), Vector3(-5.2, 0.65, 3.8), platform_color)
+	_make_box("NorthHop", Vector3(2.2, 1.3, 2.2), Vector3(5.2, 0.65, 3.8), platform_color)
+	_make_box("WestRampBlock", Vector3(7, 0.7, 3.0), Vector3(-8.3, 0.55, 0.8), platform_color)
+	_make_box("EastRampBlock", Vector3(7, 0.7, 3.0), Vector3(8.3, 0.55, 0.8), platform_color)
 	_apply_map_variant()
-	_build_swimming_pool()
 	if not OS.get_cmdline_user_args().has("--server"):
 		_build_arena_detail_pass()
 
@@ -880,8 +887,8 @@ func _build_arena_detail_pass() -> void:
 		beacon.omni_range = 5.5
 		beacon.shadow_enabled = graphics.resolved_quality == "ULTRA"
 		root.add_child(beacon)
-	_add_detail_box(root, "A_Site_Inlay", Vector3(2.2, 0.018, 0.08), Vector3(-11.0, 0.205, -13.0), Color("#FFB45C"), 0.3)
-	_add_detail_box(root, "B_Site_Inlay", Vector3(2.2, 0.018, 0.08), Vector3(11.0, 0.205, 13.0), Color("#64B7FF"), 0.3)
+	_add_detail_box(root, "WestGardenPathInlay", Vector3(2.2, 0.018, 0.08), Vector3(-11.0, 0.205, -13.0), Color("#D7B77B"), 0.3)
+	_add_detail_box(root, "EastGardenPathInlay", Vector3(2.2, 0.018, 0.08), Vector3(11.0, 0.205, 13.0), Color("#8FC7B7"), 0.3)
 	_add_detail_box(root, "Mid_Inlay", Vector3(0.08, 0.018, 2.2), Vector3(0, 0.205, -4.0), pale, 0.25)
 	_add_detail_box(root, "Hill_North_Beam", Vector3(10.0, 0.045, 0.12), Vector3(0, 0.24, -5.0), Color("#F5C65D"), 1.2)
 	_add_detail_box(root, "Hill_South_Beam", Vector3(10.0, 0.045, 0.12), Vector3(0, 0.24, 5.0), Color("#F5C65D"), 1.2)
@@ -1627,7 +1634,7 @@ func _admin_trigger_event(event_id: String) -> void:
 func _admin_cycle_map() -> void:
 	if not admin_available:
 		return
-	active_map_index = (active_map_index + 1) % 4
+	active_map_index = (active_map_index + 1) % MAP_NAMES.size()
 	for extra in map_extras:
 		if is_instance_valid(extra):
 			extra.queue_free()
@@ -1640,59 +1647,11 @@ func _admin_cycle_map() -> void:
 	_show_meme_toast("MAP: %s" % _map_name())
 
 func _map_name() -> String:
-	return ["LOST MALL", "NEON CITY", "SPACE ISLANDS", "CANDY WORLD"][active_map_index]
+	return MAP_NAMES[clampi(active_map_index, 0, MAP_NAMES.size() - 1)]
 
 func _apply_map_variant() -> void:
-	if active_map_index == 4:
-		_build_dust_two_inspired_layout()
-		return
-	if active_map_index == 0:
-		return
-	var tint := Color(0.1, 0.9, 0.78) if active_map_index == 1 else (Color(0.55, 0.35, 1.0) if active_map_index == 2 else Color(1.0, 0.35, 0.62))
-	var layouts := {
-		1: [[Vector3(5, 1, 5), Vector3(-12, 1.4, -7)], [Vector3(5, 1, 5), Vector3(12, 2.4, -7)], [Vector3(8, 0.8, 2), Vector3(0, 3.4, -10)], [Vector3(4, 2, 4), Vector3(-13, 3.0, 8)], [Vector3(4, 2, 4), Vector3(13, 3.0, 8)]],
-		2: [[Vector3(5, 1, 5), Vector3(-12, 2.0, -8)], [Vector3(5, 1, 5), Vector3(12, 3.0, -8)], [Vector3(4, 1, 4), Vector3(-8, 4.0, 5)], [Vector3(4, 1, 4), Vector3(8, 5.0, 5)], [Vector3(7, 0.8, 2), Vector3(0, 6.0, 0)]],
-		3: [[Vector3(7, 1, 5), Vector3(-11, 1.5, -7)], [Vector3(7, 1, 5), Vector3(11, 1.5, -7)], [Vector3(5, 1, 5), Vector3(-10, 2.8, 8)], [Vector3(5, 1, 5), Vector3(10, 2.8, 8)], [Vector3(9, 0.8, 2), Vector3(0, 3.6, 0)]]
-	}
-	for i in range(layouts[active_map_index].size()):
-		var entry: Array = layouts[active_map_index][i]
-		var platform := StaticBody3D.new()
-		platform.name = "AdminMapPlatform_%d" % i
-		platform.position = entry[1]
-		var collider := CollisionShape3D.new()
-		var shape := BoxShape3D.new()
-		shape.size = entry[0]
-		collider.shape = shape
-		platform.add_child(collider)
-		var mesh_node := MeshInstance3D.new()
-		var mesh := BoxMesh.new()
-		mesh.size = entry[0]
-		mesh_node.mesh = mesh
-		mesh_node.material_override = graphics.make_material(tint)
-		platform.add_child(mesh_node)
-		add_child(platform)
-		map_extras.append(platform)
-
-func _build_dust_two_inspired_layout() -> void:
-	# Original desert three-lane tactical layout; no Counter-Strike assets are copied.
-	var sand := Color("#B99463")
-	var stone := Color("#80694F")
-	var dark := Color("#514638")
-	_make_box("Dust2_A_Long_Cover_01", Vector3(5, 2.2, 1.0), Vector3(-11, 1.1, -8), stone)
-	_make_box("Dust2_A_Long_Cover_02", Vector3(1.0, 2.2, 6), Vector3(-15, 1.1, -4), stone)
-	_make_box("Dust2_A_Site", Vector3(9, 0.35, 7), Vector3(-11, 0.18, -10), sand)
-	_make_box("Dust2_A_Site_BackWall", Vector3(0.8, 4.2, 10), Vector3(-16.5, 2.1, -10), dark)
-	_make_box("Dust2_Mid_Catwalk", Vector3(15, 0.35, 3.5), Vector3(0, 0.18, -4), sand)
-	_make_box("Dust2_Mid_CentralCover", Vector3(2.2, 2.4, 3.2), Vector3(0, 1.2, -5), stone)
-	_make_box("Dust2_Mid_Tunnel_Left", Vector3(1.0, 3.2, 9), Vector3(-5.5, 1.6, 2), dark)
-	_make_box("Dust2_Mid_Tunnel_Right", Vector3(1.0, 3.2, 9), Vector3(5.5, 1.6, 2), dark)
-	_make_box("Dust2_B_Site", Vector3(9, 0.35, 7), Vector3(11, 0.18, 10), sand)
-	_make_box("Dust2_B_BackWall", Vector3(0.8, 4.2, 10), Vector3(16.5, 2.1, 10), dark)
-	_make_box("Dust2_B_Tunnel_Cover", Vector3(4, 2.0, 1.0), Vector3(11, 1.0, 6), stone)
-	_make_box("Dust2_Short_Connector", Vector3(7, 0.35, 2.8), Vector3(7, 0.18, 0), sand)
-	_make_box("Dust2_Long_Approach", Vector3(2.8, 0.35, 10), Vector3(-15, 0.18, 1), sand)
-	_make_box("Dust2_TSpawn_Arch", Vector3(5, 3.4, 0.7), Vector3(0, 1.7, 13.5), stone)
-	_make_box("Dust2_Mid_Upper_Cover", Vector3(4, 1.8, 2), Vector3(0, 0.9, 4), stone)
+	var map_root: Node3D = MAP_WORLD_SCRIPT.build(self, active_map_index)
+	map_extras.append(map_root)
 
 func _spawn_meteor_shower() -> void:
 	for i in range(7):
