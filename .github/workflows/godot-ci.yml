@@ -151,6 +151,9 @@ jobs:
       - name: Test character visuals, run cycle and emotes
         run: timeout 45s godot --headless --path . --script tests/test_character_motion_rig.gd
 
+      - name: Test arcade weapon models
+        run: timeout 45s godot --headless --path . --script tests/test_weapon_visuals.gd
+
       - name: Test matchmaking room state and reconnect modes
         run: timeout 45s godot --headless --path . --script tests/test_matchmaking_logic.gd
 
