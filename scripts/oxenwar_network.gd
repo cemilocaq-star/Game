@@ -438,9 +438,10 @@ func _server_authenticate(ticket: String) -> void:
 		await _persist_session_result(user_id, restored)
 		_server_remove_from_room(user_id)
 	_sessions.erase(user_id)
+	# The client sends its selected lobby action after receiving this result.
+	# Do not auto-create a quick-match room here: that would race CREATE/JOIN
+	# and persist a false "abandoned" match before the player has entered one.
 	rpc_id(peer_id, "_client_auth_result", true, "Authenticated", user_id, str(profile.get("display_name", "Player")), str(profile.get("avatar_color_id", "color_cyan")))
-	if not _user_rooms.has(user_id):
-		_server_quick_match_for_peer(peer_id)
 
 func _redeem_game_ticket(ticket: String) -> Dictionary:
 	if _server_secret.is_empty():

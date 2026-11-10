@@ -85,6 +85,8 @@ checks = [
     ("FrostedArenaFloor", read("scripts/oxenwar_event_fx.gd"), "ice event visuals"),
     ("_start_synth_music", read("scripts/oxenwar_event_fx.gd"), "original event audio"),
     ("_redeem_game_ticket", read("scripts/oxenwar_network.gd"), "one-time ticket redemption"),
+    ('# The client sends its selected lobby action after receiving this result.', read("scripts/oxenwar_network.gd"), "server waits for selected lobby action instead of creating a phantom match"),
+
     ("issue_ticket", read("scripts/oxenwar_network.gd"), "HTTPS game ticket issuance"),
     ("HMAC", read("supabase/functions/oxenwar-server-sync/index.ts"), "signed one-time ticket validation"),
     ("oxenwar_game_tickets", read("supabase/migrations/20261109124756_oxenwar_one_time_game_tickets.sql"), "single-use ticket storage"),

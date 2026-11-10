@@ -22,7 +22,7 @@ By default the dedicated server listens on UDP **2456** and accepts up to 32 ENe
 
 ## Connect clients
 
-Run the game normally and sign in. Enter the server's LAN/public hostname in the server field, then press **CONNECT**. For the WebSocket transport, use the complete `wss://` URL; for ENet, use a hostname/IP and expose UDP 2456. The client authenticates with its Supabase access token. After successful authentication it enters quick match automatically.
+Run the game normally and sign in. Enter the server's LAN/public hostname in the server field, then press **CONNECT**. For the WebSocket transport, use the complete `wss://` URL; for ENet, use a hostname/IP and expose UDP 2456. The client authenticates with its Supabase access token. After successful authentication the client performs the exact lobby action selected in the menu (quick match, create a private room or join by code).
 
 - **CREATE ROOM** creates a private room.
 - Share its six-character code with an existing friend.
