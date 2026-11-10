@@ -21,7 +21,35 @@ static func build(parent: Node3D, map_index: int) -> Node3D:
 			_build_candy_garden(root)
 		_:
 			_build_lost_mall(root)
+	_build_objective_sites(root)
 	return root
+
+
+static func _build_objective_sites(root: Node3D) -> void:
+	var site_data := [
+		{"id": "A", "position": Vector3(-9.0, 0.0, -8.0), "color": Color("#FF9B62")},
+		{"id": "B", "position": Vector3(9.0, 0.0, 8.0), "color": Color("#65DFFF")}
+	]
+	for site in site_data:
+		var site_id := str(site.id)
+		var site_position: Vector3 = site.position
+		var tint: Color = site.color
+		_box(root, "ObjectiveSite_%s_Pad" % site_id, Vector3(5.0, 0.22, 5.0), site_position + Vector3(0.0, 0.11, 0.0), tint.darkened(0.62))
+		var ring := MeshInstance3D.new()
+		ring.name = "ObjectiveSite_%s_EnergyRing" % site_id
+		var ring_mesh := TorusMesh.new()
+		ring_mesh.inner_radius = 1.72
+		ring_mesh.outer_radius = 1.9
+		ring.mesh = ring_mesh
+		ring.position = site_position + Vector3(0.0, 0.28, 0.0)
+		var ring_material := _material(tint)
+		ring_material.emission_enabled = true
+		ring_material.emission = tint
+		ring_material.emission_energy_multiplier = 1.35
+		ring.material_override = ring_material
+		root.add_child(ring)
+		_cylinder(root, "ObjectiveSite_%s_Beacon" % site_id, 0.16, 2.4, site_position + Vector3(0.0, 1.2, 0.0), tint, false)
+		_label(root, "ENERGY SITE " + site_id, site_position + Vector3(0.0, 2.65, 0.0), tint.lightened(0.25))
 
 
 static func _build_sunken_oasis(root: Node3D) -> void:
