@@ -107,7 +107,7 @@ Local and remote characters share the articulated procedural limb rig. It animat
 
 ## Beach / swimwear
 
-The arena includes a shallow, non-blocking pool. Entering its marked swim zone switches the character to a modest beach outfit (shirt, swim shorts and sunglasses); leaving restores the regular appearance. The server derives the swim-zone state from player position and replicates it in snapshots so remote players see the same outfit. This is a visual zone only; it does not yet implement swimming physics or water movement.
+The previous beach/swim outfit visual remains in the codebase for compatibility, but the current themed arenas do not enable a dedicated swim trigger or swimming physics. Oasis water and jungle river surfaces are environmental scenery in this pass.
 
 ## Emotes
 Players can trigger four distinct emotes: Griddy (**B** / mobile **GRIDDY**), Goofy (**N** / **GOOFY**), Robot (**M** / **ROBOT**) and Wave (**J** / **WAVE**). Each has a different procedural limb/body pattern; selecting the active emote again stops it and sends the stopped state to the server. The server replicates all four states to other players. Griddy retains its short original synthesized beat; no third-party dance audio or character animation assets are bundled.
