@@ -284,6 +284,33 @@ func _server_objective_interact() -> void:
 func _server_step_objective(room_code: String, room: Dictionary, delta: float) -> Dictionary:
 	if str(room.get("mode", "")) != "demolition" or bool(room.get("round_finished", false)):
 		return room
+	var red_alive := 0
+	var blue_alive := 0
+	var red_total := 0
+	var blue_total := 0
+	for member_uid in room.members.keys():
+		var member_peer := int(room.members[member_uid])
+		if member_peer <= 0 or not _server_players.has(member_peer):
+			continue
+		var member = _server_players[member_peer]
+		if str(member.team_id) == "red":
+			red_total += 1
+			if not member.is_dead:
+				red_alive += 1
+		elif str(member.team_id) == "blue":
+			blue_total += 1
+			if not member.is_dead:
+				blue_alive += 1
+	if red_total > 0 and blue_total > 0 and red_alive == 0 and str(room.get("objective_winner_team", "")).is_empty():
+		room.objective_winner_team = "blue"
+		room.objective_result = "ATTACKERS ELIMINATED"
+		room.round_left = 0.0
+		return room
+	if red_total > 0 and blue_total > 0 and blue_alive == 0 and not bool(room.get("bomb_planted", false)):
+		room.objective_winner_team = "red"
+		room.objective_result = "DEFENDERS ELIMINATED"
+		room.round_left = 0.0
+		return room
 	if bool(room.get("bomb_planted", false)):
 		room.bomb_fuse = maxf(0.0, float(room.get("bomb_fuse", 0.0)) - delta)
 		if float(room.bomb_fuse) <= 0.0:
@@ -1145,7 +1172,7 @@ func _server_process_rooms(delta: float) -> void:
 		room.event_clock = float(room.event_clock) - delta
 		room.event_left = maxf(0.0, float(room.event_left) - delta)
 		room.round_left = maxf(0.0, float(room.round_left) - delta)
-		if str(room.get("mode", "")) == "demolition" and float(room.round_left) <= 0.0 and str(room.get("objective_winner_team", "")).is_empty():
+		if str(room.get("mode", "")) == "demolition" and not bool(room.get("bomb_planted", false)) and float(room.round_left) <= 0.0 and str(room.get("objective_winner_team", "")).is_empty():
 			room.objective_winner_team = "blue"
 			room.objective_result = "DEFENDERS SURVIVED"
 		if float(room.event_left) <= 0.0 and not str(room.event_id).is_empty():
@@ -1167,7 +1194,7 @@ func _server_process_rooms(delta: float) -> void:
 			if respawn_peer <= 0 or not _server_players.has(respawn_peer):
 				continue
 			var respawn_player = _server_players[respawn_peer]
-			if respawn_player.is_dead:
+			if respawn_player.is_dead and str(room.get("mode", "")) != "demolition":
 				respawn_player.respawn_left = maxf(0.0, respawn_player.respawn_left - delta)
 				if respawn_player.respawn_left <= 0.0:
 					var spawn_offset := Vector3(float(respawn_peer % 4) * 1.6 - 2.4, 0.0, float(int(respawn_peer / 4) % 4) * 1.6)
