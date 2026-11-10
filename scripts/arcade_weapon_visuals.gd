@@ -158,6 +158,41 @@ static func build_weapon(weapon_id: String, tint: Color) -> Node3D:
 			_orb(root, "ChickenHead", 0.12, Vector3(0.0, 0.16, -0.30), Color("#F4D76C"))
 			_orb(root, "ChickenBeak", 0.055, Vector3(0.0, 0.14, -0.42), Color("#FF8D3D"))
 			_box(root, "ChickenHandle", Vector3(0.13, 0.25, 0.15), Vector3(0.0, -0.20, 0.06), shell)
+		"ranger_rifle":
+			_box(root, "RangerMainHousing", Vector3(0.23, 0.20, 0.72), Vector3(0.0, 0.0, -0.12), shell)
+			_box(root, "RangerRearShell", Vector3(0.24, 0.15, 0.30), Vector3(0.0, 0.015, 0.37), dark)
+			_box(root, "RangerFrontShroud", Vector3(0.18, 0.13, 0.34), Vector3(0.0, 0.0, -0.51), trim)
+			_box(root, "RangerTopSight", Vector3(0.09, 0.07, 0.25), Vector3(0.0, 0.14, -0.17), tint, true)
+			_box(root, "RangerLowerGrip", Vector3(0.13, 0.22, 0.16), Vector3(0.0, -0.18, 0.08), dark)
+			_tube(root, "RangerEnergyEmitter", 0.067, 0.12, Vector3(0.0, 0.0, -0.72), tint, true)
+			_orb(root, "RangerSideCell", 0.07, Vector3(0.14, 0.015, -0.12), tint, true)
+			_box(root, "RangerSidePanel", Vector3(0.035, 0.11, 0.25), Vector3(-0.135, 0.015, -0.20), shell)
+		"heavy_sidearm":
+			_box(root, "SidearmMainShell", Vector3(0.27, 0.20, 0.40), Vector3(0.0, 0.0, -0.08), shell)
+			_box(root, "SidearmUpperPlate", Vector3(0.20, 0.065, 0.27), Vector3(0.0, 0.13, -0.13), trim)
+			_box(root, "SidearmGrip", Vector3(0.13, 0.25, 0.17), Vector3(0.0, -0.18, 0.07), dark)
+			_tube(root, "SidearmPulseEmitter", 0.09, 0.13, Vector3(0.0, 0.0, -0.34), tint, true)
+			_orb(root, "SidearmChargeGem", 0.075, Vector3(0.0, 0.12, -0.20), tint, true)
+			_box(root, "SidearmGripAccent", Vector3(0.035, 0.15, 0.11), Vector3(0.075, -0.18, 0.07), trim)
+		"longshot":
+			_box(root, "LongshotSpine", Vector3(0.17, 0.17, 0.96), Vector3(0.0, 0.0, -0.25), shell)
+			_box(root, "LongshotRearPad", Vector3(0.23, 0.17, 0.22), Vector3(0.0, 0.0, 0.31), dark)
+			_box(root, "LongshotFrontShell", Vector3(0.20, 0.20, 0.34), Vector3(0.0, 0.0, -0.72), trim)
+			_tube(root, "LongshotScopeBody", 0.065, 0.34, Vector3(0.0, 0.18, -0.24), dark)
+			_tube(root, "LongshotScopeLens", 0.073, 0.04, Vector3(0.0, 0.18, -0.43), tint, true)
+			_tube(root, "LongshotEnergyLens", 0.085, 0.10, Vector3(0.0, 0.0, -0.94), tint, true)
+			_box(root, "LongshotSideRail", Vector3(0.045, 0.055, 0.64), Vector3(0.12, 0.06, -0.28), trim)
+			_orb(root, "LongshotChargeCell", 0.075, Vector3(-0.13, 0.015, -0.12), tint, true)
+		"rotary_arc":
+			_box(root, "RotaryArcHousing", Vector3(0.36, 0.29, 0.40), Vector3(0.0, 0.0, -0.10), shell)
+			_box(root, "RotaryArcTopGrip", Vector3(0.12, 0.14, 0.22), Vector3(0.0, 0.21, 0.03), trim)
+			_tube(root, "RotaryArcFrontRing", 0.22, 0.065, Vector3(0.0, 0.0, -0.45), trim, true)
+			for i in range(4):
+				var angle := TAU * float(i) / 4.0
+				var emitter_position := Vector3(cos(angle) * 0.115, sin(angle) * 0.115, -0.52)
+				_tube(root, "RotaryArcEmitter_%d" % i, 0.047, 0.34, emitter_position, tint if i == 0 else shell, i == 0)
+			_orb(root, "RotaryArcPowerCore", 0.12, Vector3(0.0, 0.0, -0.18), tint, true)
+			_orb(root, "RotaryArcSideCell", 0.085, Vector3(0.22, 0.02, -0.10), trim, true)
 		_:
 			_box(root, "FallbackCore", Vector3(0.20, 0.20, 0.42), Vector3(0.0, 0.0, -0.16), shell)
 			_orb(root, "FallbackGlow", 0.10, Vector3(0.0, 0.0, -0.40), tint, true)
