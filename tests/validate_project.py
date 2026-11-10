@@ -28,6 +28,7 @@ required = [
     "assets/audio/event-end.ogg", "assets/audio/event-music-loop.ogg",
     "tools/fetch_open_audio_assets.py", "docs/EVENT_AUDIO_ASSETS.md",
     "scripts/progression.gd", "scripts/graphics_manager.gd", "scripts/oxenwar_event_fx.gd", "shaders/neon_surface.gdshader",
+    "tools/set_android_version.py", "tests/test_android_version.py",
 ]
 for rel in required:
     if not (ROOT / rel).is_file():

@@ -53,6 +53,12 @@ jobs:
           use-dotnet: false
           include-templates: true
 
+      - name: Restore stable Android debug signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: oxenwar-android-debug-keystore-v1
+
       - name: Prepare Android debug signing
         run: |
           mkdir -p "$HOME/.android"
@@ -115,7 +121,9 @@ jobs:
         run: python3 tools/fetch_open_audio_assets.py
 
       - name: Run structural project validation
-        run: python3 tests/validate_project.py
+        run: |
+          python3 tests/validate_project.py
+          python3 tests/test_android_version.py
 
       - name: Test Render health endpoint and WebSocket tunnel
         run: |
@@ -197,6 +205,9 @@ jobs:
           echo "Android preset signing and architecture:"
           grep -E '^(architectures/arm64-v8a|package/unique_name|package/signed|keystore/debug)' export_presets.cfg
 
+      - name: Set monotonically increasing Android version code
+        run: python3 tools/set_android_version.py "$GITHUB_RUN_NUMBER"
+
       - name: Export Android arm64 debug APK
         shell: bash
         run: |
@@ -214,6 +225,7 @@ jobs:
           grep -Fq "package: name='org.oxenwar.game'" build/android-badging.txt
           grep -Fq "launchable-activity:" build/android-badging.txt
           grep -Fq "native-code: 'arm64-v8a'" build/android-badging.txt
+          grep -Fq "versionCode='$GITHUB_RUN_NUMBER'" build/android-badging.txt
           "$APKSIGNER" verify --verbose build/OxenWar.apk
           sha256sum build/OxenWar.apk | tee build/OxenWar.apk.sha256
 
