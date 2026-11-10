@@ -315,6 +315,7 @@ func _server_step_objective(room_code: String, room: Dictionary, delta: float) -
 		room.bomb_fuse = maxf(0.0, float(room.get("bomb_fuse", 0.0)) - delta)
 		if float(room.bomb_fuse) <= 0.0:
 			room.objective_winner_team = "red"
+			room.bomb_planted = false
 			room.objective_result = "CORE DETONATED"
 			room.round_left = 0.0
 		return room
@@ -345,6 +346,7 @@ func _server_step_objective(room_code: String, room: Dictionary, delta: float) -
 	if float(room.objective_progress) >= 3.0:
 		if action == "defuse":
 			room.objective_winner_team = "blue"
+			room.bomb_planted = false
 			room.objective_result = "ENERGY CORE DEFUSED"
 			room.round_left = 0.0
 		else:
