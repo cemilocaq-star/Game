@@ -319,6 +319,8 @@ func _render_play_tab() -> void:
 	mode_select.set_item_metadata(1, "team_deathmatch")
 	mode_select.add_item(_t("mode_koth"))
 	mode_select.set_item_metadata(2, "king_of_the_hill")
+	mode_select.add_item("BOMB RUSH • PLANT / DEFUSE")
+	mode_select.set_item_metadata(3, "demolition")
 	mode_select.item_selected.connect(func(index: int): selected_game_mode = str(mode_select.get_item_metadata(index)))
 	mode_row.add_child(mode_select)
 
