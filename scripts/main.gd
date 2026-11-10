@@ -1723,7 +1723,6 @@ func _build_touch_controls(root: Control) -> void:
 	_add_touch_button(root, "FIRE", "fire", Vector2(-190, -260), Vector2(82, 62), true)
 	_add_touch_button(root, "GRENADE", "throw_grenade", Vector2(-98, -250), Vector2(76, 58), false)
 	_add_touch_button(root, "PLANT / DEFUSE", "objective_interact", Vector2(-98, -390), Vector2(112, 48), false)
-	_add_touch_button(root, "PLANT / DEFUSE", "objective_interact", Vector2(-98, -390), Vector2(112, 48), false)
 	_add_touch_button(root, "WEAPON +", "weapon_next", Vector2(-190, -330), Vector2(82, 48), false)
 	_add_touch_button(root, "WEAPON -", "weapon_prev", Vector2(-98, -316), Vector2(76, 48), false)
 	_build_emote_wheel(root)
