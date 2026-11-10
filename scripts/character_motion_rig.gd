@@ -96,6 +96,22 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 	rig.rotation.x = move_toward(rig.rotation.x, body_lean, delta * 6.0)
 	rig.rotation.y = move_toward(rig.rotation.y, body_sway, delta * 7.0)
 
+	# The oversized troll head follows movement with a subtle, readable bounce.
+	var details := rig.get_parent().get_node_or_null("CharacterDetailPass") as Node3D if is_instance_valid(rig.get_parent()) else null
+	if is_instance_valid(details):
+		var head := details.get_node_or_null("HeadPivot") as Node3D
+		if is_instance_valid(head):
+			var head_target := Vector3(sin(clock * 1.7) * 0.018, sin(phase * 0.22) * 0.055 * move_weight, sin(clock * 1.25) * 0.022)
+			if sliding:
+				head_target.x = -0.12
+			elif not grounded:
+				head_target.x = 0.10
+			elif emote == "goofy":
+				head_target.z = sin(emote_phase) * 0.12
+			head.rotation.x = lerp_angle(head.rotation.x, head_target.x, clampf(delta * 6.0, 0.0, 1.0))
+			head.rotation.y = lerp_angle(head.rotation.y, head_target.y, clampf(delta * 5.0, 0.0, 1.0))
+			head.rotation.z = lerp_angle(head.rotation.z, head_target.z, clampf(delta * 6.0, 0.0, 1.0))
+
 	for side in [-1.0, 1.0]:
 		var is_right := side > 0.0
 		var arm_name := "ArmPivot_R" if is_right else "ArmPivot_L"
