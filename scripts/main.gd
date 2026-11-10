@@ -368,9 +368,16 @@ func _on_network_room_state(state: Dictionary) -> void:
 		hill_points_red = float(state.get("hill_points_red", hill_points_red))
 		hill_points_blue = float(state.get("hill_points_blue", hill_points_blue))
 		if is_instance_valid(objective_label):
-			objective_label.visible = active_room_mode == "king_of_the_hill"
-			var hill_owner := "RED" if hill_control >= 100.0 else ("BLUE" if hill_control <= -100.0 else ("CONTESTED" if absf(hill_control) > 0.1 else "NEUTRAL"))
-			objective_label.text = "HILL %s  •  RED %02d / BLUE %02d  •  CAPTURE %d%%" % [hill_owner, int(hill_points_red), int(hill_points_blue), int(absf(hill_control))]
+			objective_label.visible = active_room_mode in ["king_of_the_hill", "demolition"]
+			if active_room_mode == "demolition":
+				var planted := bool(state.get("bomb_planted", false))
+				var action := str(state.get("objective_action", ""))
+				var progress := float(state.get("objective_progress", 0.0))
+				var result := str(state.get("objective_result", "RED: PLANT A/B  •  BLUE: DEFUSE"))
+				objective_label.text = result + ("  •  %d SEC" % int(ceil(float(state.get("bomb_fuse", 0.0)))) if planted else ("  •  %s %d%%" % [action.to_upper(), int(progress / 3.0 * 100.0)] if not action.is_empty() else "  •  PRESS F TO INTERACT"))
+			else:
+				var hill_owner := "RED" if hill_control >= 100.0 else ("BLUE" if hill_control <= -100.0 else ("CONTESTED" if absf(hill_control) > 0.1 else "NEUTRAL"))
+				objective_label.text = "HILL %s  •  RED %02d / BLUE %02d  •  CAPTURE %d%%" % [hill_owner, int(hill_points_red), int(hill_points_blue), int(absf(hill_control))]
 		if round_left <= 0.0 and not _round_finished:
 			_finish_round()
 		var available: Dictionary = state.get("orb_available", {})
@@ -731,6 +738,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		network.request_grenade_throw(-player.global_basis.z + Vector3.UP * 0.12)
 		get_viewport().set_input_as_handled()
 		return
+	if event.is_action_pressed("objective_interact") and is_instance_valid(network) and network.is_authenticated:
+		network.request_objective_interact()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB:
 		_toggle_scoreboard()
 		get_viewport().set_input_as_handled()
@@ -770,6 +781,7 @@ func _toggle_admin_panel() -> void:
 
 func _setup_input() -> void:
 	_add_key_action("throw_grenade", KEY_G)
+	_add_key_action("objective_interact", KEY_F)
 	_add_key_action("weapon_next", KEY_E)
 	_add_key_action("weapon_prev", KEY_R)
 	_add_key_action("emote_griddy", KEY_B)
@@ -1705,6 +1717,8 @@ func _build_touch_controls(root: Control) -> void:
 	_add_touch_button(root, "SLIDE", "slide", Vector2(-98, -58), Vector2(76, 52), true)
 	_add_touch_button(root, "FIRE", "fire", Vector2(-190, -260), Vector2(82, 62), true)
 	_add_touch_button(root, "GRENADE", "throw_grenade", Vector2(-98, -250), Vector2(76, 58), false)
+	_add_touch_button(root, "PLANT / DEFUSE", "objective_interact", Vector2(-98, -390), Vector2(112, 48), false)
+	_add_touch_button(root, "PLANT / DEFUSE", "objective_interact", Vector2(-98, -390), Vector2(112, 48), false)
 	_add_touch_button(root, "WEAPON +", "weapon_next", Vector2(-190, -330), Vector2(82, 48), false)
 	_add_touch_button(root, "WEAPON -", "weapon_prev", Vector2(-98, -316), Vector2(76, 48), false)
 	_build_emote_wheel(root)
