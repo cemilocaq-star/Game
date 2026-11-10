@@ -19,6 +19,7 @@ var _character_detail_root: Node3D
 var _motion_rig: Node3D
 var _motion_clock := 0.0
 var _previous_position := Vector3.ZERO
+var _has_previous_position := false
 
 func _ready() -> void:
 	_visual = MeshInstance3D.new()
@@ -57,27 +58,34 @@ func _build_remote_swimwear() -> void:
 	_swimwear_root.visible = false
 	_visual.add_child(_swimwear_root)
 	var shirt := MeshInstance3D.new()
-	var shirt_mesh := BoxMesh.new()
-	shirt_mesh.size = Vector3(0.66, 0.56, 0.44)
+	var shirt_mesh := CapsuleMesh.new()
+	shirt_mesh.radius = 0.245
+	shirt_mesh.height = 0.62
 	shirt.mesh = shirt_mesh
-	shirt.position.y = 0.18
+	shirt.position = Vector3(0.0, 0.15, 0.0)
 	shirt.material_override = _remote_material(Color("#16A6C8"))
 	_swimwear_root.add_child(shirt)
+
 	var shorts := MeshInstance3D.new()
-	var shorts_mesh := BoxMesh.new()
-	shorts_mesh.size = Vector3(0.68, 0.34, 0.46)
+	var shorts_mesh := SphereMesh.new()
+	shorts_mesh.radius = 0.30
+	shorts_mesh.height = 0.60
 	shorts.mesh = shorts_mesh
-	shorts.position.y = -0.30
+	shorts.scale = Vector3(1.12, 0.62, 0.82)
+	shorts.position = Vector3(0.0, -0.30, 0.0)
 	shorts.material_override = _remote_material(Color("#FFB347"))
 	_swimwear_root.add_child(shorts)
+
 	var glasses := Node3D.new()
 	glasses.position = Vector3(0.0, 0.62, -0.34)
 	_swimwear_root.add_child(glasses)
 	for side in [-1.0, 1.0]:
 		var lens := MeshInstance3D.new()
-		var lens_mesh := BoxMesh.new()
-		lens_mesh.size = Vector3(0.22, 0.12, 0.055)
+		var lens_mesh := SphereMesh.new()
+		lens_mesh.radius = 0.09
+		lens_mesh.height = 0.18
 		lens.mesh = lens_mesh
+		lens.scale = Vector3(1.2, 0.72, 0.34)
 		lens.position.x = side * 0.13
 		lens.material_override = _remote_material(Color("#172638"))
 		glasses.add_child(lens)
@@ -129,14 +137,14 @@ func apply_network_state(position_value: Vector3, yaw_value: float, sliding: boo
 func _process(delta: float) -> void:
 	if _emote_id != "":
 		_emote_clock += delta
-		var rate := 2.0
+		var rate := 1.55
 		var bounce := 0.12
 		var roll := 0.24
 		var pitch := 0.12
 		var turn := 0.0
 		match _emote_id:
 			"goofy":
-				rate = 1.35
+				rate = 1.30
 				bounce = 0.08
 				roll = 0.34
 				pitch = 0.18
@@ -147,7 +155,7 @@ func _process(delta: float) -> void:
 				pitch = 0.035
 				turn = 0.28
 			"wave":
-				rate = 2.5
+				rate = 1.05
 				bounce = 0.035
 				roll = 0.06
 				pitch = 0.05
@@ -167,7 +175,11 @@ func _process(delta: float) -> void:
 	global_position = global_position.lerp(target_position, minf(1.0, delta * 14.0))
 	rotation.y = lerp_angle(rotation.y, target_yaw, minf(1.0, delta * 14.0))
 	_motion_clock += delta
-	var estimated_speed := global_position.distance_to(_previous_position) / maxf(delta, 0.0001)
+	var estimated_speed := 0.0
+	if _has_previous_position:
+		estimated_speed = global_position.distance_to(_previous_position) / maxf(delta, 0.0001)
+	else:
+		_has_previous_position = true
 	_previous_position = global_position
 	if not _sliding and _emote_id == "":
 		_visual.position.y = 0.9 + (absf(sin(_motion_clock * 10.0)) * 0.035 if estimated_speed > 0.5 else sin(_motion_clock * 1.8) * 0.012)
