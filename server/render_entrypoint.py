@@ -11,11 +11,12 @@ import sys
 PUBLIC_PORT = int(os.environ.get("PORT", "10000"))
 BACKEND_HOST = "127.0.0.1"
 BACKEND_PORT = int(os.environ.get("OXENWAR_PORT", "8081"))
+GAME_PATH = os.environ.get("OXENWAR_GAME_PATH", "/game")
 GAME_COMMAND = [
     "godot",
     "--headless",
     "--path",
-    "/game",
+    GAME_PATH,
     "--",
     "--server",
 ]

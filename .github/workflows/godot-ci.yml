@@ -130,11 +130,11 @@ jobs:
           python3 -m py_compile server/render_entrypoint.py tests/test_render_entrypoint.py
           python3 tests/test_render_entrypoint.py
 
-      - name: Test live Godot WebSocket through Render proxy
-        run: timeout 60s python3 tests/test_live_websocket_proxy.py
-
       - name: Import project and parse resources
         run: godot --headless --editor --path . --quit
+
+      - name: Test live Godot WebSocket through Render proxy
+        run: timeout 60s python3 tests/test_live_websocket_proxy.py
 
       - name: Test mobile joystick input transitions
         run: timeout 45s godot --headless --path . --script tests/test_mobile_joystick.gd

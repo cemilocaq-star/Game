@@ -82,6 +82,7 @@ def main() -> int:
             "OXENWAR_PORT": str(backend_port),
             "OXENWAR_TRANSPORT": "websocket",
             "OXENWAR_SERVER_SECRET": "ci-live-websocket-smoke-test-only",
+            "OXENWAR_GAME_PATH": str(ROOT),
         }
     )
     process = subprocess.Popen(

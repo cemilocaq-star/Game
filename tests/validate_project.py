@@ -141,6 +141,7 @@ checks = [
     ("WebSocketMultiplayerPeer.new()", read("scripts/oxenwar_network.gd"), "WebSocket multiplayer transport"),
     ('websocket_port := int(OS.get_environment("OXENWAR_PORT"))', read("scripts/oxenwar_network.gd"), "private Godot WebSocket port avoids Render public port conflict"),
     ('"GET /health "', read("server/render_entrypoint.py"), "Render HTTP health endpoint"),
+    ("OXENWAR_GAME_PATH", read("server/render_entrypoint.py"), "Render entrypoint supports local CI project path"),
     ("asyncio.start_server(_handle_client, \"0.0.0.0\", PUBLIC_PORT)", read("server/render_entrypoint.py"), "public Render port bound on all interfaces"),
     ('"python3", "/game/server/render_entrypoint.py"', read("Dockerfile"), "container runs Render health and WebSocket proxy"),
     ("healthCheckPath: /health", read("render.yaml"), "Render blueprint checks the health endpoint"),
