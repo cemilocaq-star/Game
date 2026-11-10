@@ -435,6 +435,21 @@ if "service_role" in backend.lower() or "sb_secret_" in backend:
 if "ADMIN_CODE_SHA256" in main or "ADMIN_PLAYER_NAME" in main:
     errors.append("obsolete client-side admin password/name authorization remains")
 
+
+weapon_visuals = read("scripts/arcade_weapon_visuals.gd")
+new_weapon_ids = ("ranger_rifle", "heavy_sidearm", "longshot", "rotary_arc")
+for weapon_id in new_weapon_ids:
+    for rel, source in (
+        ("scripts/arcade_weapon_visuals.gd", weapon_visuals),
+        ("scripts/player.gd", player),
+        ("scripts/oxenwar_network.gd", network),
+        ("scripts/main.gd", main),
+    ):
+        if f'"{weapon_id}"' not in source:
+            errors.append(f"missing weapon registration/model reference: {weapon_id} in {rel}")
+if any(name not in main for name in ("RANGER RIFLE", "HEAVY SIDEARM", "LONGSHOT", "ROTARY ARC")):
+    errors.append("new weapon display names are incomplete")
+
 if errors:
     print("VALIDATION FAILED")
     print("\n".join(f"- {error}" for error in errors))
