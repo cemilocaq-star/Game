@@ -263,7 +263,8 @@ func _server_objective_interact() -> void:
 		return
 	var team := str(actor.team_id)
 	if bool(room.get("bomb_planted", false)):
-		if team != "blue" or actor.global_position.distance_to(Vector3(room.get("bomb_position", Vector3.ZERO))) > 3.0:
+		var planted_position: Vector3 = room.get("bomb_position", Vector3.ZERO)
+		if team != "blue" or actor.global_position.distance_to(planted_position) > 3.0:
 			return
 		room.objective_action = "defuse"
 	else:
@@ -303,7 +304,8 @@ func _server_step_objective(room_code: String, room: Dictionary, delta: float) -
 		return room
 	var valid := false
 	if action == "defuse":
-		valid = bool(room.get("bomb_planted", false)) and str(actor.team_id) == "blue" and actor.global_position.distance_to(Vector3(room.get("bomb_position", Vector3.ZERO))) <= 3.0
+		var planted_position: Vector3 = room.get("bomb_position", Vector3.ZERO)
+		valid = bool(room.get("bomb_planted", false)) and str(actor.team_id) == "blue" and actor.global_position.distance_to(planted_position) <= 3.0
 	else:
 		var site := Vector3(-8.0, 1.5, -8.0) if action == "plant_a" else Vector3(8.0, 1.5, 8.0)
 		valid = not bool(room.get("bomb_planted", false)) and str(actor.team_id) == "red" and actor.global_position.distance_to(site) <= 3.0
