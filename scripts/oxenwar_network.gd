@@ -57,7 +57,11 @@ const ARCADE_WEAPONS := {
 	"moon_disc": {"name":"MOON DISC", "damage":30.0, "cooldown_ms":520, "range":68.0},
 	"jellyfish_staff": {"name":"JELLYFISH STAFF", "damage":20.0, "cooldown_ms":300, "range":50.0},
 	"portal_popper": {"name":"PORTAL POPPER", "damage":38.0, "cooldown_ms":640, "range":62.0},
-	"rubber_chicken": {"name":"RUBBER CHICKEN", "damage":14.0, "cooldown_ms":480, "range":32.0}
+	"rubber_chicken": {"name":"RUBBER CHICKEN", "damage":14.0, "cooldown_ms":480, "range":32.0},
+	"ranger_rifle": {"name":"RANGER RIFLE", "damage":24.0, "cooldown_ms":160, "range":68.0},
+	"heavy_sidearm": {"name":"HEAVY SIDEARM", "damage":44.0, "cooldown_ms":600, "range":52.0},
+	"longshot": {"name":"LONGSHOT", "damage":78.0, "cooldown_ms":1250, "range":100.0},
+	"rotary_arc": {"name":"ROTARY ARC", "damage":11.0, "cooldown_ms":75, "range":48.0}
 }
 
 var is_dedicated_server := false
