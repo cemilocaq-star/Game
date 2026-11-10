@@ -45,6 +45,8 @@ func _run_tests() -> void:
 	var auth_end := network_source.find("\nfunc _redeem_game_ticket", auth_start)
 	var auth_body := network_source.substr(auth_start, auth_end - auth_start) if auth_start >= 0 and auth_end > auth_start else ""
 	_assert_true("auth reports reconnect restoration", auth_body.contains("can_restore)"))
+	_assert_true("auth delegates restored room membership", auth_body.contains("_restore_reconnected_member(user_id, peer_id, restored_room)"))
+	_assert_true("restore helper consumes the grace-period reservation", network_source.contains("func _restore_reconnected_member"))
 	_assert_false("auth does not create a phantom quick-match room", auth_body.contains("_server_quick_match_for_peer"))
 	for required_state in [
 		'"team_id": str(_server_players[peer_id].team_id)',
@@ -77,6 +79,22 @@ func _run_tests() -> void:
 		var rooms: Dictionary = network.get("_rooms")
 		rooms[code] = {}
 		network.set("_rooms", rooms)
+
+	# Exercise the real reconnect transition, not just source text: the old
+	# grace reservation must disappear as the active peer is restored.
+	var restore_rooms := {"AB234C": {"members": {"user-1": 0}, "event_id": ""}}
+	var restore_sessions := {"user-1": {"room_code": "AB234C", "expires": Time.get_ticks_msec() + 30000}}
+	network.set("_rooms", restore_rooms)
+	network.set("_sessions", restore_sessions)
+	network.call("_restore_reconnected_member", "user-1", 77, "AB234C")
+	var restored_rooms: Dictionary = network.get("_rooms")
+	var restored_room: Dictionary = restored_rooms.get("AB234C", {})
+	var restored_members: Dictionary = restored_room.get("members", {})
+	var remaining_sessions: Dictionary = network.get("_sessions")
+	var restored_user_rooms: Dictionary = network.get("_user_rooms")
+	_assert_equal("reconnect restores the active peer id", int(restored_members.get("user-1", 0)), 77)
+	_assert_false("reconnect consumes the grace reservation", remaining_sessions.has("user-1"))
+	_assert_equal("reconnect keeps the user mapped to the room", str(restored_user_rooms.get("user-1", "")), "AB234C")
 
 	network.free()
 	if failures.is_empty():
