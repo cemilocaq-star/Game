@@ -272,8 +272,8 @@ func _server_objective_interact() -> void:
 			return
 		var site_a := Vector3(-8.0, 1.5, -8.0)
 		var site_b := Vector3(8.0, 1.5, 8.0)
-		var dist_a := actor.global_position.distance_to(site_a)
-		var dist_b := actor.global_position.distance_to(site_b)
+		var dist_a: float = actor.global_position.distance_to(site_a)
+		var dist_b: float = actor.global_position.distance_to(site_b)
 		if minf(dist_a, dist_b) > 3.0:
 			return
 		room.objective_action = "plant_a" if dist_a <= dist_b else "plant_b"
