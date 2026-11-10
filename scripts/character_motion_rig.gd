@@ -112,8 +112,9 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 			head.rotation.y = lerp_angle(head.rotation.y, head_target.y, clampf(delta * 5.0, 0.0, 1.0))
 			head.rotation.z = lerp_angle(head.rotation.z, head_target.z, clampf(delta * 6.0, 0.0, 1.0))
 
-	for side in [-1.0, 1.0]:
-		var is_right := side > 0.0
+	for side_value in [-1.0, 1.0]:
+		var side: float = float(side_value)
+		var is_right: bool = side > 0.0
 		var arm_name := "ArmPivot_R" if is_right else "ArmPivot_L"
 		var leg_name := "LegPivot_R" if is_right else "LegPivot_L"
 		var arm := rig.get_node_or_null(arm_name) as Node3D
@@ -128,12 +129,12 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 		var phase_offset := PI if is_right else 0.0
 		var stride := sin(phase + phase_offset)
 		var arm_x := -stride * 0.72 * move_weight if grounded and not sliding and not active_emote else 0.0
-		var arm_z := side * 0.035 * move_weight
+		var arm_z: float = side * 0.035 * move_weight
 		var elbow_x := 0.18 + maxf(0.0, stride) * 0.24 * move_weight
 		var leg_x := stride * 0.62 * move_weight if grounded and not sliding and not active_emote else 0.0
 		var knee_x := maxf(0.0, -stride) * 0.58 * move_weight
 		var ankle_x := -knee_x * 0.28 - leg_x * 0.20
-		var leg_z := side * 0.025 * move_weight
+		var leg_z: float = side * 0.025 * move_weight
 
 		if sliding:
 			arm_x = -0.82
