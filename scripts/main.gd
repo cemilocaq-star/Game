@@ -122,6 +122,8 @@ var active_map_index := 4
 var selected_game_mode := "ffa"
 var _client_grenade_visuals: Dictionary = {}
 var _last_objective_result := ""
+var _objective_core_visual: Node3D
+var _objective_core_site := ""
 var admin_available := false
 var admin_panel: PanelContainer
 var admin_hint: Label
@@ -357,6 +359,7 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 	_update_hud()
 
 func _on_network_room_state(state: Dictionary) -> void:
+	_update_objective_core(state)
 	if state.has("event_id"):
 		var next_event := str(state.get("event_id", ""))
 		if next_event != active_event:
@@ -401,6 +404,58 @@ func _on_network_room_state(state: Dictionary) -> void:
 				", ".join(names)
 			]
 	_update_hud()
+
+func _update_objective_core(state: Dictionary) -> void:
+	if str(state.get("mode", "")) != "demolition" or not bool(state.get("bomb_planted", false)):
+		if is_instance_valid(_objective_core_visual):
+			_objective_core_visual.queue_free()
+		_objective_core_visual = null
+		_objective_core_site = ""
+		return
+	var site := str(state.get("bomb_site", "A"))
+	if is_instance_valid(_objective_core_visual) and _objective_core_site == site:
+		return
+	if is_instance_valid(_objective_core_visual):
+		_objective_core_visual.queue_free()
+	_objective_core_site = site
+	_objective_core_visual = Node3D.new()
+	_objective_core_visual.name = "PlantedEnergyCore_" + site
+	_objective_core_visual.global_position = Vector3(-9.0, 0.25, -8.0) if site == "A" else Vector3(9.0, 0.25, 8.0)
+	add_child(_objective_core_visual)
+	var core := MeshInstance3D.new()
+	var core_mesh := SphereMesh.new()
+	core_mesh.radius = 0.38
+	core_mesh.height = 0.76
+	core.mesh = core_mesh
+	core.position.y = 0.72
+	var core_material := StandardMaterial3D.new()
+	core_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	core_material.albedo_color = Color("#FF8A55")
+	core_material.emission_enabled = true
+	core_material.emission = Color("#FF713F")
+	core_material.emission_energy_multiplier = 3.0
+	core.material_override = core_material
+	_objective_core_visual.add_child(core)
+	var ring := MeshInstance3D.new()
+	var ring_mesh := TorusMesh.new()
+	ring_mesh.inner_radius = 0.58
+	ring_mesh.outer_radius = 0.68
+	ring.mesh = ring_mesh
+	ring.position.y = 0.72
+	ring.rotation_degrees.x = 90.0
+	ring.material_override = core_material
+	_objective_core_visual.add_child(ring)
+	var light := OmniLight3D.new()
+	light.position.y = 0.8
+	light.light_color = Color("#FF8752")
+	light.light_energy = 2.8
+	light.omni_range = 8.0
+	_objective_core_visual.add_child(light)
+	var pulse := create_tween().set_loops()
+	pulse.tween_property(core, "scale", Vector3.ONE * 1.16, 0.42)
+	pulse.tween_property(core, "scale", Vector3.ONE * 0.88, 0.42)
+	var rotate_ring := create_tween().set_loops()
+	rotate_ring.tween_property(ring, "rotation:y", TAU, 2.0)
 
 func _on_server_event_changed(event_id: String) -> void:
 	if is_instance_valid(event_fx):
@@ -1728,7 +1783,7 @@ func _build_touch_controls(root: Control) -> void:
 	_build_emote_wheel(root)
 
 func _release_all_touch_actions() -> void:
-	for action in ["move_left", "move_right", "move_forward", "move_back", "jump", "dash", "sprint", "slide", "fire", "throw_grenade"]:
+	for action in ["move_left", "move_right", "move_forward", "move_back", "jump", "dash", "sprint", "slide", "fire", "throw_grenade", "objective_interact"]:
 		Input.action_release(action)
 
 func _set_mobile_move_input(value: Vector2) -> void:
