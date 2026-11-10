@@ -31,6 +31,12 @@ static func build(parent: Node3D, outfit_id: String, base_color: Color) -> Node3
 		_add_ellipsoid(root, "TunicButton_%d" % index, 0.025, Vector3.ONE, Vector3(0.0, 0.12 - float(index) * 0.105, -0.274), trim)
 	_add_ellipsoid(root, "FriendlyBadge", 0.06, Vector3(1.0, 1.0, 0.45), Vector3(-0.145, 0.115, -0.253), trim)
 	_add_ellipsoid(root, "TunicHem", 0.22, Vector3(1.08, 0.18, 0.70), Vector3(0.0, -0.285, -0.045), fabric_light)
+	# Extra rounded costume layers make the silhouette richer without blocky armor.
+	for side in [-1.0, 1.0]:
+		var shoulder := _add_ellipsoid(root, "SoftShoulderPad_%s" % str(side), 0.105, Vector3(1.22, 0.78, 0.92), Vector3(side * 0.245, 0.245, -0.025), trim)
+		shoulder.rotation.z = side * -0.18
+		_add_ellipsoid(root, "SleeveCuff_%s" % str(side), 0.052, Vector3(0.92, 0.72, 0.88), Vector3(side * 0.265, -0.16, -0.035), fabric_light)
+		_add_ellipsoid(root, "BeltPouch_%s" % str(side), 0.062, Vector3(0.78, 0.92, 0.68), Vector3(side * 0.205, -0.27, -0.12), dark)
 
 	# Oversized head pivot makes the avatar read as a playful troll from every angle.
 	var head := Node3D.new()
