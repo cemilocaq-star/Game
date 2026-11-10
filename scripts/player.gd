@@ -28,7 +28,11 @@ const ARCADE_WEAPON_LOCAL := {
 	"moon_disc": {"name":"MOON DISC", "cooldown":0.52, "range":68.0, "color":Color("#BCC7FF")},
 	"jellyfish_staff": {"name":"JELLYFISH STAFF", "cooldown":0.30, "range":50.0, "color":Color("#D39BFF")},
 	"portal_popper": {"name":"PORTAL POPPER", "cooldown":0.64, "range":62.0, "color":Color("#9C72FF")},
-	"rubber_chicken": {"name":"RUBBER CHICKEN", "cooldown":0.48, "range":32.0, "color":Color("#FFB56C")}
+	"rubber_chicken": {"name":"RUBBER CHICKEN", "cooldown":0.48, "range":32.0, "color":Color("#FFB56C")},
+	"ranger_rifle": {"name":"RANGER RIFLE", "cooldown":0.16, "range":68.0, "color":Color("#86D6B8")},
+	"heavy_sidearm": {"name":"HEAVY SIDEARM", "cooldown":0.60, "range":52.0, "color":Color("#F0BC77")},
+	"longshot": {"name":"LONGSHOT", "cooldown":1.25, "range":100.0, "color":Color("#AFC4FF")},
+	"rotary_arc": {"name":"ROTARY ARC", "cooldown":0.075, "range":48.0, "color":Color("#FF8A9C")}
 }
 
 signal collected(points: int)
@@ -543,7 +547,11 @@ func _make_weapon_stream(weapon_id: String) -> AudioStreamWAV:
 		"moon_disc":[270.0, 210.0, 810.0, 0.18],
 		"jellyfish_staff":[720.0, 440.0, 1440.0, 0.20],
 		"portal_popper":[225.0, 420.0, 900.0, 0.24],
-		"rubber_chicken":[390.0, 720.0, 1170.0, 0.42]
+		"rubber_chicken":[390.0, 720.0, 1170.0, 0.42],
+		"ranger_rifle":[305.0, 95.0, 610.0, 0.18],
+		"heavy_sidearm":[155.0, 48.0, 310.0, 0.28],
+		"longshot":[820.0, 540.0, 1640.0, 0.09],
+		"rotary_arc":[175.0, 34.0, 525.0, 0.25]
 	}
 	var profile: Array = profiles.get(weapon_id, profiles["aether"])
 	var base_frequency := float(profile[0])
@@ -597,11 +605,11 @@ func _animate_weapon_fire() -> void:
 	var tilt := Vector3.ZERO
 	var squash := Vector3.ONE
 	match selected_weapon_id:
-		"hand_cannon", "meteor_mallet", "thunder_drum":
+		"hand_cannon", "heavy_sidearm", "meteor_mallet", "thunder_drum":
 			kick = Vector3(0.0, -0.035, 0.0)
 			tilt = Vector3(deg_to_rad(-9.0), 0.0, deg_to_rad(-4.0))
 			squash = Vector3(0.96, 1.04, 0.94)
-		"comet_bow", "star_piercer", "solar_lance":
+		"comet_bow", "star_piercer", "solar_lance", "longshot":
 			kick = Vector3(0.0, 0.025, 0.0)
 			tilt = Vector3(deg_to_rad(5.0), 0.0, deg_to_rad(3.0))
 			squash = Vector3(1.04, 0.96, 1.06)
@@ -614,6 +622,12 @@ func _animate_weapon_fire() -> void:
 		"rubber_chicken", "duck_launcher", "bubble_burst", "slime_slinger":
 			tilt = Vector3(deg_to_rad(-5.0), 0.0, deg_to_rad(8.0))
 			kick = Vector3(0.0, -0.025, 0.0)
+		"ranger_rifle":
+			kick = Vector3(0.0, 0.008, 0.035)
+			tilt = Vector3(deg_to_rad(-2.5), 0.0, 0.0)
+		"rotary_arc":
+			kick = Vector3(0.0, 0.006, 0.045)
+			tilt = Vector3(deg_to_rad(-1.5), 0.0, deg_to_rad(1.0))
 		_:
 			kick = Vector3(0.0, 0.012, 0.055)
 			tilt = Vector3(deg_to_rad(-3.0), 0.0, 0.0)
