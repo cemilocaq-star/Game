@@ -170,57 +170,71 @@ func _set_visual_layer_recursive(node: Node, layer_mask: int) -> void:
 		_set_visual_layer_recursive(child, layer_mask)
 
 func _add_hero_skin_details() -> void:
-	# Original hero-inspired silhouettes; no copied movie/game meshes or logos.
+	# Original rounded hero-inspired silhouettes; no copied movie/game meshes or logos.
 	var iron := cosmetic_outfit == "outfit_iron_vanguard"
 	var primary := Color("#A92332") if iron else Color("#B52D3D")
 	var secondary := Color("#D9B45B") if iron else Color("#183D78")
 	var glow := Color("#66EFFF") if iron else Color("#E34A62")
 	var armor := _blaster_material(secondary, 0.55)
 	var accent := _blaster_material(glow, 0.25, true)
+
 	var chest := MeshInstance3D.new()
-	var chest_mesh := BoxMesh.new()
-	chest_mesh.size = Vector3(0.48, 0.42, 0.16)
+	var chest_mesh := SphereMesh.new()
+	chest_mesh.radius = 0.25
+	chest_mesh.height = 0.50
 	chest.mesh = chest_mesh
-	chest.position = Vector3(0, 0.05, -0.34)
+	chest.scale = Vector3(1.08, 0.88, 0.42)
+	chest.position = Vector3(0, 0.05, -0.32)
 	chest.material_override = armor
 	_body_mesh.add_child(chest)
+
 	var core := MeshInstance3D.new()
 	var core_mesh := SphereMesh.new()
 	core_mesh.radius = 0.105 if iron else 0.075
-	core_mesh.height = 0.10 if iron else 0.08
+	core_mesh.height = core_mesh.radius * 2.0
 	core.mesh = core_mesh
+	core.scale = Vector3(1.0, 1.0, 0.55)
 	core.position = Vector3(0, 0.08, -0.435)
 	core.material_override = accent
 	_body_mesh.add_child(core)
+
 	for side in [-1.0, 1.0]:
 		var shoulder := MeshInstance3D.new()
 		var shoulder_mesh := SphereMesh.new()
 		shoulder_mesh.radius = 0.19
-		shoulder_mesh.height = 0.25
+		shoulder_mesh.height = 0.38
 		shoulder.mesh = shoulder_mesh
+		shoulder.scale = Vector3(1.0, 0.78, 0.82)
 		shoulder.position = Vector3(side * 0.32, 0.43, 0)
 		shoulder.material_override = armor
 		_body_mesh.add_child(shoulder)
+
 	var helmet := MeshInstance3D.new()
 	var helmet_mesh := SphereMesh.new()
 	helmet_mesh.radius = 0.31
-	helmet_mesh.height = 0.42
+	helmet_mesh.height = 0.62
 	helmet.mesh = helmet_mesh
+	helmet.scale = Vector3(1.0, 0.78, 0.88)
 	helmet.position = Vector3(0, 0.72, 0)
 	helmet.material_override = _blaster_material(primary, 0.42)
 	_body_mesh.add_child(helmet)
+
 	var visor := MeshInstance3D.new()
-	var visor_mesh := BoxMesh.new()
-	visor_mesh.size = Vector3(0.34, 0.09, 0.055)
+	var visor_mesh := SphereMesh.new()
+	visor_mesh.radius = 0.16
+	visor_mesh.height = 0.32
 	visor.mesh = visor_mesh
-	visor.position = Vector3(0, 0.73, -0.285)
+	visor.scale = Vector3(1.12, 0.40, 0.28)
+	visor.position = Vector3(0, 0.73, -0.275)
 	visor.material_override = accent
 	_body_mesh.add_child(visor)
+
 	if not iron:
 		for side in [-1.0, 1.0]:
 			var web_line := MeshInstance3D.new()
-			var line_mesh := BoxMesh.new()
-			line_mesh.size = Vector3(0.025, 0.48, 0.018)
+			var line_mesh := CapsuleMesh.new()
+			line_mesh.radius = 0.012
+			line_mesh.height = 0.48
 			web_line.mesh = line_mesh
 			web_line.position = Vector3(side * 0.12, 0.05, -0.432)
 			web_line.material_override = _material(Color("#DDEBFF"))
@@ -266,38 +280,49 @@ func _build_swimwear() -> void:
 	_swimwear_root.name = "BeachSwimwear"
 	_swimwear_root.visible = false
 	_body_mesh.add_child(_swimwear_root)
+
 	var shirt := MeshInstance3D.new()
 	shirt.name = "BeachShirt"
-	var shirt_mesh := BoxMesh.new()
-	shirt_mesh.size = Vector3(0.66, 0.56, 0.44)
+	var shirt_mesh := CapsuleMesh.new()
+	shirt_mesh.radius = 0.245
+	shirt_mesh.height = 0.62
 	shirt.mesh = shirt_mesh
-	shirt.position.y = 0.18
+	shirt.position = Vector3(0.0, 0.15, 0.0)
 	shirt.material_override = _material(Color("#16A6C8"))
 	_swimwear_root.add_child(shirt)
+
 	var shorts := MeshInstance3D.new()
 	shorts.name = "SwimShorts"
-	var shorts_mesh := BoxMesh.new()
-	shorts_mesh.size = Vector3(0.68, 0.34, 0.46)
+	var shorts_mesh := SphereMesh.new()
+	shorts_mesh.radius = 0.30
+	shorts_mesh.height = 0.60
 	shorts.mesh = shorts_mesh
-	shorts.position.y = -0.30
+	shorts.scale = Vector3(1.12, 0.62, 0.82)
+	shorts.position = Vector3(0.0, -0.30, 0.0)
 	shorts.material_override = _material(Color("#FFB347"))
 	_swimwear_root.add_child(shorts)
+
 	var glasses := Node3D.new()
 	glasses.name = "Sunglasses"
 	glasses.position = Vector3(0.0, 0.62, -0.34)
 	_swimwear_root.add_child(glasses)
 	for side in [-1.0, 1.0]:
 		var lens := MeshInstance3D.new()
-		var lens_mesh := BoxMesh.new()
-		lens_mesh.size = Vector3(0.22, 0.12, 0.055)
+		var lens_mesh := SphereMesh.new()
+		lens_mesh.radius = 0.09
+		lens_mesh.height = 0.18
 		lens.mesh = lens_mesh
+		lens.scale = Vector3(1.2, 0.72, 0.34)
 		lens.position.x = side * 0.13
 		lens.material_override = _material(Color("#172638"))
 		glasses.add_child(lens)
+
 	var bridge := MeshInstance3D.new()
-	var bridge_mesh := BoxMesh.new()
-	bridge_mesh.size = Vector3(0.10, 0.035, 0.05)
+	var bridge_mesh := CapsuleMesh.new()
+	bridge_mesh.radius = 0.018
+	bridge_mesh.height = 0.12
 	bridge.mesh = bridge_mesh
+	bridge.rotation.z = deg_to_rad(90.0)
 	bridge.material_override = _material(Color("#F4D36B"))
 	glasses.add_child(bridge)
 
