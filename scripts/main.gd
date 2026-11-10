@@ -176,7 +176,7 @@ func _ready() -> void:
 		_start_dedicated_server()
 		return
 	if OS.has_feature("mobile"):
-		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_LANDSCAPE)
+		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_LANDSCAPE)
 	rng.randomize()
 	await _request_player_identity()
 	progression = ProgressionManager.new()
