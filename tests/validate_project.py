@@ -103,6 +103,7 @@ checks = [
 
     ("session_restored_on_auth", network, "client receives reconnect restoration state"),
     ("actions/cache@v4", workflow, "persistent Android debug signing key cache"),
+    ("if: github.event_name != 'pull_request'", workflow, "signing cache is not exposed to pull request builds"),
     ("oxenwar-android-debug-keystore-v1", workflow, "stable Android signing cache key"),
     ("set_android_version.py", workflow, "unique Android version code per CI build"),
     ('"team_id": str(_server_players[peer_id].team_id)', network, "reconnect session stores team assignment"),
