@@ -121,6 +121,7 @@ var map_extras: Array[Node3D] = []
 var active_map_index := 4
 var selected_game_mode := "ffa"
 var _client_grenade_visuals: Dictionary = {}
+var _last_objective_result := ""
 var admin_available := false
 var admin_panel: PanelContainer
 var admin_hint: Label
@@ -374,6 +375,10 @@ func _on_network_room_state(state: Dictionary) -> void:
 				var action := str(state.get("objective_action", ""))
 				var progress := float(state.get("objective_progress", 0.0))
 				var result := str(state.get("objective_result", "RED: PLANT A/B  •  BLUE: DEFUSE"))
+				if result != _last_objective_result and result == "CORE DETONATED":
+					var blast_site := str(state.get("bomb_site", "A"))
+					COMBAT_FX_SCRIPT.grenade_explosion(self, Vector3(-9.0, 0.5, -8.0) if blast_site == "A" else Vector3(9.0, 0.5, 8.0))
+				_last_objective_result = result
 				objective_label.text = result + ("  •  %d SEC" % int(ceil(float(state.get("bomb_fuse", 0.0)))) if planted else ("  •  %s %d%%" % [action.to_upper(), int(progress / 3.0 * 100.0)] if not action.is_empty() else "  •  PRESS F TO INTERACT"))
 			else:
 				var hill_owner := "RED" if hill_control >= 100.0 else ("BLUE" if hill_control <= -100.0 else ("CONTESTED" if absf(hill_control) > 0.1 else "NEUTRAL"))
