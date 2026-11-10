@@ -446,14 +446,8 @@ func _server_authenticate(ticket: String) -> void:
 		player.match_outcome = str(restored.get("outcome", "abandoned"))
 		_player_joined_at_ms[user_id] = Time.get_ticks_msec() - int(restored.get("playtime_seconds", 0)) * 1000
 		var room: Dictionary = _rooms[restored_room]
-		room.members[user_id] = peer_id
+		_restore_reconnected_member(user_id, peer_id, restored_room)
 		player.apply_event(str(room.event_id))
-		_rooms[restored_room] = room
-		_user_rooms[user_id] = restored_room
-		# The reconnect reservation has now been consumed. Leaving it in
-		# _sessions would let the grace-period expiry remove this live player.
-		_sessions.erase(user_id)
-		_last_room_code = restored_room
 		_broadcast_room_state(restored_room)
 	elif not restored.is_empty():
 		await _persist_session_result(user_id, restored)
@@ -463,6 +457,17 @@ func _server_authenticate(ticket: String) -> void:
 	# Do not auto-create a quick-match room here: that would race CREATE/JOIN
 	# and persist a false "abandoned" match before the player has entered one.
 	rpc_id(peer_id, "_client_auth_result", true, "Authenticated", user_id, str(profile.get("display_name", "Player")), str(profile.get("avatar_color_id", "color_cyan")), can_restore)
+
+func _restore_reconnected_member(user_id: String, peer_id: int, room_code: String) -> void:
+	if not _rooms.has(room_code):
+		return
+	var room: Dictionary = _rooms[room_code]
+	room.members[user_id] = peer_id
+	_rooms[room_code] = room
+	_user_rooms[user_id] = room_code
+	# Consume the grace reservation so its expiry cannot evict this live peer.
+	_sessions.erase(user_id)
+	_last_room_code = room_code
 
 func _redeem_game_ticket(ticket: String) -> Dictionary:
 	if _server_secret.is_empty():
