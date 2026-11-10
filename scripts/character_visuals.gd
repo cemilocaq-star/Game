@@ -1,6 +1,6 @@
 extends RefCounted
-## Shared, low-cost procedural character detailing for local and remote players.
-## All geometry is visual-only and remains inside the existing gameplay capsule.
+## Rounded, low-poly character surface detailing shared by local and remote avatars.
+## The animated limbs are owned by character_motion_rig.gd to avoid duplicate geometry.
 
 static func build(parent: Node3D, outfit_id: String, base_color: Color) -> Node3D:
 	var root := Node3D.new()
@@ -24,52 +24,40 @@ static func build(parent: Node3D, outfit_id: String, base_color: Color) -> Node3
 		secondary = Color("#263B36")
 		accent = Color("#D3F36B")
 
-	var fabric := _material(primary, 0.12, 0.64)
-	var armor := _material(secondary, 0.68, 0.30)
-	var trim := _material(accent, 0.42, 0.34)
-	var dark := _material(Color("#182431"), 0.38, 0.42)
-	var visor := _material(Color("#0B1724"), 0.86, 0.16)
-	var sole := _material(Color("#101820"), 0.12, 0.78)
+	var fabric := _material(primary, 0.10, 0.72)
+	var armor := _material(secondary, 0.58, 0.34)
+	var trim := _material(accent, 0.35, 0.38)
+	var dark := _material(Color("#182431"), 0.24, 0.62)
+	var visor := _material(Color("#071521"), 0.78, 0.18)
+	var glow := _material(accent, 0.28, 0.26)
+	glow.emission_enabled = true
+	glow.emission = accent
+	glow.emission_energy_multiplier = 0.32
 
-	# A compact head/visor silhouette for the standard outfits. Hero outfits
-	# already supply their own helmet geometry in player.gd.
+	# Smooth helmet and visor. Hero outfits keep the helmet supplied by player.gd.
 	if outfit_id != "outfit_iron_vanguard" and outfit_id != "outfit_web_sentinel":
-		_add_sphere(root, "HelmetShell", 0.235, 0.42, Vector3(0, 0.67, 0.015), armor)
-		_add_box(root, "FaceVisor", Vector3(0.31, 0.13, 0.055), Vector3(0, 0.66, -0.205), visor)
-		_add_box(root, "VisorGlint", Vector3(0.16, 0.018, 0.012), Vector3(0, 0.705, -0.237), trim)
+		_add_ellipsoid(root, "HelmetShell", 0.225, Vector3(1.0, 1.04, 0.92), Vector3(0, 0.68, 0.015), armor)
+		_add_ellipsoid(root, "FaceVisor", 0.17, Vector3(1.12, 0.43, 0.28), Vector3(0, 0.655, -0.16), visor)
+		_add_ellipsoid(root, "VisorGlint", 0.045, Vector3(1.35, 0.22, 0.22), Vector3(0, 0.70, -0.207), glow)
 
-	_add_cylinder(root, "NeckGuard", 0.145, 0.17, 0.105, Vector3(0, 0.42, 0), armor)
-	_add_box(root, "TacticalVest", Vector3(0.50, 0.46, 0.13), Vector3(0, 0.015, -0.305), fabric)
-	_add_box(root, "ChestPlate", Vector3(0.34, 0.27, 0.055), Vector3(0, 0.095, -0.382), armor)
-	_add_box(root, "ChestEmblem", Vector3(0.105, 0.105, 0.025), Vector3(0, 0.095, -0.418), trim)
-	_add_box(root, "LowerTorsoPanel", Vector3(0.34, 0.12, 0.055), Vector3(0, -0.145, -0.355), dark)
+	_add_capsule(root, "NeckGuard", 0.125, 0.20, Vector3(0, 0.405, 0.0), armor)
+	# A curved vest shell and chest plate sit slightly forward of the base capsule.
+	_add_capsule(root, "VestShell", 0.245, 0.58, Vector3(0, 0.015, -0.105), fabric)
+	_add_ellipsoid(root, "ChestPlate", 0.225, Vector3(1.12, 0.76, 0.30), Vector3(0, 0.105, -0.315), armor)
+	_add_ellipsoid(root, "ChestEmblem", 0.047, Vector3(1.0, 1.0, 0.42), Vector3(0, 0.10, -0.388), glow)
+	_add_ellipsoid(root, "LowerTorsoGuard", 0.15, Vector3(1.35, 0.42, 0.32), Vector3(0, -0.205, -0.255), dark)
+	_add_capsule(root, "CollarTrim", 0.105, 0.20, Vector3(0, 0.34, -0.07), trim)
 
-	# Sleeves, shoulder caps, forearm guards and gloves are separated so the
-	# character reads as an equipped avatar instead of a single capsule.
-	for side in [-1.0, 1.0]:
-		_add_sphere(root, "ShoulderPad_%s" % side, 0.15, 0.22, Vector3(side * 0.325, 0.295, -0.005), armor)
-		_add_capsule(root, "Sleeve_%s" % side, 0.105, 0.43, Vector3(side * 0.355, 0.025, 0.015), fabric)
-		_add_box(root, "ForearmGuard_%s" % side, Vector3(0.17, 0.21, 0.15), Vector3(side * 0.365, -0.16, -0.075), armor)
-		_add_box(root, "ForearmStripe_%s" % side, Vector3(0.12, 0.025, 0.018), Vector3(side * 0.365, -0.11, -0.158), trim)
-		_add_sphere(root, "Glove_%s" % side, 0.095, 0.14, Vector3(side * 0.36, -0.325, -0.04), dark)
-		_add_capsule(root, "Leg_%s" % side, 0.115, 0.47, Vector3(side * 0.15, -0.555, 0.015), fabric)
-		_add_box(root, "KneePad_%s" % side, Vector3(0.18, 0.13, 0.065), Vector3(side * 0.15, -0.47, -0.125), armor)
-		_add_box(root, "ShinPlate_%s" % side, Vector3(0.135, 0.20, 0.055), Vector3(side * 0.15, -0.665, -0.12), trim)
-		_add_box(root, "Boot_%s" % side, Vector3(0.22, 0.16, 0.32), Vector3(side * 0.15, -0.82, -0.045), dark)
-		_add_box(root, "BootSole_%s" % side, Vector3(0.225, 0.035, 0.33), Vector3(side * 0.15, -0.905, -0.045), sole)
+	# Rounded belt, pouches and back pack; no cube-shaped limbs or panels.
+	_add_capsule(root, "UtilityBelt", 0.045, 0.43, Vector3(0, -0.265, -0.205), dark, Vector3(0, 0, deg_to_rad(90.0)))
+	_add_ellipsoid(root, "BeltBuckle", 0.055, Vector3(1.0, 0.82, 0.40), Vector3(0, -0.265, -0.257), trim)
+	_add_capsule(root, "LeftUtilityPouch", 0.060, 0.15, Vector3(-0.225, -0.245, -0.215), armor)
+	_add_capsule(root, "RightUtilityPouch", 0.060, 0.15, Vector3(0.225, -0.245, -0.215), armor)
+	_add_capsule(root, "Backpack", 0.145, 0.42, Vector3(0, 0.015, 0.325), dark)
+	_add_ellipsoid(root, "BackpackTop", 0.09, Vector3(1.45, 0.42, 0.78), Vector3(0, 0.205, 0.365), trim)
+	_add_ellipsoid(root, "LeftChestTab", 0.035, Vector3(0.65, 1.45, 0.38), Vector3(-0.185, 0.11, -0.36), trim)
+	_add_ellipsoid(root, "RightChestTab", 0.035, Vector3(0.65, 1.45, 0.38), Vector3(0.185, 0.11, -0.36), trim)
 
-	_add_box(root, "UtilityBelt", Vector3(0.52, 0.09, 0.17), Vector3(0, -0.245, -0.275), dark)
-	_add_box(root, "BeltBuckle", Vector3(0.11, 0.10, 0.035), Vector3(0, -0.245, -0.37), trim)
-	_add_box(root, "LeftUtilityPouch", Vector3(0.12, 0.14, 0.12), Vector3(-0.225, -0.24, -0.24), armor)
-	_add_box(root, "RightUtilityPouch", Vector3(0.12, 0.14, 0.12), Vector3(0.225, -0.24, -0.24), armor)
-	_add_box(root, "Backpack", Vector3(0.34, 0.40, 0.16), Vector3(0, 0.045, 0.345), dark)
-	_add_box(root, "BackpackTopPanel", Vector3(0.23, 0.075, 0.025), Vector3(0, 0.185, 0.435), trim)
-	_add_box(root, "BackpackSideLeft", Vector3(0.075, 0.22, 0.13), Vector3(-0.205, 0.035, 0.35), armor)
-	_add_box(root, "BackpackSideRight", Vector3(0.075, 0.22, 0.13), Vector3(0.205, 0.035, 0.35), armor)
-
-	# Small reflective/colored details help players remain readable at distance.
-	_add_box(root, "LeftChestTab", Vector3(0.035, 0.12, 0.018), Vector3(-0.19, 0.10, -0.39), trim)
-	_add_box(root, "RightChestTab", Vector3(0.035, 0.12, 0.018), Vector3(0.19, 0.10, -0.39), trim)
 	return root
 
 
@@ -81,32 +69,21 @@ static func _material(color: Color, metallic: float, roughness: float) -> Standa
 	return material
 
 
-static func _add_box(parent: Node3D, node_name: String, size: Vector3, position: Vector3, material: Material) -> MeshInstance3D:
-	var instance := MeshInstance3D.new()
-	instance.name = node_name
-	var mesh := BoxMesh.new()
-	mesh.size = size
-	instance.mesh = mesh
-	instance.position = position
-	instance.material_override = material
-	parent.add_child(instance)
-	return instance
-
-
-static func _add_sphere(parent: Node3D, node_name: String, radius: float, height: float, position: Vector3, material: Material) -> MeshInstance3D:
+static func _add_ellipsoid(parent: Node3D, node_name: String, radius: float, scale_value: Vector3, position: Vector3, material: Material) -> MeshInstance3D:
 	var instance := MeshInstance3D.new()
 	instance.name = node_name
 	var mesh := SphereMesh.new()
 	mesh.radius = radius
-	mesh.height = height
+	mesh.height = radius * 2.0
 	instance.mesh = mesh
+	instance.scale = scale_value
 	instance.position = position
 	instance.material_override = material
 	parent.add_child(instance)
 	return instance
 
 
-static func _add_capsule(parent: Node3D, node_name: String, radius: float, height: float, position: Vector3, material: Material) -> MeshInstance3D:
+static func _add_capsule(parent: Node3D, node_name: String, radius: float, height: float, position: Vector3, material: Material, rotation_value: Vector3 = Vector3.ZERO) -> MeshInstance3D:
 	var instance := MeshInstance3D.new()
 	instance.name = node_name
 	var mesh := CapsuleMesh.new()
@@ -114,20 +91,7 @@ static func _add_capsule(parent: Node3D, node_name: String, radius: float, heigh
 	mesh.height = height
 	instance.mesh = mesh
 	instance.position = position
-	instance.material_override = material
-	parent.add_child(instance)
-	return instance
-
-
-static func _add_cylinder(parent: Node3D, node_name: String, radius: float, top_radius: float, height: float, position: Vector3, material: Material) -> MeshInstance3D:
-	var instance := MeshInstance3D.new()
-	instance.name = node_name
-	var mesh := CylinderMesh.new()
-	mesh.bottom_radius = radius
-	mesh.top_radius = top_radius
-	mesh.height = height
-	instance.mesh = mesh
-	instance.position = position
+	instance.rotation = rotation_value
 	instance.material_override = material
 	parent.add_child(instance)
 	return instance
