@@ -111,7 +111,7 @@ static func hit_impact(parent: Node3D, world_position: Vector3, weapon_id: Strin
 	ring.material_override = material
 	root.add_child(ring)
 
-	# Distinct silhouettes make the 23 archetypes readable without changing hit logic.
+	# Distinct silhouettes make the 27 archetypes readable without changing hit logic.
 	var shard_count := 6
 	var shard_shape := "orb"
 	match weapon_id:
@@ -130,6 +130,15 @@ static func hit_impact(parent: Node3D, world_position: Vector3, weapon_id: Strin
 		"duck_launcher", "rubber_chicken", "confetti_cannon":
 			shard_count = 9
 			shard_shape = "confetti"
+		"longshot":
+			shard_count = 4
+			shard_shape = "disc"
+		"rotary_arc":
+			shard_count = 8
+			shard_shape = "pixel"
+		"ranger_rifle", "heavy_sidearm":
+			shard_count = 7
+			shard_shape = "spark"
 	for index in range(shard_count):
 		var shard := MeshInstance3D.new()
 		shard.name = "ImpactShard_%02d" % index
