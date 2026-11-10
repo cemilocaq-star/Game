@@ -29,7 +29,7 @@ required = [
     "tools/fetch_open_audio_assets.py", "docs/EVENT_AUDIO_ASSETS.md",
     "scripts/progression.gd", "scripts/graphics_manager.gd", "scripts/oxenwar_event_fx.gd", "shaders/neon_surface.gdshader",
     "tools/set_android_version.py", "tests/test_android_version.py",
-    "tests/test_live_websocket_proxy.py",
+    "tests/test_live_websocket_proxy.py", "tests/test_character_motion_rig.gd",
 ]
 for rel in required:
     if not (ROOT / rel).is_file():
@@ -338,6 +338,9 @@ checks.extend([
     ("COMBAT_FX_SCRIPT.grenade_explosion", main, "grenade explosion FX integration"),
     ("COMBAT_FX_SCRIPT.hit_impact", main, "remote blaster impact FX integration"),
     ("ProceduralMotionRig", read("scripts/character_motion_rig.gd"), "procedural animated limb rig"),
+    ("ElbowPivot", read("scripts/character_motion_rig.gd"), "articulated elbow animation pivot"),
+    ("KneePivot", read("scripts/character_motion_rig.gd"), "articulated knee animation pivot"),
+    ("tests/test_character_motion_rig.gd", workflow, "CI runs character motion regression test"),
     ("ArmPivot_L", read("scripts/character_motion_rig.gd"), "left arm animation pivot"),
     ("LegPivot_R", read("scripts/character_motion_rig.gd"), "right leg animation pivot"),
     ("CharacterMotionRig.animate", player, "local procedural movement animation"),
@@ -405,6 +408,17 @@ if "ARSENAL  •  23" not in main or "_build_arsenal_panel" not in main:
     errors.append("23-slot arcade arsenal selection screen is missing")
 if "set_selected_weapon" not in player or "ARCADE_WEAPON_VISUALS.build_weapon" not in player:
     errors.append("weapon equip flow does not rebuild the selected first-person model")
+
+for label, source, function_name in [
+    ("hero outfit", player, "func _add_hero_skin_details()"),
+    ("local swimwear", player, "func _build_swimwear()"),
+    ("remote swimwear", read("scripts/oxenwar_remote_player.gd"), "func _build_remote_swimwear()"),
+]:
+    start = source.find(function_name)
+    end = source.find("\\nfunc ", start + 1) if start >= 0 else -1
+    body = source[start:end] if start >= 0 and end > start else source[start:]
+    if "BoxMesh.new()" in body:
+        errors.append(f"{label} still contains block-shaped character geometry")
 
 for needle, source, label in checks:
     if needle not in source:
