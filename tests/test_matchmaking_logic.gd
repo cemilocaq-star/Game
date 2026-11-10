@@ -45,6 +45,8 @@ func _run_tests() -> void:
 	var auth_end := network_source.find("\nfunc _redeem_game_ticket", auth_start)
 	var auth_body := network_source.substr(auth_start, auth_end - auth_start) if auth_start >= 0 and auth_end > auth_start else ""
 	_assert_true("auth reports reconnect restoration", auth_body.contains("can_restore)"))
+	_assert_true("successful reconnect consumes its grace-period reservation", auth_body.contains("_sessions.erase(user_id)"))
+	_assert_true("reconnect reservation is consumed before expiry processing can run", auth_body.find("_sessions.erase(user_id)") > auth_body.find("room.members[user_id] = peer_id"))
 	_assert_false("auth does not create a phantom quick-match room", auth_body.contains("_server_quick_match_for_peer"))
 	for required_state in [
 		'"team_id": str(_server_players[peer_id].team_id)',
