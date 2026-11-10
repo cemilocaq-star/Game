@@ -378,9 +378,6 @@ func _animate_weapon_details() -> void:
 	var rotary_ring := _blaster_model.get_node_or_null("RotaryArcFrontRing") as Node3D
 	if is_instance_valid(rotary_ring):
 		rotary_ring.rotation.z = phase * 2.8
-	var moon_a := _blaster_model.get_node_or_null("OrbitingMoon_0") as Node3D
-	var moon_b := _blaster_model.get_node_or_null("OrbitingMoon_1") as Node3D
-	var moon_c := _blaster_model.get_node_or_null("OrbitingMoon_2") as Node3D
 	for index in range(3):
 		var moon := _blaster_model.get_node_or_null("OrbitingMoon_%d" % index) as Node3D
 		if is_instance_valid(moon):
