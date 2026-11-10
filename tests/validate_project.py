@@ -415,7 +415,7 @@ for label, source, function_name in [
     ("remote swimwear", read("scripts/oxenwar_remote_player.gd"), "func _build_remote_swimwear()"),
 ]:
     start = source.find(function_name)
-    end = source.find("\\nfunc ", start + 1) if start >= 0 else -1
+    end = source.find("\nfunc ", start + 1) if start >= 0 else -1
     body = source[start:end] if start >= 0 and end > start else source[start:]
     if "BoxMesh.new()" in body:
         errors.append(f"{label} still contains block-shaped character geometry")
