@@ -1022,7 +1022,7 @@ func _new_room(code: String, owner_uid: String, public_room: bool, mode: String 
 		"code": code, "owner_uid": owner_uid, "is_public": public_room, "mode": _sanitize_mode(mode), "grenades": [],
 		"max_players": ROOM_CAPACITY, "members": {}, "orb_available": availability,
 		"orb_respawn": respawn, "event_id": "", "event_left": 0.0,
-		"event_clock": EVENT_INTERVAL, "round_left": ROUND_SECONDS,
+		"event_clock": EVENT_INTERVAL, "round_left": 180.0 if _sanitize_mode(mode) == "demolition" else ROUND_SECONDS,
 		"round_id": str(Time.get_unix_time_from_system()) + "-" + code,
 		"started_at_ms": Time.get_ticks_msec(),
 		"round_finished": false,
@@ -1143,6 +1143,9 @@ func _server_process_rooms(delta: float) -> void:
 		room.event_clock = float(room.event_clock) - delta
 		room.event_left = maxf(0.0, float(room.event_left) - delta)
 		room.round_left = maxf(0.0, float(room.round_left) - delta)
+		if str(room.get("mode", "")) == "demolition" and float(room.round_left) <= 0.0 and str(room.get("objective_winner_team", "")).is_empty():
+			room.objective_winner_team = "blue"
+			room.objective_result = "DEFENDERS SURVIVED"
 		if float(room.event_left) <= 0.0 and not str(room.event_id).is_empty():
 			room.event_id = ""
 			for uid in room.members.keys():
@@ -1249,7 +1252,7 @@ func _server_process_rooms(delta: float) -> void:
 			for member_uid in room.members.keys():
 				var member_peer := int(room.members[member_uid])
 				var outcome := "draw"
-				if str(room.mode) in ["team_deathmatch", "king_of_the_hill"]:
+				if str(room.mode) in ["team_deathmatch", "king_of_the_hill", "demolition"]:
 					if red_kills > blue_kills:
 						outcome = "win" if _server_players.has(member_peer) and str(_server_players[member_peer].team_id) == "red" else "loss"
 					elif blue_kills > red_kills:
