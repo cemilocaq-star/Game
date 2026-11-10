@@ -219,7 +219,7 @@ func request_quick_match(mode: String = "ffa") -> void:
 		rpc_id(1, "_server_quick_match", _sanitize_mode(mode))
 
 func _sanitize_mode(mode: String) -> String:
-	if mode == "team_deathmatch" or mode == "king_of_the_hill":
+	if mode == "team_deathmatch" or mode == "king_of_the_hill" or mode == "demolition":
 		return mode
 	return "ffa"
 
@@ -239,6 +239,95 @@ func _server_set_emote(emote_id: String) -> void:
 	if room_code.is_empty() or not _rooms.has(room_code) or bool(_rooms[room_code].get("round_finished", false)):
 		return
 	_server_players[peer_id].emote_id = emote_id
+
+func request_objective_interact() -> void:
+	if is_authenticated and not is_dedicated_server:
+		rpc_id(1, "_server_objective_interact")
+
+@rpc("any_peer", "call_remote", "reliable")
+func _server_objective_interact() -> void:
+	if not multiplayer.is_server():
+		return
+	var peer_id := multiplayer.get_remote_sender_id()
+	if not _peer_users.has(peer_id) or not _server_players.has(peer_id):
+		return
+	var user_id := str(_peer_users[peer_id])
+	var room_code := str(_user_rooms.get(user_id, ""))
+	if room_code.is_empty() or not _rooms.has(room_code):
+		return
+	var room: Dictionary = _rooms[room_code]
+	if str(room.get("mode", "")) != "demolition" or bool(room.get("round_finished", false)):
+		return
+	var actor = _server_players[peer_id]
+	if actor.is_dead:
+		return
+	var team := str(actor.team_id)
+	if bool(room.get("bomb_planted", false)):
+		if team != "blue" or actor.global_position.distance_to(Vector3(room.get("bomb_position", Vector3.ZERO))) > 3.0:
+			return
+		room.objective_action = "defuse"
+	else:
+		if team != "red":
+			return
+		var site_a := Vector3(-8.0, 1.5, -8.0)
+		var site_b := Vector3(8.0, 1.5, 8.0)
+		var dist_a := actor.global_position.distance_to(site_a)
+		var dist_b := actor.global_position.distance_to(site_b)
+		if minf(dist_a, dist_b) > 3.0:
+			return
+		room.objective_action = "plant_a" if dist_a <= dist_b else "plant_b"
+	room.objective_interactor = peer_id
+	room.objective_progress = 0.0
+	_rooms[room_code] = room
+
+func _server_step_objective(room_code: String, room: Dictionary, delta: float) -> Dictionary:
+	if str(room.get("mode", "")) != "demolition" or bool(room.get("round_finished", false)):
+		return room
+	if bool(room.get("bomb_planted", false)):
+		room.bomb_fuse = maxf(0.0, float(room.get("bomb_fuse", 0.0)) - delta)
+		if float(room.bomb_fuse) <= 0.0:
+			room.objective_winner_team = "red"
+			room.objective_result = "CORE DETONATED"
+			room.round_left = 0.0
+		return room
+	var peer_id := int(room.get("objective_interactor", 0))
+	var action := str(room.get("objective_action", ""))
+	if peer_id <= 0 or action.is_empty() or not _server_players.has(peer_id):
+		room.objective_progress = 0.0
+		return room
+	var actor = _server_players[peer_id]
+	if actor.is_dead:
+		room.objective_interactor = 0
+		room.objective_action = ""
+		room.objective_progress = 0.0
+		return room
+	var valid := false
+	if action == "defuse":
+		valid = bool(room.get("bomb_planted", false)) and str(actor.team_id) == "blue" and actor.global_position.distance_to(Vector3(room.get("bomb_position", Vector3.ZERO))) <= 3.0
+	else:
+		var site := Vector3(-8.0, 1.5, -8.0) if action == "plant_a" else Vector3(8.0, 1.5, 8.0)
+		valid = not bool(room.get("bomb_planted", false)) and str(actor.team_id) == "red" and actor.global_position.distance_to(site) <= 3.0
+	if not valid:
+		room.objective_interactor = 0
+		room.objective_action = ""
+		room.objective_progress = 0.0
+		return room
+	room.objective_progress = float(room.get("objective_progress", 0.0)) + delta
+	if float(room.objective_progress) >= 3.0:
+		if action == "defuse":
+			room.objective_winner_team = "blue"
+			room.objective_result = "ENERGY CORE DEFUSED"
+			room.round_left = 0.0
+		else:
+			room.bomb_planted = true
+			room.bomb_site = "A" if action == "plant_a" else "B"
+			room.bomb_position = Vector3(-8.0, 1.5, -8.0) if action == "plant_a" else Vector3(8.0, 1.5, 8.0)
+			room.bomb_fuse = 35.0
+			room.objective_result = "ENERGY CORE PLANTED • SITE " + str(room.bomb_site)
+		room.objective_interactor = 0
+		room.objective_action = ""
+		room.objective_progress = 0.0
+	return room
 
 func request_grenade_throw(direction: Vector3) -> void:
 	if is_authenticated and not is_dedicated_server and direction.length() > 0.9:
@@ -937,6 +1026,8 @@ func _new_room(code: String, owner_uid: String, public_room: bool, mode: String 
 		"round_id": str(Time.get_unix_time_from_system()) + "-" + code,
 		"started_at_ms": Time.get_ticks_msec(),
 		"round_finished": false,
+		"objective_winner_team": "", "bomb_planted": false, "bomb_site": "", "bomb_fuse": 0.0,
+		"objective_interactor": 0, "objective_action": "", "objective_progress": 0.0,
 		"hill_control": 0.0,
 		"hill_points_red": 0.0,
 		"hill_points_blue": 0.0,
@@ -948,7 +1039,7 @@ func _assign_user_to_room(user_id: String, peer_id: int, code: String) -> void:
 		return
 	var room: Dictionary = _rooms[code]
 	room.members[user_id] = peer_id
-	if _sanitize_mode(str(room.get("mode", "ffa"))) in ["team_deathmatch", "king_of_the_hill"]:
+	if _sanitize_mode(str(room.get("mode", "ffa"))) in ["team_deathmatch", "king_of_the_hill", "demolition"]:
 		var red_count := 0
 		var blue_count := 0
 		for member_uid in room.members.keys():
@@ -1048,6 +1139,7 @@ func _server_process_rooms(delta: float) -> void:
 			_rooms[code] = room
 			continue
 		room = _server_step_grenades(str(code), room, delta)
+		room = _server_step_objective(str(code), room, delta)
 		room.event_clock = float(room.event_clock) - delta
 		room.event_left = maxf(0.0, float(room.event_left) - delta)
 		room.round_left = maxf(0.0, float(room.round_left) - delta)
@@ -1151,6 +1243,9 @@ func _server_process_rooms(delta: float) -> void:
 			if str(room.mode) == "king_of_the_hill":
 				red_kills = int(round(float(room.hill_points_red)))
 				blue_kills = int(round(float(room.hill_points_blue)))
+			elif str(room.mode) == "demolition":
+				red_kills = 1 if str(room.get("objective_winner_team", "")) == "red" else 0
+				blue_kills = 1 if str(room.get("objective_winner_team", "")) == "blue" else 0
 			for member_uid in room.members.keys():
 				var member_peer := int(room.members[member_uid])
 				var outcome := "draw"
@@ -1285,7 +1380,7 @@ func _broadcast_snapshot(code: String) -> void:
 		var peer_id := int(room.members[user_id])
 		if peer_id > 0:
 			rpc_id(peer_id, "_client_receive_snapshot", states, str(room.event_id),
-				float(room.event_left), float(room.round_left), room.orb_available, str(room.code), str(room.mode), float(room.hill_control), float(room.hill_points_red), float(room.hill_points_blue))
+				float(room.event_left), float(room.round_left), room.orb_available, str(room.code), str(room.mode), float(room.hill_control), float(room.hill_points_red), float(room.hill_points_blue), bool(room.get("bomb_planted", false)), str(room.get("bomb_site", "")), float(room.get("bomb_fuse", 0.0)), float(room.get("objective_progress", 0.0)), str(room.get("objective_action", "")), str(room.get("objective_result", "PLANT THE ENERGY CORE")))
 
 func _broadcast_room_state(code: String) -> void:
 	if not _rooms.has(code):
@@ -1343,7 +1438,7 @@ func _client_room_invite(owner_name: String, room_code: String) -> void:
 		invite_received.emit(owner_name, room_code)
 
 @rpc("authority", "call_remote", "unreliable_ordered")
-func _client_receive_snapshot(states: Dictionary, event_id: String, event_left: float, round_left: float, orb_available: Dictionary, room_code: String, mode: String, hill_control: float, hill_points_red: float, hill_points_blue: float) -> void:
+func _client_receive_snapshot(states: Dictionary, event_id: String, event_left: float, round_left: float, orb_available: Dictionary, room_code: String, mode: String, hill_control: float, hill_points_red: float, hill_points_blue: float, bomb_planted: bool, bomb_site: String, bomb_fuse: float, objective_progress: float, objective_action: String, objective_result: String) -> void:
 	if multiplayer.is_server():
 		return
 	for key in states.keys():
@@ -1364,7 +1459,9 @@ func _client_receive_snapshot(states: Dictionary, event_id: String, event_left: 
 	room_state_changed.emit({
 		"code": room_code, "event_id": event_id, "event_left": event_left,
 		"round_left": round_left, "orb_available": orb_available, "mode": mode,
-		"hill_control": hill_control, "hill_points_red": hill_points_red, "hill_points_blue": hill_points_blue
+		"hill_control": hill_control, "hill_points_red": hill_points_red, "hill_points_blue": hill_points_blue,
+		"bomb_planted": bomb_planted, "bomb_site": bomb_site, "bomb_fuse": bomb_fuse,
+		"objective_progress": objective_progress, "objective_action": objective_action, "objective_result": objective_result
 	})
 
 @rpc("authority", "call_remote", "reliable")
