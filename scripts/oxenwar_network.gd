@@ -450,6 +450,9 @@ func _server_authenticate(ticket: String) -> void:
 		player.apply_event(str(room.event_id))
 		_rooms[restored_room] = room
 		_user_rooms[user_id] = restored_room
+		# The reconnect reservation has now been consumed. Leaving it in
+		# _sessions would let the grace-period expiry remove this live player.
+		_sessions.erase(user_id)
 		_last_room_code = restored_room
 		_broadcast_room_state(restored_room)
 	elif not restored.is_empty():
