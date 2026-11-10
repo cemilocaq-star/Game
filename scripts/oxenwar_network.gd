@@ -1288,9 +1288,9 @@ func _color_for_profile(profile: Dictionary) -> String:
 	var colors := {"color_cyan": "#27D7E7", "color_violet": "#9B70FF", "color_orange": "#FF9B42", "color_lime": "#A7E34B"}
 	return str(colors.get(str(profile.get("avatar_color_id", "color_cyan")), "#27D7E7"))
 
-@rpc("authority", "call_remote", "reliable")
 var session_restored_on_auth := false
 
+@rpc("authority", "call_remote", "reliable")
 func _client_auth_result(ok: bool, message: String, user_id: String = "", display_name: String = "", color_id: String = "", session_restored: bool = false) -> void:
 	if multiplayer.is_server():
 		return
