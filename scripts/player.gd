@@ -124,26 +124,19 @@ func _build_visuals() -> void:
 	body.radius = 0.38
 	body.height = 1.8
 	_body_mesh.mesh = body
-	var suit_color := cosmetic_color
+	# Golden Pilot, Ghost-Ops and Neon Cyan Riot trolls use their own costume colors.
+	var suit_color := CharacterVisuals.suit_color_for(cosmetic_outfit, cosmetic_color)
 	if cosmetic_outfit == "outfit_iron_vanguard":
 		suit_color = Color("#A92332")
 	elif cosmetic_outfit == "outfit_web_sentinel":
 		suit_color = Color("#B52D3D")
 	_body_mesh.material_override = _material(suit_color)
-	if cosmetic_outfit == "outfit_neon":
-		var neon_material := _material(cosmetic_color)
-		neon_material.emission_enabled = true
-		neon_material.emission = cosmetic_color
-		neon_material.emission_energy_multiplier = 0.45
-		_body_mesh.material_override = neon_material
-	elif cosmetic_outfit == "outfit_runner":
-		_body_mesh.scale = Vector3(0.94, 1.0, 0.94)
 	_add_selected_accessory()
 	_body_mesh.position.y = 0.9
 	add_child(_body_mesh)
 	_build_swimwear()
 	_character_detail_root = CharacterVisuals.build(_body_mesh, cosmetic_outfit, cosmetic_color)
-	_motion_rig = CharacterMotionRig.build(_body_mesh, suit_color)
+	_motion_rig = CharacterMotionRig.build(_body_mesh, suit_color, cosmetic_outfit)
 	if cosmetic_outfit == "outfit_iron_vanguard" or cosmetic_outfit == "outfit_web_sentinel":
 		_add_hero_skin_details()
 

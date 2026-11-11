@@ -102,6 +102,17 @@ The Aether Blaster retains its original procedural model. The selectable arcade 
 ## Combat visual effects pass
 Grenade detonations now use a client-only layered effect with an expanding shock ring, short orange light flash, rising smoke puffs and outward sparks. Remote Aether Blaster impacts receive a brief cyan energy flash and ring at the reported endpoint. These effects are cosmetic only: authoritative grenade movement, blast radius, damage, hit validation and score logic remain on the server.
 
+### Signature troll characters
+Three original troll costumes are modeled procedurally (rounded primitives, no imported assets) and share the same head, limb rig and animation as every other outfit:
+
+| Outfit id | Character | Highlights |
+| --- | --- | --- |
+| `outfit_runner` | Golden Pilot Troll | gold skin, brown bomber jacket with fleece collar, white scarf with trailing tails, leather aviator cap with brass goggles, olive shorts, bare feet |
+| `outfit_ghost_ops` | Ghost-Ops Troll | pale skin, black balaclava hood and skull-print mask, tactical vest with pouches and shoulder radio, cargo shorts, mismatched pink/cyan flip-flops |
+| `outfit_neon` | Neon Cyan Riot Troll | neon cyan skin, black riot armor with glowing trim, riot helmet with translucent visor, shoulder armor, left-side riot shield, knee pads |
+
+`outfit_runner` and `outfit_neon` reuse the existing catalog ids, so their look changes for existing accounts without a database change. `outfit_ghost_ops` is a new catalog id: apply `20261110210000_oxenwar_ghost_ops_outfit.sql` to a hosted Supabase project before it appears in the customization tab. Costume colors live in `CharacterVisuals.profile_for()`; the motion rig and the customization preview read the same table. The shield and other gear are cosmetic and add no collision or hitbox changes.
+
 ## Character movement animation pass
 Local and remote characters share the articulated procedural limb rig. It animates alternating arm/leg swings, idle breathing, slide and emote poses; the troll head now adds a small movement-aware tilt/bounce during running, jumping, sliding and emotes. Existing CharacterBody3D movement, collision shapes, server input simulation and network snapshots are unchanged. This is procedural animation, not skeletal or motion-captured animation.
 

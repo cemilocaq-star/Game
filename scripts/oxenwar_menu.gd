@@ -3,6 +3,7 @@ signal play_requested(identity: Dictionary)
 
 const I18N = preload("res://scripts/oxenwar_i18n.gd")
 const CHARACTER_VISUALS = preload("res://scripts/character_visuals.gd")
+const CHARACTER_MOTION_RIG = preload("res://scripts/character_motion_rig.gd")
 var backend: Node
 var locale := "az"
 var profile: Dictionary = {}
@@ -883,7 +884,7 @@ func _refresh_character_preview(color_id: String, outfit_id: String, accessory_i
 		"color_lime": Color("#A7E34B")
 	}
 	var avatar_color: Color = color_map.get(color_id, Color("#27D7E7"))
-	var suit_color := avatar_color
+	var suit_color: Color = CHARACTER_VISUALS.suit_color_for(outfit_id, avatar_color)
 	if outfit_id == "outfit_iron_vanguard":
 		suit_color = Color("#A92332")
 	elif outfit_id == "outfit_web_sentinel":
@@ -895,16 +896,10 @@ func _refresh_character_preview(color_id: String, outfit_id: String, accessory_i
 	body.mesh = capsule
 	body.position.y = 0.9
 	body.material_override = _preview_material(suit_color)
-	if outfit_id == "outfit_neon":
-		var neon := _preview_material(avatar_color)
-		neon.emission_enabled = true
-		neon.emission = avatar_color
-		neon.emission_energy_multiplier = 0.45
-		body.material_override = neon
-	elif outfit_id == "outfit_runner":
-		body.scale = Vector3(0.94, 1.0, 0.94)
 	preview_model.add_child(body)
 	CHARACTER_VISUALS.build(body, outfit_id, avatar_color)
+	# Same limb rig as in-game so the preview shows arms, legs and footwear too.
+	CHARACTER_MOTION_RIG.build(body, suit_color, outfit_id)
 	_add_preview_accessory(preview_model, accessory_id, avatar_color)
 
 	if outfit_id == "outfit_iron_vanguard" or outfit_id == "outfit_web_sentinel":

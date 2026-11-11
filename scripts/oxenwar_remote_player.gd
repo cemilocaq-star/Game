@@ -45,7 +45,7 @@ func set_player_identity(player_name: String, color: Color, outfit_id: String = 
 	if is_instance_valid(_name_tag):
 		_name_tag.text = display_name
 	if is_instance_valid(_visual):
-		_base_color = Color("#A92332") if outfit_id == "outfit_iron_vanguard" else (Color("#B52D3D") if outfit_id == "outfit_web_sentinel" else color)
+		_base_color = Color("#A92332") if outfit_id == "outfit_iron_vanguard" else (Color("#B52D3D") if outfit_id == "outfit_web_sentinel" else CharacterVisuals.suit_color_for(outfit_id, color))
 		var material := StandardMaterial3D.new()
 		material.albedo_color = _base_color
 		material.roughness = 0.65
@@ -99,7 +99,7 @@ func _rebuild_remote_detail() -> void:
 	if is_instance_valid(_motion_rig):
 		_motion_rig.queue_free()
 	if is_instance_valid(_visual):
-		_motion_rig = CharacterMotionRig.build(_visual, _base_color)
+		_motion_rig = CharacterMotionRig.build(_visual, _base_color, _outfit_id)
 
 func _remote_material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
