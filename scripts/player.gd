@@ -131,6 +131,7 @@ func _build_visuals() -> void:
 	elif cosmetic_outfit == "outfit_web_sentinel":
 		suit_color = Color("#B52D3D")
 	_body_mesh.material_override = _material(suit_color)
+	CharacterVisuals.apply_body_shape(_body_mesh, cosmetic_outfit)
 	_add_selected_accessory()
 	_body_mesh.position.y = 0.9
 	add_child(_body_mesh)

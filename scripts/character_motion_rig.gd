@@ -29,7 +29,14 @@ static func build(parent: Node3D, color: Color, outfit_id: String = "") -> Node3
 	var skin_material: Material = null
 	var foot_style := "boot"
 	var knee_pads := false
+	var shoulder_x := 0.285
+	var shoulder_y := 0.30
+	var hip_y := -0.25
 	if styled:
+		# Slim troll torso: arms sit outside it and the soles land at ground level.
+		shoulder_x = CHARACTER_VISUALS.TROLL_SHOULDER_X
+		shoulder_y = CHARACTER_VISUALS.TROLL_SHOULDER_Y
+		hip_y = CHARACTER_VISUALS.TROLL_HIP_Y
 		var sleeve_color: Color = profile["sleeve"]
 		var hand_color: Color = profile["hand"]
 		var thigh_color: Color = profile["thigh"]
@@ -52,7 +59,7 @@ static func build(parent: Node3D, color: Color, outfit_id: String = "") -> Node3
 	for side in [-1.0, 1.0]:
 		var arm := Node3D.new()
 		arm.name = "ArmPivot_L" if side < 0.0 else "ArmPivot_R"
-		arm.position = Vector3(side * 0.285, 0.30, 0.0)
+		arm.position = Vector3(side * shoulder_x, shoulder_y, 0.0)
 		rig.add_child(arm)
 		_add_capsule(arm, "UpperArm", 0.087, 0.43, Vector3(0, -0.20, 0), sleeve_material)
 		_add_ellipsoid(arm, "ShoulderJoint", 0.112, Vector3(1.0, 0.92, 0.88), Vector3.ZERO, joint_material)
@@ -69,7 +76,7 @@ static func build(parent: Node3D, color: Color, outfit_id: String = "") -> Node3
 
 		var leg := Node3D.new()
 		leg.name = "LegPivot_L" if side < 0.0 else "LegPivot_R"
-		leg.position = Vector3(side * 0.15, -0.25, 0.0)
+		leg.position = Vector3(side * 0.15, hip_y, 0.0)
 		rig.add_child(leg)
 		_add_ellipsoid(leg, "HipJoint", 0.105, Vector3(1.0, 0.78, 0.92), Vector3(0, 0.015, 0), joint_material)
 		_add_capsule(leg, "Thigh", 0.102, 0.45, Vector3(0, -0.205, 0.0), thigh_material)

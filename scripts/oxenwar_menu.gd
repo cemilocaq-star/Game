@@ -897,6 +897,7 @@ func _refresh_character_preview(color_id: String, outfit_id: String, accessory_i
 	body.position.y = 0.9
 	body.material_override = _preview_material(suit_color)
 	preview_model.add_child(body)
+	CHARACTER_VISUALS.apply_body_shape(body, outfit_id)
 	CHARACTER_VISUALS.build(body, outfit_id, avatar_color)
 	# Same limb rig as in-game so the preview shows arms, legs and footwear too.
 	CHARACTER_MOTION_RIG.build(body, suit_color, outfit_id)

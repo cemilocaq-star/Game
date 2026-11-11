@@ -11,6 +11,19 @@ extends RefCounted
 
 const PROFILE_OUTFITS := ["outfit_runner", "outfit_ghost_ops", "outfit_neon"]
 
+## Body proportions of the three signature trolls (relative to the body node,
+## which stands 0.9 above the ground). A slim torso keeps the oversized head,
+## arms and legs visible and puts the soles at ground level; other outfits keep
+## the original capsule.
+const DEFAULT_BODY_RADIUS := 0.38
+const DEFAULT_BODY_HEIGHT := 1.8
+const TROLL_BODY_RADIUS := 0.29
+const TROLL_BODY_HEIGHT := 0.65
+const TROLL_HEAD_Y := 0.70
+const TROLL_SHOULDER_X := 0.34
+const TROLL_SHOULDER_Y := 0.17
+const TROLL_HIP_Y := -0.057
+
 
 static func has_character_profile(outfit_id: String) -> bool:
 	return outfit_id in PROFILE_OUTFITS
@@ -72,6 +85,21 @@ static func suit_color_for(outfit_id: String, fallback: Color) -> Color:
 	return suit
 
 
+## Sets the body capsule for an outfit: slim torso for the signature trolls,
+## the original 0.38 x 1.8 capsule for everything else (also restores it when a
+## remote player switches from a troll back to another outfit).
+static func apply_body_shape(body: MeshInstance3D, outfit_id: String) -> void:
+	var capsule := body.mesh as CapsuleMesh
+	if capsule == null:
+		return
+	if has_character_profile(outfit_id):
+		capsule.radius = TROLL_BODY_RADIUS
+		capsule.height = TROLL_BODY_HEIGHT
+	else:
+		capsule.radius = DEFAULT_BODY_RADIUS
+		capsule.height = DEFAULT_BODY_HEIGHT
+
+
 static func build(parent: Node3D, outfit_id: String, base_color: Color) -> Node3D:
 	var root := Node3D.new()
 	root.name = "CharacterDetailPass"
@@ -93,27 +121,29 @@ static func build(parent: Node3D, outfit_id: String, base_color: Color) -> Node3
 	var blush := _material(Color("#E98A83"), 0.0, 0.82)
 	var dark := _material(Color("#24303A"), 0.12, 0.68)
 
-	# Rounded tunic, collar and a simple decorative belt.
-	_add_capsule(root, "TrollTunic", 0.255, 0.64, Vector3(0.0, -0.015, -0.035), fabric)
-	_add_ellipsoid(root, "TunicFrontPanel", 0.205, Vector3(1.12, 1.12, 0.30), Vector3(0.0, 0.035, -0.205), fabric_light)
-	_add_capsule(root, "SoftCollar", 0.105, 0.18, Vector3(0.0, 0.335, -0.045), trim)
-	_add_ellipsoid(root, "WaistBand", 0.22, Vector3(1.05, 0.27, 0.70), Vector3(0.0, -0.285, -0.035), dark)
-	_add_ellipsoid(root, "RoundBuckle", 0.055, Vector3(1.0, 0.92, 0.42), Vector3(0.0, -0.285, -0.205), trim)
-	for index in range(3):
-		_add_ellipsoid(root, "TunicButton_%d" % index, 0.025, Vector3.ONE, Vector3(0.0, 0.12 - float(index) * 0.105, -0.274), trim)
-	_add_ellipsoid(root, "FriendlyBadge", 0.06, Vector3(1.0, 1.0, 0.45), Vector3(-0.145, 0.115, -0.253), trim)
-	_add_ellipsoid(root, "TunicHem", 0.22, Vector3(1.08, 0.18, 0.70), Vector3(0.0, -0.285, -0.045), fabric_light)
-	# Extra rounded costume layers make the silhouette richer without blocky armor.
-	for side in [-1.0, 1.0]:
-		var shoulder := _add_ellipsoid(root, "SoftShoulderPad_%s" % str(side), 0.105, Vector3(1.22, 0.78, 0.92), Vector3(side * 0.245, 0.245, -0.025), trim)
-		shoulder.rotation.z = side * -0.18
-		_add_ellipsoid(root, "SleeveCuff_%s" % str(side), 0.052, Vector3(0.92, 0.72, 0.88), Vector3(side * 0.265, -0.16, -0.035), fabric_light)
-		_add_ellipsoid(root, "BeltPouch_%s" % str(side), 0.062, Vector3(0.78, 0.92, 0.68), Vector3(side * 0.205, -0.27, -0.12), dark)
+	# The signature trolls use their own gear on a slimmer body instead of the generic tunic.
+	if not styled:
+		# Rounded tunic, collar and a simple decorative belt.
+		_add_capsule(root, "TrollTunic", 0.255, 0.64, Vector3(0.0, -0.015, -0.035), fabric)
+		_add_ellipsoid(root, "TunicFrontPanel", 0.205, Vector3(1.12, 1.12, 0.30), Vector3(0.0, 0.035, -0.205), fabric_light)
+		_add_capsule(root, "SoftCollar", 0.105, 0.18, Vector3(0.0, 0.335, -0.045), trim)
+		_add_ellipsoid(root, "WaistBand", 0.22, Vector3(1.05, 0.27, 0.70), Vector3(0.0, -0.285, -0.035), dark)
+		_add_ellipsoid(root, "RoundBuckle", 0.055, Vector3(1.0, 0.92, 0.42), Vector3(0.0, -0.285, -0.205), trim)
+		for index in range(3):
+			_add_ellipsoid(root, "TunicButton_%d" % index, 0.025, Vector3.ONE, Vector3(0.0, 0.12 - float(index) * 0.105, -0.274), trim)
+		_add_ellipsoid(root, "FriendlyBadge", 0.06, Vector3(1.0, 1.0, 0.45), Vector3(-0.145, 0.115, -0.253), trim)
+		_add_ellipsoid(root, "TunicHem", 0.22, Vector3(1.08, 0.18, 0.70), Vector3(0.0, -0.285, -0.045), fabric_light)
+		# Extra rounded costume layers make the silhouette richer without blocky armor.
+		for side in [-1.0, 1.0]:
+			var shoulder := _add_ellipsoid(root, "SoftShoulderPad_%s" % str(side), 0.105, Vector3(1.22, 0.78, 0.92), Vector3(side * 0.245, 0.245, -0.025), trim)
+			shoulder.rotation.z = side * -0.18
+			_add_ellipsoid(root, "SleeveCuff_%s" % str(side), 0.052, Vector3(0.92, 0.72, 0.88), Vector3(side * 0.265, -0.16, -0.035), fabric_light)
+			_add_ellipsoid(root, "BeltPouch_%s" % str(side), 0.062, Vector3(0.78, 0.92, 0.68), Vector3(side * 0.205, -0.27, -0.12), dark)
 
 	# Oversized head pivot makes the avatar read as a playful troll from every angle.
 	var head := Node3D.new()
 	head.name = "HeadPivot"
-	head.position = Vector3(0.0, 0.845, 0.0)
+	head.position = Vector3(0.0, TROLL_HEAD_Y if styled else 0.845, 0.0)
 	root.add_child(head)
 	_add_ellipsoid(head, "TrollHead", 0.30, Vector3(1.02, 1.05, 0.90), Vector3.ZERO, skin_material)
 	_add_ellipsoid(head, "LowerJaw", 0.205, Vector3(1.04, 0.62, 0.80), Vector3(0.0, -0.145, -0.018), skin_shadow)
@@ -216,6 +246,7 @@ static func _add_character_gear(root: Node3D, head: Node3D, outfit_id: String) -
 ## Golden Pilot Troll: bomber jacket (the body capsule), fleece collar, white
 ## scarf, olive shorts and a leather aviator cap with brass goggles.
 static func _add_pilot_gear(root: Node3D, head: Node3D) -> void:
+	var body_radius := TROLL_BODY_RADIUS
 	var leather := _material(Color("#4A2E1C"), 0.06, 0.62)
 	var leather_light := _material(Color("#8A5A32"), 0.06, 0.60)
 	var fleece := _material(Color("#E8DCB8"), 0.0, 0.95)
@@ -225,15 +256,15 @@ static func _add_pilot_gear(root: Node3D, head: Node3D) -> void:
 	var lens := _glass_material(Color("#4FA8C8"), 0.62)
 	var ivory := _material(Color("#F4EBD0"), 0.0, 0.45)
 
-	_add_torus(root, "PilotFleeceCollar", 0.29, 0.45, Vector3(0.0, 0.50, 0.0), fleece)
-	_add_torus(root, "PilotScarf", 0.30, 0.43, Vector3(0.0, 0.63, -0.005), scarf)
+	_add_torus(root, "PilotFleeceCollar", 0.13, 0.31, Vector3(0.0, 0.34, 0.0), fleece)
+	_add_torus(root, "PilotScarf", 0.11, 0.25, Vector3(0.0, 0.40, 0.0), scarf)
 	for index in range(2):
-		var tail := _add_ellipsoid(root, "ScarfTail_%d" % index, 0.085, Vector3(0.75, 2.6, 0.16), Vector3(0.10 + float(index) * 0.12, 0.40 - float(index) * 0.06, 0.40), scarf)
+		var tail := _add_ellipsoid(root, "ScarfTail_%d" % index, 0.075, Vector3(0.75, 2.6, 0.16), Vector3(0.08 + float(index) * 0.10, 0.22 - float(index) * 0.05, 0.31), scarf)
 		tail.rotation = Vector3(0.30 + float(index) * 0.12, 0.0, 0.10 - float(index) * 0.22)
-	_add_torus(root, "PilotBelt", 0.34, 0.435, Vector3(0.0, -0.25, 0.0), leather)
-	_add_ellipsoid(root, "PilotBuckle", 0.05, Vector3(1.1, 0.9, 0.4), Vector3(0.0, -0.25, -0.40), brass)
-	_add_cylinder(root, "PilotShorts", 0.395, 0.34, Vector3(0.0, -0.45, 0.0), olive)
-	_add_ellipsoid(root, "PilotWingBadge", 0.06, Vector3(1.4, 0.8, 0.3), Vector3(-0.15, 0.22, _front_z(-0.15) - 0.004), brass)
+	_add_torus(root, "PilotBelt", 0.26, 0.35, Vector3(0.0, -0.12, 0.0), leather)
+	_add_ellipsoid(root, "PilotBuckle", 0.045, Vector3(1.1, 0.9, 0.4), Vector3(0.0, -0.12, -0.32), brass)
+	_add_cylinder(root, "PilotShorts", 0.30, 0.22, Vector3(0.0, -0.26, 0.0), olive)
+	_add_ellipsoid(root, "PilotWingBadge", 0.055, Vector3(1.4, 0.8, 0.3), Vector3(-0.12, 0.12, _front_z(-0.12, body_radius) - 0.004), brass)
 
 	var cap := _add_ellipsoid(head, "PilotCap", 0.30, Vector3(1.02, 0.60, 1.0), Vector3(0.0, 0.21, 0.06), leather)
 	cap.rotation.x = -0.05
@@ -249,9 +280,10 @@ static func _add_pilot_gear(root: Node3D, head: Node3D) -> void:
 	_add_tusks(head, ivory)
 
 
-## Ghost-Ops Troll: black tactical vest, utility belt, cargo shorts, shoulder
+## Ghost-Ops Troll: black tactical vest, utility belt, cargo shorts, chest
 ## radio, black balaclava hood and a skull-print lower-face mask.
 static func _add_ghost_gear(root: Node3D, head: Node3D) -> void:
+	var body_radius := TROLL_BODY_RADIUS
 	var black := _material(Color("#14171A"), 0.10, 0.70)
 	var vest_dark := _material(Color("#2B3033"), 0.12, 0.66)
 	var cargo := _material(Color("#202426"), 0.04, 0.82)
@@ -260,20 +292,20 @@ static func _add_ghost_gear(root: Node3D, head: Node3D) -> void:
 	var accent := _glow_material(Color("#35F4FF"), 1.2)
 
 	for index in range(3):
-		var pouch_x := (float(index) - 1.0) * 0.14
-		_add_ellipsoid(root, "VestPouch_%d" % index, 0.06, Vector3(1.3, 1.0, 0.55), Vector3(pouch_x, -0.02, _front_z(pouch_x) - 0.012), vest_dark)
-	_add_ellipsoid(root, "VestSkullPatch", 0.075, Vector3(1.0, 1.1, 0.3), Vector3(0.0, 0.28, _front_z(0.0) - 0.005), bone)
+		var pouch_x := (float(index) - 1.0) * 0.11
+		_add_ellipsoid(root, "VestPouch_%d" % index, 0.05, Vector3(1.3, 1.0, 0.55), Vector3(pouch_x, -0.03, _front_z(pouch_x, body_radius) - 0.012), vest_dark)
+	_add_ellipsoid(root, "VestSkullPatch", 0.065, Vector3(1.0, 1.1, 0.3), Vector3(0.0, 0.14, _front_z(0.0, body_radius) - 0.005), bone)
 	for side in [-1.0, 1.0]:
-		_add_ellipsoid(root, "VestSkullEye_" + _side_suffix(side), 0.017, Vector3(1.0, 1.2, 0.4), Vector3(side * 0.03, 0.295, _front_z(0.03) - 0.02), black)
-	_add_capsule(root, "ShoulderRadio", 0.035, 0.16, Vector3(0.385, 0.33, 0.0), vest_dark)
-	_add_capsule(root, "RadioAntenna", 0.008, 0.20, Vector3(0.385, 0.50, 0.0), black)
-	_add_ellipsoid(root, "RadioLight", 0.012, Vector3.ONE, Vector3(0.385, 0.60, 0.0), accent)
-	_add_torus(root, "UtilityBelt", 0.33, 0.435, Vector3(0.0, -0.25, 0.0), black)
-	_add_cylinder(root, "CargoShorts", 0.395, 0.36, Vector3(0.0, -0.47, 0.0), cargo)
+		_add_ellipsoid(root, "VestSkullEye_" + _side_suffix(side), 0.015, Vector3(1.0, 1.2, 0.4), Vector3(side * 0.025, 0.155, _front_z(0.025, body_radius) - 0.018), black)
+	_add_capsule(root, "ShoulderRadio", 0.03, 0.14, Vector3(0.16, 0.16, _front_z(0.16, body_radius) - 0.012), vest_dark)
+	_add_capsule(root, "RadioAntenna", 0.007, 0.16, Vector3(0.16, 0.30, _front_z(0.16, body_radius) - 0.012), black)
+	_add_ellipsoid(root, "RadioLight", 0.011, Vector3.ONE, Vector3(0.16, 0.39, _front_z(0.16, body_radius) - 0.012), accent)
+	_add_torus(root, "UtilityBelt", 0.26, 0.35, Vector3(0.0, -0.12, 0.0), black)
+	_add_cylinder(root, "CargoShorts", 0.30, 0.22, Vector3(0.0, -0.26, 0.0), cargo)
 	for side in [-1.0, 1.0]:
-		var pocket_x: float = side * 0.27
-		_add_ellipsoid(root, "CargoPocket_" + _side_suffix(side), 0.08, Vector3(1.0, 1.1, 0.4), Vector3(pocket_x, -0.47, _front_z(pocket_x, 0.395) - 0.008), vest_dark)
-	_add_torus(root, "GhostNeckGaiter", 0.27, 0.41, Vector3(0.0, 0.60, -0.005), black)
+		var pocket_x: float = side * 0.20
+		_add_ellipsoid(root, "CargoPocket_" + _side_suffix(side), 0.07, Vector3(1.0, 1.1, 0.4), Vector3(pocket_x, -0.26, _front_z(pocket_x, 0.30) - 0.008), vest_dark)
+	_add_torus(root, "GhostNeckGaiter", 0.12, 0.27, Vector3(0.0, 0.38, 0.0), black)
 
 	# Balaclava hood wraps the top and back of the head and leaves the face open.
 	_add_ellipsoid(head, "GhostBalaclava", 0.31, Vector3(1.05, 1.08, 0.80), Vector3(0.0, 0.02, 0.075), black)
@@ -298,23 +330,23 @@ static func _add_riot_gear(root: Node3D, head: Node3D) -> void:
 	var shield_glass := _glass_material(Color("#3CC8E8"), 0.45)
 	var ivory := _material(Color("#F4EBD0"), 0.0, 0.45)
 
-	_add_ellipsoid(root, "RiotChestPlate", 0.26, Vector3(1.05, 0.95, 0.34), Vector3(0.0, 0.20, -0.34), armor)
-	_add_ellipsoid(root, "RiotChestStripe", 0.20, Vector3(1.0, 0.06, 0.18), Vector3(0.0, 0.28, -0.42), glow)
-	_add_ellipsoid(root, "RiotAbdomenPlate", 0.20, Vector3(1.1, 0.50, 0.30), Vector3(0.0, -0.08, -0.35), armor_light)
+	_add_ellipsoid(root, "RiotChestPlate", 0.21, Vector3(1.05, 0.85, 0.34), Vector3(0.0, 0.10, -0.255), armor)
+	_add_ellipsoid(root, "RiotChestStripe", 0.16, Vector3(1.0, 0.06, 0.18), Vector3(0.0, 0.17, -0.325), glow)
 	for side in [-1.0, 1.0]:
-		var pauldron := _add_ellipsoid(root, "RiotShoulderArmor_" + _side_suffix(side), 0.15, Vector3(1.0, 0.70, 1.0), Vector3(side * 0.33, 0.40, 0.0), armor)
+		var pauldron := _add_ellipsoid(root, "RiotShoulderArmor_" + _side_suffix(side), 0.14, Vector3(1.0, 0.70, 1.0), Vector3(side * TROLL_SHOULDER_X, 0.27, 0.0), armor)
 		pauldron.rotation.z = -side * 0.35
-		_add_ellipsoid(root, "RiotPauldronGlow_" + _side_suffix(side), 0.05, Vector3(1.3, 0.35, 0.8), Vector3(side * 0.37, 0.47, -0.02), glow)
-	_add_torus(root, "RiotBelt", 0.33, 0.435, Vector3(0.0, -0.25, 0.0), black)
-	_add_ellipsoid(root, "RiotBeltBuckle", 0.055, Vector3(1.2, 0.9, 0.4), Vector3(0.0, -0.25, -0.40), glow)
-	_add_cylinder(root, "RiotHipGuard", 0.395, 0.34, Vector3(0.0, -0.45, 0.0), armor)
+		_add_ellipsoid(root, "RiotPauldronGlow_" + _side_suffix(side), 0.045, Vector3(1.3, 0.35, 0.8), Vector3(side * (TROLL_SHOULDER_X + 0.03), 0.34, -0.02), glow)
+	_add_torus(root, "RiotNeckGuard", 0.12, 0.28, Vector3(0.0, 0.37, 0.0), black)
+	_add_torus(root, "RiotBelt", 0.26, 0.35, Vector3(0.0, -0.12, 0.0), black)
+	_add_ellipsoid(root, "RiotBeltBuckle", 0.05, Vector3(1.2, 0.9, 0.4), Vector3(0.0, -0.12, -0.32), glow)
+	_add_cylinder(root, "RiotHipGuard", 0.30, 0.22, Vector3(0.0, -0.26, 0.0), armor)
 
 	# Riot shield on the character's left side; cosmetic only, no collision.
-	_add_ellipsoid(root, "RiotShield", 0.40, Vector3(0.62, 1.0, 0.12), Vector3(-0.55, 0.0, -0.22), armor)
-	var rim := _add_torus(root, "RiotShieldRim", 0.37, 0.41, Vector3(-0.55, 0.0, -0.245), glow, Vector3(deg_to_rad(90.0), 0.0, 0.0))
+	_add_ellipsoid(root, "RiotShield", 0.40, Vector3(0.62, 1.0, 0.12), Vector3(-0.62, -0.02, -0.20), armor)
+	var rim := _add_torus(root, "RiotShieldRim", 0.37, 0.41, Vector3(-0.62, -0.02, -0.225), glow, Vector3(deg_to_rad(90.0), 0.0, 0.0))
 	rim.scale = Vector3(0.62, 1.0, 1.0)
-	_add_ellipsoid(root, "RiotShieldWindow", 0.14, Vector3(1.2, 0.9, 0.2), Vector3(-0.55, 0.18, -0.26), shield_glass)
-	_add_ellipsoid(root, "RiotShieldEmblem", 0.07, Vector3(1.0, 1.0, 0.25), Vector3(-0.55, -0.20, -0.26), glow)
+	_add_ellipsoid(root, "RiotShieldWindow", 0.14, Vector3(1.2, 0.9, 0.2), Vector3(-0.62, 0.16, -0.24), shield_glass)
+	_add_ellipsoid(root, "RiotShieldEmblem", 0.07, Vector3(1.0, 1.0, 0.25), Vector3(-0.62, -0.22, -0.24), glow)
 
 	# Riot helmet: dome with cheek guards and a translucent visor over the eyes.
 	_add_ellipsoid(head, "RiotHelmet", 0.33, Vector3(1.04, 0.70, 1.02), Vector3(0.0, 0.24, 0.04), armor)

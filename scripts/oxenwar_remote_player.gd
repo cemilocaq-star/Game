@@ -94,6 +94,7 @@ func _rebuild_remote_detail() -> void:
 	if is_instance_valid(_character_detail_root):
 		_character_detail_root.queue_free()
 	if is_instance_valid(_visual):
+		CharacterVisuals.apply_body_shape(_visual, _outfit_id)
 		_character_detail_root = CharacterVisuals.build(_visual, _outfit_id, _base_color)
 		_character_detail_root.visible = not (is_instance_valid(_swimwear_root) and _swimwear_root.visible)
 	if is_instance_valid(_motion_rig):

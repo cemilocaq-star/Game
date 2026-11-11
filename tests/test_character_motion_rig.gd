@@ -133,7 +133,29 @@ func _run_signature_troll_tests() -> void:
 		else:
 			_assert_true("%s keeps the friendly smile" % outfit, details.get_node_or_null("HeadPivot/Smile") != null)
 
+		# Slim troll body: reshaped capsule, lowered head, and a way back to the default shape.
+		var shaped := MeshInstance3D.new()
+		var shaped_capsule := CapsuleMesh.new()
+		shaped_capsule.radius = 0.38
+		shaped_capsule.height = 1.8
+		shaped.mesh = shaped_capsule
+		CHARACTER_VISUALS.apply_body_shape(shaped, outfit)
+		_assert_true("%s body is slimmed to the troll torso" % outfit, is_equal_approx(shaped_capsule.radius, CHARACTER_VISUALS.TROLL_BODY_RADIUS) and is_equal_approx(shaped_capsule.height, CHARACTER_VISUALS.TROLL_BODY_HEIGHT))
+		CHARACTER_VISUALS.apply_body_shape(shaped, "outfit_default")
+		_assert_true("%s body shape resets for other outfits" % outfit, is_equal_approx(shaped_capsule.radius, 0.38) and is_equal_approx(shaped_capsule.height, 1.8))
+		shaped.free()
+		var troll_head := details.get_node("HeadPivot") as Node3D
+		_assert_true("%s head sits on the slim torso" % outfit, is_equal_approx(troll_head.position.y, CHARACTER_VISUALS.TROLL_HEAD_Y))
+		_assert_true("%s skips the generic tunic hidden inside the old capsule" % outfit, details.get_node_or_null("TrollTunic") == null)
+
 		var troll_rig := CHARACTER_MOTION_RIG.build(troll_host, suit, outfit)
+		var troll_arm_pivot := troll_rig.get_node("ArmPivot_R") as Node3D
+		_assert_true("%s arms sit outside the slim torso" % outfit, absf(troll_arm_pivot.position.x - CHARACTER_VISUALS.TROLL_SHOULDER_X) < 0.001 and troll_arm_pivot.position.x > CHARACTER_VISUALS.TROLL_BODY_RADIUS)
+		var troll_leg := troll_rig.get_node("LegPivot_L") as Node3D
+		var troll_knee := troll_leg.get_node("KneePivot") as Node3D
+		var troll_foot := troll_knee.get_node("Boot") as MeshInstance3D
+		var sole_y := troll_leg.position.y + troll_knee.position.y + troll_foot.position.y - (troll_foot.mesh as SphereMesh).radius * troll_foot.scale.y
+		_assert_true("%s soles reach the ground line (collider bottom is -0.9, got %.3f)" % [outfit, sole_y], sole_y >= -0.91 and sole_y <= -0.85)
 		for pivot_path in [
 			"ArmPivot_L", "ArmPivot_R", "ArmPivot_L/ElbowPivot", "ArmPivot_R/ElbowPivot",
 			"LegPivot_L", "LegPivot_R", "LegPivot_L/KneePivot", "LegPivot_R/KneePivot"

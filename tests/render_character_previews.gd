@@ -8,13 +8,16 @@ extends SceneTree
 ##
 ## Output: $PREVIEW_DIR/<outfit>_<view>.png and contact_sheet.png
 ## (rows: default, Golden Pilot, Ghost-Ops, Neon Cyan Riot; columns: front,
-## three-quarter, back).
+## three-quarter, back, run pose).
 
 const CHARACTER_VISUALS := preload("res://scripts/character_visuals.gd")
 const CHARACTER_MOTION_RIG := preload("res://scripts/character_motion_rig.gd")
 
 const OUTFITS := ["outfit_default", "outfit_runner", "outfit_ghost_ops", "outfit_neon"]
-const VIEWS := {"front": 0.0, "three_quarter": 38.0, "back": 180.0}
+# The camera looks down -Z from +Z and a character faces -Z, so yaw 180 turns the
+# face toward the camera ("front") and yaw 0 shows the back.
+# "run" is a three-quarter view with the run-cycle pose applied to the limb rig.
+const VIEWS := {"front": 180.0, "three_quarter": 140.0, "back": 0.0, "run": 140.0}
 const SHOT_SIZE := Vector2i(420, 620)
 const SETTLE_FRAMES := 4
 const AVATAR_COLOR := Color("#27D7E7")
@@ -108,8 +111,11 @@ func _show_shot(index: int) -> void:
 	body_material.roughness = 0.62
 	body.material_override = body_material
 	_model.add_child(body)
+	CHARACTER_VISUALS.apply_body_shape(body, outfit)
 	CHARACTER_VISUALS.build(body, outfit, AVATAR_COLOR)
-	CHARACTER_MOTION_RIG.build(body, suit_color, outfit)
+	var rig: Node3D = CHARACTER_MOTION_RIG.build(body, suit_color, outfit)
+	if str(shot[1]) == "run":
+		CHARACTER_MOTION_RIG.animate(rig, 0.37, 6.0, true, false, "", 1.0)
 	_frames_waited = 0
 
 
