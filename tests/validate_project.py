@@ -346,6 +346,7 @@ checks.extend([
     ("TunicFrontPanel", read("scripts/character_visuals.gd"), "layered cartoon tunic detail"),
     ("SmileTooth_", read("scripts/character_visuals.gd"), "expressive troll face detail"),
     ("PilotCap", read("scripts/character_visuals.gd"), "distinct pilot character outfit"),
+    ("render_character_previews.gd", read(".github/workflows/godot-ci.yml"), "CI renders character costume screenshots"),
     ("PilotScarf", read("scripts/character_visuals.gd"), "Golden Pilot Troll scarf and bomber-jacket kit"),
     ("GhostBalaclava", read("scripts/character_visuals.gd"), "Ghost-Ops Troll balaclava hood"),
     ("SkullJawPatch", read("scripts/character_visuals.gd"), "Ghost-Ops Troll skull mask"),
