@@ -901,40 +901,14 @@ func _refresh_character_preview(color_id: String, outfit_id: String, accessory_i
 	CHARACTER_VISUALS.build(body, outfit_id, avatar_color)
 	# Same limb rig as in-game so the preview shows arms, legs and footwear too.
 	CHARACTER_MOTION_RIG.build(body, suit_color, outfit_id)
-	_add_preview_accessory(preview_model, accessory_id, avatar_color)
+	_add_preview_accessory(body, accessory_id, avatar_color)
 
 	# Same hero armor as in-game, fitted to the slim torso.
 	CHARACTER_VISUALS.add_hero_details(body, outfit_id)
 
-func _add_preview_accessory(parent: Node3D, accessory_id: String, avatar_color: Color) -> void:
-	if accessory_id == "accessory_cap":
-		var cap := MeshInstance3D.new()
-		var cap_mesh := SphereMesh.new()
-		cap_mesh.radius = 0.24
-		cap_mesh.height = 0.18
-		cap.mesh = cap_mesh
-		cap.position = Vector3(0, 1.82, 0)
-		cap.material_override = _preview_material(avatar_color.lightened(0.25))
-		parent.add_child(cap)
-		var brim := MeshInstance3D.new()
-		var brim_mesh := CylinderMesh.new()
-		brim_mesh.top_radius = 0.22
-		brim_mesh.bottom_radius = 0.22
-		brim_mesh.height = 0.035
-		brim.mesh = brim_mesh
-		brim.position = Vector3(0, 1.75, -0.12)
-		brim.material_override = _preview_material(avatar_color.darkened(0.2))
-		parent.add_child(brim)
-	elif accessory_id == "accessory_headphones":
-		for side in [-1.0, 1.0]:
-			var ear := MeshInstance3D.new()
-			var ear_mesh := SphereMesh.new()
-			ear_mesh.radius = 0.105
-			ear_mesh.height = 0.22
-			ear.mesh = ear_mesh
-			ear.position = Vector3(side * 0.31, 1.70, 0)
-			ear.material_override = _preview_material(avatar_color)
-			parent.add_child(ear)
+func _add_preview_accessory(body: Node3D, accessory_id: String, avatar_color: Color) -> void:
+	# Same head-fitted accessory as in-game.
+	CHARACTER_VISUALS.add_accessory(body, accessory_id, avatar_color)
 
 func _preview_material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()

@@ -213,6 +213,41 @@ static func add_hero_details(parent: Node3D, outfit_id: String) -> Node3D:
 	return root
 
 
+## Free cosmetic accessories ("accessory_cap", "accessory_headphones") fitted to the
+## head. `body` is the body node the head hangs from, so the accessory follows the
+## head's bob, slide and emote motion. Returns the added root, or null for any other id.
+static func add_accessory(body: Node3D, accessory_id: String, color: Color) -> Node3D:
+	if accessory_id != "accessory_cap" and accessory_id != "accessory_headphones":
+		return null
+	var root := Node3D.new()
+	root.name = "FreeCosmeticAccessory"
+	root.position = Vector3(0.0, TROLL_HEAD_Y, 0.0)
+	body.add_child(root)
+	if accessory_id == "accessory_cap":
+		# Dome resting on the crown (head top is about +0.315) with a forward brim.
+		var cap_material := _material(color.lightened(0.25), 0.0, 0.65)
+		var cap := _add_ellipsoid(root, "AccessoryCap", 0.24, Vector3(1.0, 1.0, 1.0), Vector3(0.0, 0.32, 0.0), cap_material)
+		(cap.mesh as SphereMesh).height = 0.24
+		_add_cylinder(root, "AccessoryBrim", 0.22, 0.035, Vector3(0.0, 0.215, -0.12), _material(color.darkened(0.2), 0.0, 0.65))
+	else:
+		# Ear cups outside the ears, at ear height.
+		var cup_material := _material(color, 0.0, 0.65)
+		for side in [-1.0, 1.0]:
+			_add_ellipsoid(root, "AccessoryEar_" + _side_suffix(side), 0.105, Vector3(0.9, 1.0, 1.0), Vector3(side * 0.36, 0.0, 0.0), cup_material)
+	return root
+
+
+## Shows or hides a detail root's clothing and gear while the head stays visible.
+## Used while swimming, when the beach outfit replaces the clothes but the
+## character must keep its head.
+static func set_clothing_visible(detail_root: Node3D, clothing_visible: bool) -> void:
+	if not is_instance_valid(detail_root):
+		return
+	for child in detail_root.get_children():
+		if child is Node3D and child.name != "HeadPivot":
+			(child as Node3D).visible = clothing_visible
+
+
 static func _skin_for_outfit(outfit_id: String) -> Color:
 	var profile := profile_for(outfit_id)
 	if not profile.is_empty():

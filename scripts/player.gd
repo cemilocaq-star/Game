@@ -172,38 +172,8 @@ func _add_hero_skin_details() -> void:
 	CharacterVisuals.add_hero_details(_body_mesh, cosmetic_outfit)
 
 func _add_selected_accessory() -> void:
-	var accessory_root := Node3D.new()
-	accessory_root.name = "FreeCosmeticAccessory"
-	accessory_root.position.y = 1.72
-	add_child(accessory_root)
-	if cosmetic_accessory == "accessory_cap":
-		var cap := MeshInstance3D.new()
-		var cap_mesh := SphereMesh.new()
-		cap_mesh.radius = 0.24
-		cap_mesh.height = 0.18
-		cap.mesh = cap_mesh
-		cap.position.y = 0.08
-		cap.material_override = _material(cosmetic_color.lightened(0.25))
-		accessory_root.add_child(cap)
-		var brim := MeshInstance3D.new()
-		var brim_mesh := CylinderMesh.new()
-		brim_mesh.top_radius = 0.22
-		brim_mesh.bottom_radius = 0.22
-		brim_mesh.height = 0.035
-		brim.mesh = brim_mesh
-		brim.position = Vector3(0, 0.015, -0.12)
-		brim.material_override = _material(cosmetic_color.darkened(0.2))
-		accessory_root.add_child(brim)
-	elif cosmetic_accessory == "accessory_headphones":
-		for side in [-1.0, 1.0]:
-			var ear := MeshInstance3D.new()
-			var ear_mesh := SphereMesh.new()
-			ear_mesh.radius = 0.105
-			ear_mesh.height = 0.22
-			ear.mesh = ear_mesh
-			ear.position = Vector3(side * 0.31, -0.02, 0)
-			ear.material_override = _material(cosmetic_color)
-			accessory_root.add_child(ear)
+	# Fitted to the head and attached to the body so it follows the head's motion.
+	CharacterVisuals.add_accessory(_body_mesh, cosmetic_accessory, cosmetic_color)
 
 
 func _build_swimwear() -> void:
@@ -258,11 +228,14 @@ func _build_swimwear() -> void:
 	glasses.add_child(bridge)
 
 func set_swimming(enabled: bool) -> void:
+	var changed := enabled != is_swimming
 	is_swimming = enabled
 	if is_instance_valid(_swimwear_root):
 		_swimwear_root.visible = enabled
-	if is_instance_valid(_character_detail_root):
-		_character_detail_root.visible = not enabled
+	# The beach outfit replaces the clothes; the head stays. Called every frame, so only
+	# touch the detail nodes when the state actually changes.
+	if changed:
+		CharacterVisuals.set_clothing_visible(_character_detail_root, not enabled)
 
 func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("emote_griddy"):

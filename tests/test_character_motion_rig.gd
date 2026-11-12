@@ -87,10 +87,12 @@ func _run_tests() -> void:
 	_run_signature_troll_tests()
 	_run_shared_slim_body_tests()
 	_run_hero_skin_tests()
+	_run_swimming_head_tests()
+	_run_accessory_tests()
 
 	host.free()
 	if failures.is_empty():
-		print("PASS: rounded character meshes, articulated pivots, alternating run cycle, four distinct emotes, slide pose, remote animation initialization, three signature troll costumes, slim body for every outfit and both hero skins")
+		print("PASS: rounded character meshes, articulated pivots, alternating run cycle, four distinct emotes, slide pose, remote animation initialization, three signature troll costumes, slim body for every outfit and both hero skins, head kept while swimming and head-fitted accessories")
 		quit(0)
 	else:
 		for failure in failures:
@@ -272,6 +274,93 @@ func _run_hero_skin_tests() -> void:
 				armor_nodes += 1
 	_assert_equal("remote armor is removed when switching to the default outfit", armor_nodes, 0)
 	remote.free()
+
+
+## While swimming the beach outfit replaces the clothes, but the head must stay visible.
+func _run_swimming_head_tests() -> void:
+	for outfit in ["outfit_default", "outfit_iron_vanguard", "outfit_runner", "outfit_ghost_ops", "outfit_neon"]:
+		var swim_host := Node3D.new()
+		root.add_child(swim_host)
+		var details := CHARACTER_VISUALS.build(swim_host, outfit, Color("#27D7E7"))
+		CHARACTER_VISUALS.set_clothing_visible(details, false)
+		_assert_true("%s keeps its detail root visible while swimming" % outfit, details.visible)
+		_assert_true("%s keeps its head visible while swimming" % outfit, (details.get_node("HeadPivot") as Node3D).visible)
+		var hidden := 0
+		var shown_clothes := 0
+		for child in details.get_children():
+			if child is Node3D and child.name != "HeadPivot":
+				if (child as Node3D).visible:
+					shown_clothes += 1
+				else:
+					hidden += 1
+		_assert_true("%s hides its clothing while swimming" % outfit, hidden > 0)
+		_assert_equal("%s leaves no clothing visible while swimming" % outfit, shown_clothes, 0)
+		CHARACTER_VISUALS.set_clothing_visible(details, true)
+		var restored := true
+		for child in details.get_children():
+			if child is Node3D and not (child as Node3D).visible:
+				restored = false
+		_assert_true("%s clothing returns after swimming" % outfit, restored)
+		swim_host.free()
+
+	CHARACTER_VISUALS.set_clothing_visible(null, false)
+
+	var remote := Node3D.new()
+	remote.set_script(REMOTE_PLAYER)
+	root.add_child(remote)
+	remote.call("set_player_identity", "Swimmer", Color("#27D7E7"), "outfit_default")
+	remote.call("apply_network_state", Vector3.ZERO, 0.0, false, 100.0, false, "", "", true)
+	var remote_details := remote.get("_character_detail_root") as Node3D
+	_assert_true("remote swimmer keeps its head", is_instance_valid(remote_details) and (remote_details.get_node("HeadPivot") as Node3D).visible)
+	_assert_true("remote swimmer hides its tunic", is_instance_valid(remote_details) and not (remote_details.get_node("TunicFrontPanel") as Node3D).visible)
+	remote.call("apply_network_state", Vector3.ZERO, 0.0, false, 100.0, false, "", "", false)
+	_assert_true("remote player gets its tunic back after swimming", is_instance_valid(remote_details) and (remote_details.get_node("TunicFrontPanel") as Node3D).visible)
+	# A rebuild while swimming (for example an outfit change) must not bring the clothes back.
+	remote.call("apply_network_state", Vector3.ZERO, 0.0, false, 100.0, false, "", "", true)
+	remote.call("set_player_identity", "Swimmer", Color("#27D7E7"), "outfit_default")
+	var rebuilt := remote.get("_character_detail_root") as Node3D
+	_assert_true("outfit change while swimming keeps the head", is_instance_valid(rebuilt) and (rebuilt.get_node("HeadPivot") as Node3D).visible)
+	_assert_true("outfit change while swimming keeps the clothes hidden", is_instance_valid(rebuilt) and not (rebuilt.get_node("TunicFrontPanel") as Node3D).visible)
+	remote.free()
+
+
+## The cap and headphones must sit on the lowered head instead of floating or hiding inside it.
+func _run_accessory_tests() -> void:
+	var head_y := CHARACTER_VISUALS.TROLL_HEAD_Y
+	var head_top := head_y + 0.315
+
+	var cap_host := Node3D.new()
+	root.add_child(cap_host)
+	var cap_root := CHARACTER_VISUALS.add_accessory(cap_host, "accessory_cap", Color("#27D7E7"))
+	_assert_true("cap accessory is created", cap_root != null and cap_root.name == "FreeCosmeticAccessory")
+	if cap_root != null:
+		var cap := cap_root.get_node("AccessoryCap") as MeshInstance3D
+		var brim := cap_root.get_node("AccessoryBrim") as MeshInstance3D
+		var cap_center := cap_root.position.y + cap.position.y
+		var cap_mesh := cap.mesh as SphereMesh
+		_assert_true("cap sits on the crown (center %.3f)" % cap_center, cap_center > head_y + 0.2 and cap_center < head_top + 0.1)
+		_assert_true("cap covers the top of the head (top %.3f)" % (cap_center + cap_mesh.height * 0.5), cap_center + cap_mesh.height * 0.5 >= head_top)
+		_assert_true("brim points forward", brim.position.z < -0.05)
+		_assert_true("brim is at forehead height", cap_root.position.y + brim.position.y > head_y + 0.1 and cap_root.position.y + brim.position.y < head_top)
+		_assert_false("cap uses only rounded meshes", _contains_box_mesh(cap_root))
+	cap_host.free()
+
+	var phones_host := Node3D.new()
+	root.add_child(phones_host)
+	var phones_root := CHARACTER_VISUALS.add_accessory(phones_host, "accessory_headphones", Color("#27D7E7"))
+	_assert_true("headphones accessory is created", phones_root != null)
+	if phones_root != null:
+		var ear_left := phones_root.get_node("AccessoryEar_L") as Node3D
+		var ear_right := phones_root.get_node("AccessoryEar_R") as Node3D
+		_assert_true("headphone cups sit on both sides of the head", ear_left.position.x < -0.25 and ear_right.position.x > 0.25)
+		_assert_true("headphone cups are at ear height", absf(phones_root.position.y + ear_left.position.y - head_y) < 0.1)
+	phones_host.free()
+
+	var none_host := Node3D.new()
+	root.add_child(none_host)
+	_assert_true("unknown accessory adds nothing", CHARACTER_VISUALS.add_accessory(none_host, "accessory_none", Color.WHITE) == null and none_host.get_child_count() == 0)
+	_assert_true("empty accessory adds nothing", CHARACTER_VISUALS.add_accessory(none_host, "", Color.WHITE) == null and none_host.get_child_count() == 0)
+	none_host.free()
 
 
 func _contains_box_mesh(node: Node) -> bool:

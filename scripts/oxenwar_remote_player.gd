@@ -101,7 +101,7 @@ func _rebuild_remote_detail() -> void:
 		CharacterVisuals.apply_body_shape(_visual, _outfit_id)
 		_character_detail_root = CharacterVisuals.build(_visual, _outfit_id, _base_color)
 		_hero_root = CharacterVisuals.add_hero_details(_visual, _outfit_id)
-		_character_detail_root.visible = not (is_instance_valid(_swimwear_root) and _swimwear_root.visible)
+		CharacterVisuals.set_clothing_visible(_character_detail_root, not (is_instance_valid(_swimwear_root) and _swimwear_root.visible))
 	if is_instance_valid(_motion_rig):
 		_motion_rig.queue_free()
 	if is_instance_valid(_visual):
@@ -118,8 +118,7 @@ func apply_network_state(position_value: Vector3, yaw_value: float, sliding: boo
 	target_yaw = yaw_value
 	if is_instance_valid(_swimwear_root):
 		_swimwear_root.visible = swimming
-	if is_instance_valid(_character_detail_root):
-		_character_detail_root.visible = not swimming
+	CharacterVisuals.set_clothing_visible(_character_detail_root, not swimming)
 	if emote_id != _emote_id:
 		_emote_id = emote_id if emote_id in ["griddy", "goofy", "robot", "wave"] else ""
 		_emote_clock = 0.0
