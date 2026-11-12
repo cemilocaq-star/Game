@@ -318,7 +318,7 @@ func _server_step_objective(room_code: String, room: Dictionary, delta: float) -
 			room.bomb_planted = false
 			room.objective_result = "CORE DETONATED"
 			room.round_left = 0.0
-		return room
+			return room
 	var peer_id := int(room.get("objective_interactor", 0))
 	var action := str(room.get("objective_action", ""))
 	if peer_id <= 0 or action.is_empty() or not _server_players.has(peer_id):

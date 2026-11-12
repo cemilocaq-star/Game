@@ -183,6 +183,9 @@ jobs:
       - name: Test matchmaking room state and reconnect modes
         run: timeout 45s godot --headless --path . --script tests/test_matchmaking_logic.gd
 
+      - name: Test Bomb Rush plant and defuse state machine
+        run: timeout 45s godot --headless --path . --script tests/test_bomb_rush_objective.gd
+
       - name: Verify dedicated server rejects missing secret
         shell: bash
         run: |
