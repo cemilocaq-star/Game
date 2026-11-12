@@ -903,22 +903,8 @@ func _refresh_character_preview(color_id: String, outfit_id: String, accessory_i
 	CHARACTER_MOTION_RIG.build(body, suit_color, outfit_id)
 	_add_preview_accessory(preview_model, accessory_id, avatar_color)
 
-	if outfit_id == "outfit_iron_vanguard" or outfit_id == "outfit_web_sentinel":
-		var helmet := MeshInstance3D.new()
-		var helmet_mesh := SphereMesh.new()
-		helmet_mesh.radius = 0.245
-		helmet_mesh.height = 0.44
-		helmet.mesh = helmet_mesh
-		helmet.position = Vector3(0, 1.56, 0.0)
-		helmet.material_override = _preview_material(suit_color.lightened(0.16))
-		preview_model.add_child(helmet)
-		var visor := MeshInstance3D.new()
-		var visor_mesh := BoxMesh.new()
-		visor_mesh.size = Vector3(0.30, 0.12, 0.055)
-		visor.mesh = visor_mesh
-		visor.position = Vector3(0, 1.56, -0.205)
-		visor.material_override = _preview_material(Color("#101A2A"))
-		preview_model.add_child(visor)
+	# Same hero armor as in-game, fitted to the slim torso.
+	CHARACTER_VISUALS.add_hero_details(body, outfit_id)
 
 func _add_preview_accessory(parent: Node3D, accessory_id: String, avatar_color: Color) -> void:
 	if accessory_id == "accessory_cap":

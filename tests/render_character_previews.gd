@@ -7,13 +7,13 @@ extends SceneTree
 ## usable image could be captured.
 ##
 ## Output: $PREVIEW_DIR/<outfit>_<view>.png and contact_sheet.png
-## (rows: default, Golden Pilot, Ghost-Ops, Neon Cyan Riot; columns: front,
+## (rows: default, Iron Vanguard, Web Sentinel, Golden Pilot, Ghost-Ops, Neon Cyan Riot; columns: front,
 ## three-quarter, back, run pose).
 
 const CHARACTER_VISUALS := preload("res://scripts/character_visuals.gd")
 const CHARACTER_MOTION_RIG := preload("res://scripts/character_motion_rig.gd")
 
-const OUTFITS := ["outfit_default", "outfit_runner", "outfit_ghost_ops", "outfit_neon"]
+const OUTFITS := ["outfit_default", "outfit_iron_vanguard", "outfit_web_sentinel", "outfit_runner", "outfit_ghost_ops", "outfit_neon"]
 # The camera looks down -Z from +Z and a character faces -Z, so yaw 180 turns the
 # face toward the camera ("front") and yaw 0 shows the back.
 # "run" is a three-quarter view with the run-cycle pose applied to the limb rig.
@@ -99,6 +99,10 @@ func _show_shot(index: int) -> void:
 	_viewport.add_child(_model)
 
 	var suit_color: Color = CHARACTER_VISUALS.suit_color_for(outfit, AVATAR_COLOR)
+	if outfit == "outfit_iron_vanguard":
+		suit_color = Color("#A92332")
+	elif outfit == "outfit_web_sentinel":
+		suit_color = Color("#B52D3D")
 	var body := MeshInstance3D.new()
 	var capsule := CapsuleMesh.new()
 	capsule.radius = 0.38
@@ -113,6 +117,7 @@ func _show_shot(index: int) -> void:
 	_model.add_child(body)
 	CHARACTER_VISUALS.apply_body_shape(body, outfit)
 	CHARACTER_VISUALS.build(body, outfit, AVATAR_COLOR)
+	CHARACTER_VISUALS.add_hero_details(body, outfit)
 	var rig: Node3D = CHARACTER_MOTION_RIG.build(body, suit_color, outfit)
 	if str(shot[1]) == "run":
 		CHARACTER_MOTION_RIG.animate(rig, 0.37, 6.0, true, false, "", 1.0)

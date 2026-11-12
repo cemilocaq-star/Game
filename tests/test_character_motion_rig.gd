@@ -85,10 +85,12 @@ func _run_tests() -> void:
 	_assert_true("default rig keeps plain boots", rig.get_node_or_null("LegPivot_L/KneePivot/FlipFlopSole") == null and rig.get_node_or_null("LegPivot_L/KneePivot/Toe_0") == null)
 
 	_run_signature_troll_tests()
+	_run_shared_slim_body_tests()
+	_run_hero_skin_tests()
 
 	host.free()
 	if failures.is_empty():
-		print("PASS: rounded character meshes, articulated pivots, alternating run cycle, four distinct emotes, slide pose, remote animation initialization and three signature troll costumes")
+		print("PASS: rounded character meshes, articulated pivots, alternating run cycle, four distinct emotes, slide pose, remote animation initialization, three signature troll costumes, slim body for every outfit and both hero skins")
 		quit(0)
 	else:
 		for failure in failures:
@@ -133,7 +135,7 @@ func _run_signature_troll_tests() -> void:
 		else:
 			_assert_true("%s keeps the friendly smile" % outfit, details.get_node_or_null("HeadPivot/Smile") != null)
 
-		# Slim troll body: reshaped capsule, lowered head, and a way back to the default shape.
+		# Slim troll body: reshaped capsule and lowered head.
 		var shaped := MeshInstance3D.new()
 		var shaped_capsule := CapsuleMesh.new()
 		shaped_capsule.radius = 0.38
@@ -141,8 +143,6 @@ func _run_signature_troll_tests() -> void:
 		shaped.mesh = shaped_capsule
 		CHARACTER_VISUALS.apply_body_shape(shaped, outfit)
 		_assert_true("%s body is slimmed to the troll torso" % outfit, is_equal_approx(shaped_capsule.radius, CHARACTER_VISUALS.TROLL_BODY_RADIUS) and is_equal_approx(shaped_capsule.height, CHARACTER_VISUALS.TROLL_BODY_HEIGHT))
-		CHARACTER_VISUALS.apply_body_shape(shaped, "outfit_default")
-		_assert_true("%s body shape resets for other outfits" % outfit, is_equal_approx(shaped_capsule.radius, 0.38) and is_equal_approx(shaped_capsule.height, 1.8))
 		shaped.free()
 		var troll_head := details.get_node("HeadPivot") as Node3D
 		_assert_true("%s head sits on the slim torso" % outfit, is_equal_approx(troll_head.position.y, CHARACTER_VISUALS.TROLL_HEAD_Y))
@@ -189,6 +189,91 @@ func _run_signature_troll_tests() -> void:
 			_assert_false("signature trolls have distinct skin colors (%d/%d)" % [first_index, second_index], skins[first_index].is_equal_approx(skins[second_index]))
 
 
+## Every outfit (default, hero skins and the signature trolls) shares the slim torso,
+## so the head, arms, legs and footwear are never hidden inside a fat capsule and
+## the soles land on the ground line.
+func _run_shared_slim_body_tests() -> void:
+	for outfit in ["outfit_default", "outfit_iron_vanguard", "outfit_web_sentinel", "outfit_runner", "outfit_ghost_ops", "outfit_neon"]:
+		var shaped := MeshInstance3D.new()
+		var shaped_capsule := CapsuleMesh.new()
+		shaped_capsule.radius = 0.38
+		shaped_capsule.height = 1.8
+		shaped.mesh = shaped_capsule
+		CHARACTER_VISUALS.apply_body_shape(shaped, outfit)
+		_assert_true("%s uses the slim torso" % outfit, is_equal_approx(shaped_capsule.radius, CHARACTER_VISUALS.TROLL_BODY_RADIUS) and is_equal_approx(shaped_capsule.height, CHARACTER_VISUALS.TROLL_BODY_HEIGHT))
+		shaped.free()
+
+		var outfit_host := Node3D.new()
+		root.add_child(outfit_host)
+		var details := CHARACTER_VISUALS.build(outfit_host, outfit, Color("#27D7E7"))
+		var head := details.get_node("HeadPivot") as Node3D
+		_assert_true("%s head sits on the slim torso" % outfit, is_equal_approx(head.position.y, CHARACTER_VISUALS.TROLL_HEAD_Y))
+		_assert_true("%s has no tunic capsule hidden inside the body" % outfit, details.get_node_or_null("TrollTunic") == null)
+		_assert_false("%s uses only rounded meshes" % outfit, _contains_box_mesh(details))
+
+		var outfit_rig := CHARACTER_MOTION_RIG.build(outfit_host, CHARACTER_VISUALS.suit_color_for(outfit, Color("#27D7E7")), outfit)
+		var arm_pivot := outfit_rig.get_node("ArmPivot_R") as Node3D
+		_assert_true("%s arms sit outside the slim torso" % outfit, absf(arm_pivot.position.x - CHARACTER_VISUALS.TROLL_SHOULDER_X) < 0.001 and arm_pivot.position.x > CHARACTER_VISUALS.TROLL_BODY_RADIUS)
+		var leg := outfit_rig.get_node("LegPivot_L") as Node3D
+		var knee := leg.get_node("KneePivot") as Node3D
+		var foot := knee.get_node("Boot") as MeshInstance3D
+		var sole_y := leg.position.y + knee.position.y + foot.position.y - (foot.mesh as SphereMesh).radius * foot.scale.y
+		_assert_true("%s soles reach the ground line (collider bottom is -0.9, got %.3f)" % [outfit, sole_y], sole_y >= -0.91 and sole_y <= -0.85)
+		outfit_host.free()
+
+
+## Iron Vanguard and Web Sentinel add their armor through one shared builder so the
+## local player, remote players and the customization preview all show the same pieces.
+func _run_hero_skin_tests() -> void:
+	var expected := {
+		"outfit_iron_vanguard": ["HeroChestPlate", "HeroCore", "HeroShoulder_L", "HeroShoulder_R", "HeroHelmet", "HeroVisor"],
+		"outfit_web_sentinel": ["HeroChestPlate", "HeroCore", "HeroShoulder_L", "HeroShoulder_R", "HeroHelmet", "HeroVisor", "HeroWebLine_L", "HeroWebLine_R"],
+	}
+	for outfit_key in expected.keys():
+		var outfit: String = outfit_key
+		_assert_true("%s is a hero outfit" % outfit, CHARACTER_VISUALS.is_hero_outfit(outfit))
+		var hero_host := Node3D.new()
+		root.add_child(hero_host)
+		var armor := CHARACTER_VISUALS.add_hero_details(hero_host, outfit)
+		_assert_true("%s builds hero armor" % outfit, armor != null)
+		if armor != null:
+			for part in expected[outfit]:
+				_assert_true("%s has armor part %s" % [outfit, part], armor.get_node_or_null(part) is MeshInstance3D)
+			_assert_false("%s armor uses only rounded meshes" % outfit, _contains_box_mesh(armor))
+			var shoulder := armor.get_node("HeroShoulder_R") as Node3D
+			_assert_true("%s shoulder armor sits on the slim torso's arm joint" % outfit, absf(shoulder.position.x - CHARACTER_VISUALS.TROLL_SHOULDER_X) < 0.001)
+			var chest := armor.get_node("HeroChestPlate") as Node3D
+			_assert_true("%s chest plate sits on the front of the slim torso" % outfit, chest.position.z < 0.0 and chest.position.z > -CHARACTER_VISUALS.TROLL_BODY_RADIUS)
+			var helmet := armor.get_node("HeroHelmet") as Node3D
+			_assert_true("%s helmet sits on the head" % outfit, helmet.position.y > CHARACTER_VISUALS.TROLL_HEAD_Y)
+		hero_host.free()
+
+	for plain_outfit in ["outfit_default", "outfit_runner", "outfit_ghost_ops", "outfit_neon"]:
+		var plain_host := Node3D.new()
+		root.add_child(plain_host)
+		_assert_true("%s adds no hero armor" % plain_outfit, CHARACTER_VISUALS.add_hero_details(plain_host, plain_outfit) == null and plain_host.get_child_count() == 0)
+		plain_host.free()
+
+	# Remote players must show hero armor and drop it again when the outfit changes.
+	var remote := Node3D.new()
+	remote.set_script(REMOTE_PLAYER)
+	root.add_child(remote)
+	remote.call("set_player_identity", "Hero", Color("#27D7E7"), "outfit_iron_vanguard")
+	var visual := remote.get("_visual") as MeshInstance3D
+	_assert_true("remote hero shows armor on its body", is_instance_valid(visual) and visual.get_node_or_null("HeroArmor") != null)
+	var remote_capsule := visual.mesh as CapsuleMesh if is_instance_valid(visual) else null
+	_assert_true("remote hero uses the slim torso", remote_capsule != null and is_equal_approx(remote_capsule.radius, CHARACTER_VISUALS.TROLL_BODY_RADIUS))
+	remote.call("set_player_identity", "Hero", Color("#27D7E7"), "outfit_default")
+	remote.call("_process", 0.016)
+	var armor_nodes := 0
+	if is_instance_valid(visual):
+		for child in visual.get_children():
+			if child.name == "HeroArmor" and not child.is_queued_for_deletion():
+				armor_nodes += 1
+	_assert_equal("remote armor is removed when switching to the default outfit", armor_nodes, 0)
+	remote.free()
+
+
 func _contains_box_mesh(node: Node) -> bool:
 	if node is MeshInstance3D and (node as MeshInstance3D).mesh is BoxMesh:
 		return true
@@ -211,3 +296,8 @@ func _assert_false(label: String, actual: bool) -> void:
 func _assert_close(label: String, actual: float, expected: float, tolerance: float) -> void:
 	if absf(actual - expected) > tolerance:
 		failures.append("%s: expected %.3f ± %.3f, got %.3f" % [label, expected, tolerance, actual])
+
+
+func _assert_equal(label: String, actual: Variant, expected: Variant) -> void:
+	if actual != expected:
+		failures.append("%s: expected %s, got %s" % [label, str(expected), str(actual)])

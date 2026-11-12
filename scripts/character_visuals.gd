@@ -11,12 +11,13 @@ extends RefCounted
 
 const PROFILE_OUTFITS := ["outfit_runner", "outfit_ghost_ops", "outfit_neon"]
 
-## Body proportions of the three signature trolls (relative to the body node,
-## which stands 0.9 above the ground). A slim torso keeps the oversized head,
-## arms and legs visible and puts the soles at ground level; other outfits keep
-## the original capsule.
-const DEFAULT_BODY_RADIUS := 0.38
-const DEFAULT_BODY_HEIGHT := 1.8
+## Hero-inspired skins that add armor pieces on top of the shared torso.
+const HERO_OUTFITS := ["outfit_iron_vanguard", "outfit_web_sentinel"]
+
+## Body proportions shared by every outfit (relative to the body node, which
+## stands 0.9 above the ground). A slim torso keeps the oversized head, arms and
+## legs visible and puts the soles at ground level. The collision capsule in
+## the player scripts is separate and unchanged.
 const TROLL_BODY_RADIUS := 0.29
 const TROLL_BODY_HEIGHT := 0.65
 const TROLL_HEAD_Y := 0.70
@@ -85,19 +86,18 @@ static func suit_color_for(outfit_id: String, fallback: Color) -> Color:
 	return suit
 
 
-## Sets the body capsule for an outfit: slim torso for the signature trolls,
-## the original 0.38 x 1.8 capsule for everything else (also restores it when a
-## remote player switches from a troll back to another outfit).
-static func apply_body_shape(body: MeshInstance3D, outfit_id: String) -> void:
+## Sets the visual body capsule. Every outfit shares the slim torso, so the
+## limb rig, head and costume pieces line up the same way for all of them.
+static func apply_body_shape(body: MeshInstance3D, _outfit_id: String = "") -> void:
 	var capsule := body.mesh as CapsuleMesh
 	if capsule == null:
 		return
-	if has_character_profile(outfit_id):
-		capsule.radius = TROLL_BODY_RADIUS
-		capsule.height = TROLL_BODY_HEIGHT
-	else:
-		capsule.radius = DEFAULT_BODY_RADIUS
-		capsule.height = DEFAULT_BODY_HEIGHT
+	capsule.radius = TROLL_BODY_RADIUS
+	capsule.height = TROLL_BODY_HEIGHT
+
+
+static func is_hero_outfit(outfit_id: String) -> bool:
+	return outfit_id in HERO_OUTFITS
 
 
 static func build(parent: Node3D, outfit_id: String, base_color: Color) -> Node3D:
@@ -109,7 +109,6 @@ static func build(parent: Node3D, outfit_id: String, base_color: Color) -> Node3
 	var masked_mouth := outfit_id == "outfit_ghost_ops"
 	var skin := _skin_for_outfit(outfit_id)
 	var fabric_color := base_color
-	var fabric := _material(fabric_color, 0.06, 0.78)
 	var fabric_light := _material(fabric_color.lightened(0.24), 0.04, 0.82)
 	var trim := _material(_trim_for_outfit(outfit_id, base_color), 0.18, 0.48)
 	var skin_material := _material(skin, 0.0, 0.82)
@@ -121,29 +120,27 @@ static func build(parent: Node3D, outfit_id: String, base_color: Color) -> Node3
 	var blush := _material(Color("#E98A83"), 0.0, 0.82)
 	var dark := _material(Color("#24303A"), 0.12, 0.68)
 
-	# The signature trolls use their own gear on a slimmer body instead of the generic tunic.
+	# The signature trolls use their own gear instead of the generic tunic. The slim body
+	# capsule itself is the tunic, so only the surface details are added on top of it.
 	if not styled:
-		# Rounded tunic, collar and a simple decorative belt.
-		_add_capsule(root, "TrollTunic", 0.255, 0.64, Vector3(0.0, -0.015, -0.035), fabric)
-		_add_ellipsoid(root, "TunicFrontPanel", 0.205, Vector3(1.12, 1.12, 0.30), Vector3(0.0, 0.035, -0.205), fabric_light)
+		_add_ellipsoid(root, "TunicFrontPanel", 0.205, Vector3(1.12, 1.12, 0.30), Vector3(0.0, 0.03, -0.235), fabric_light)
 		_add_capsule(root, "SoftCollar", 0.105, 0.18, Vector3(0.0, 0.335, -0.045), trim)
 		_add_ellipsoid(root, "WaistBand", 0.22, Vector3(1.05, 0.27, 0.70), Vector3(0.0, -0.285, -0.035), dark)
 		_add_ellipsoid(root, "RoundBuckle", 0.055, Vector3(1.0, 0.92, 0.42), Vector3(0.0, -0.285, -0.205), trim)
 		for index in range(3):
-			_add_ellipsoid(root, "TunicButton_%d" % index, 0.025, Vector3.ONE, Vector3(0.0, 0.12 - float(index) * 0.105, -0.274), trim)
+			_add_ellipsoid(root, "TunicButton_%d" % index, 0.025, Vector3.ONE, Vector3(0.0, 0.12 - float(index) * 0.105, _front_z(0.0, TROLL_BODY_RADIUS) - 0.012), trim)
 		_add_ellipsoid(root, "FriendlyBadge", 0.06, Vector3(1.0, 1.0, 0.45), Vector3(-0.145, 0.115, -0.253), trim)
 		_add_ellipsoid(root, "TunicHem", 0.22, Vector3(1.08, 0.18, 0.70), Vector3(0.0, -0.285, -0.045), fabric_light)
-		# Extra rounded costume layers make the silhouette richer without blocky armor.
+		# Rounded shoulder caps and hip pouches keep the silhouette rich without blocky armor.
 		for side in [-1.0, 1.0]:
-			var shoulder := _add_ellipsoid(root, "SoftShoulderPad_%s" % str(side), 0.105, Vector3(1.22, 0.78, 0.92), Vector3(side * 0.245, 0.245, -0.025), trim)
+			var shoulder := _add_ellipsoid(root, "SoftShoulderPad_%s" % str(side), 0.105, Vector3(1.22, 0.78, 0.92), Vector3(side * 0.30, 0.225, -0.01), trim)
 			shoulder.rotation.z = side * -0.18
-			_add_ellipsoid(root, "SleeveCuff_%s" % str(side), 0.052, Vector3(0.92, 0.72, 0.88), Vector3(side * 0.265, -0.16, -0.035), fabric_light)
 			_add_ellipsoid(root, "BeltPouch_%s" % str(side), 0.062, Vector3(0.78, 0.92, 0.68), Vector3(side * 0.205, -0.27, -0.12), dark)
 
 	# Oversized head pivot makes the avatar read as a playful troll from every angle.
 	var head := Node3D.new()
 	head.name = "HeadPivot"
-	head.position = Vector3(0.0, TROLL_HEAD_Y if styled else 0.845, 0.0)
+	head.position = Vector3(0.0, TROLL_HEAD_Y, 0.0)
 	root.add_child(head)
 	_add_ellipsoid(head, "TrollHead", 0.30, Vector3(1.02, 1.05, 0.90), Vector3.ZERO, skin_material)
 	_add_ellipsoid(head, "LowerJaw", 0.205, Vector3(1.04, 0.62, 0.80), Vector3(0.0, -0.145, -0.018), skin_shadow)
@@ -178,6 +175,41 @@ static func build(parent: Node3D, outfit_id: String, base_color: Color) -> Node3
 	else:
 		_add_hair(head, outfit_id, skin, trim)
 		_add_headwear(head, outfit_id, trim, dark)
+	return root
+
+
+## Iron Vanguard / Web Sentinel armor, fitted to the slim torso and shared by the
+## local player, remote players and the customization preview. Original rounded
+## silhouettes only; no copied movie/game meshes or logos. Returns the root of
+## the added pieces, or null for any outfit that is not a hero skin.
+static func add_hero_details(parent: Node3D, outfit_id: String) -> Node3D:
+	if not is_hero_outfit(outfit_id):
+		return null
+	var iron := outfit_id == "outfit_iron_vanguard"
+	var primary := Color("#A92332") if iron else Color("#B52D3D")
+	var secondary := Color("#D9B45B") if iron else Color("#183D78")
+	var glow := Color("#66EFFF") if iron else Color("#E34A62")
+	var armor := _material(secondary, 0.55, 0.28)
+	var shell := _material(primary, 0.42, 0.28)
+	var accent := _glow_material(glow, 1.8)
+
+	var root := Node3D.new()
+	root.name = "HeroArmor"
+	parent.add_child(root)
+
+	_add_ellipsoid(root, "HeroChestPlate", 0.25, Vector3(1.08, 0.88, 0.42), Vector3(0.0, 0.05, -0.25), armor)
+	var core_radius := 0.105 if iron else 0.075
+	_add_ellipsoid(root, "HeroCore", core_radius, Vector3(1.0, 1.0, 0.55), Vector3(0.0, 0.08, -0.33), accent)
+	for side in [-1.0, 1.0]:
+		_add_ellipsoid(root, "HeroShoulder_" + _side_suffix(side), 0.16, Vector3(1.0, 0.78, 0.82), Vector3(side * TROLL_SHOULDER_X, TROLL_SHOULDER_Y + 0.03, 0.0), armor)
+
+	# Dome over the upper head with a glowing visor band at eye level.
+	_add_ellipsoid(root, "HeroHelmet", 0.31, Vector3(1.0, 0.62, 0.90), Vector3(0.0, TROLL_HEAD_Y + 0.15, 0.0), shell)
+	_add_ellipsoid(root, "HeroVisor", 0.16, Vector3(1.12, 0.40, 0.28), Vector3(0.0, TROLL_HEAD_Y + 0.065, -0.285), accent)
+
+	if not iron:
+		for side in [-1.0, 1.0]:
+			_add_capsule(root, "HeroWebLine_" + _side_suffix(side), 0.012, 0.40, Vector3(side * 0.12, 0.05, -0.36), _material(Color("#DDEBFF"), 0.0, 0.65))
 	return root
 
 

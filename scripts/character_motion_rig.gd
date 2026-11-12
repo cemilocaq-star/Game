@@ -4,9 +4,9 @@ extends RefCounted
 
 const CHARACTER_VISUALS := preload("res://scripts/character_visuals.gd")
 
-## Builds the articulated limb rig. When `outfit_id` has a costume profile
-## (see CharacterVisuals.profile_for) the limbs, hands and feet take the
-## costume's colors; every other outfit keeps the original color-derived look.
+## Builds the articulated limb rig on the shared slim torso. When `outfit_id`
+## has a costume profile (see CharacterVisuals.profile_for) the limbs, hands and
+## feet take the costume's colors; every other outfit keeps the color-derived look.
 static func build(parent: Node3D, color: Color, outfit_id: String = "") -> Node3D:
 	var rig := Node3D.new()
 	rig.name = "ProceduralMotionRig"
@@ -29,14 +29,11 @@ static func build(parent: Node3D, color: Color, outfit_id: String = "") -> Node3
 	var skin_material: Material = null
 	var foot_style := "boot"
 	var knee_pads := false
-	var shoulder_x := 0.285
-	var shoulder_y := 0.30
-	var hip_y := -0.25
+	# Every outfit shares the slim torso: arms sit outside it and the soles land at ground level.
+	var shoulder_x := CHARACTER_VISUALS.TROLL_SHOULDER_X
+	var shoulder_y := CHARACTER_VISUALS.TROLL_SHOULDER_Y
+	var hip_y := CHARACTER_VISUALS.TROLL_HIP_Y
 	if styled:
-		# Slim troll torso: arms sit outside it and the soles land at ground level.
-		shoulder_x = CHARACTER_VISUALS.TROLL_SHOULDER_X
-		shoulder_y = CHARACTER_VISUALS.TROLL_SHOULDER_Y
-		hip_y = CHARACTER_VISUALS.TROLL_HIP_Y
 		var sleeve_color: Color = profile["sleeve"]
 		var hand_color: Color = profile["hand"]
 		var thigh_color: Color = profile["thigh"]

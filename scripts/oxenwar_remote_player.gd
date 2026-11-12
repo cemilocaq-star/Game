@@ -16,6 +16,7 @@ var _emote_id := ""
 var _emote_clock := 0.0
 var _swimwear_root: Node3D
 var _character_detail_root: Node3D
+var _hero_root: Node3D
 var _motion_rig: Node3D
 var _motion_clock := 0.0
 var _previous_position := Vector3.ZERO
@@ -59,10 +60,10 @@ func _build_remote_swimwear() -> void:
 	_visual.add_child(_swimwear_root)
 	var shirt := MeshInstance3D.new()
 	var shirt_mesh := CapsuleMesh.new()
-	shirt_mesh.radius = 0.245
-	shirt_mesh.height = 0.62
+	shirt_mesh.radius = 0.31
+	shirt_mesh.height = 0.54
 	shirt.mesh = shirt_mesh
-	shirt.position = Vector3(0.0, 0.15, 0.0)
+	shirt.position = Vector3(0.0, 0.02, 0.0)
 	shirt.material_override = _remote_material(Color("#16A6C8"))
 	_swimwear_root.add_child(shirt)
 
@@ -72,12 +73,12 @@ func _build_remote_swimwear() -> void:
 	shorts_mesh.height = 0.60
 	shorts.mesh = shorts_mesh
 	shorts.scale = Vector3(1.12, 0.62, 0.82)
-	shorts.position = Vector3(0.0, -0.30, 0.0)
+	shorts.position = Vector3(0.0, -0.17, 0.0)
 	shorts.material_override = _remote_material(Color("#FFB347"))
 	_swimwear_root.add_child(shorts)
 
 	var glasses := Node3D.new()
-	glasses.position = Vector3(0.0, 0.62, -0.34)
+	glasses.position = Vector3(0.0, 0.76, -0.33)
 	_swimwear_root.add_child(glasses)
 	for side in [-1.0, 1.0]:
 		var lens := MeshInstance3D.new()
@@ -93,9 +94,13 @@ func _build_remote_swimwear() -> void:
 func _rebuild_remote_detail() -> void:
 	if is_instance_valid(_character_detail_root):
 		_character_detail_root.queue_free()
+	if is_instance_valid(_hero_root):
+		_hero_root.queue_free()
+		_hero_root = null
 	if is_instance_valid(_visual):
 		CharacterVisuals.apply_body_shape(_visual, _outfit_id)
 		_character_detail_root = CharacterVisuals.build(_visual, _outfit_id, _base_color)
+		_hero_root = CharacterVisuals.add_hero_details(_visual, _outfit_id)
 		_character_detail_root.visible = not (is_instance_valid(_swimwear_root) and _swimwear_root.visible)
 	if is_instance_valid(_motion_rig):
 		_motion_rig.queue_free()
