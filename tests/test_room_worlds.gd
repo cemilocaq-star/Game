@@ -98,8 +98,9 @@ func _room_space(code: String) -> PhysicsDirectSpaceState3D:
 	return network.call("_room_space", code)
 
 
-func _ray(space: PhysicsDirectSpaceState3D, from: Vector3, to: Vector3, exclude: Array = []) -> Dictionary:
+func _ray(space: PhysicsDirectSpaceState3D, from: Vector3, to: Vector3, exclude: Array = [], mask: int = 0xFFFFFFFF) -> Dictionary:
 	var query := PhysicsRayQueryParameters3D.create(from, to)
+	query.collision_mask = mask
 	var rids: Array[RID] = []
 	for item in exclude:
 		rids.append(item.get_rid())
@@ -125,7 +126,7 @@ func _test_orbs_are_reachable() -> void:
 		query.collision_mask = 1
 		query.transform = Transform3D(Basis.IDENTITY, orb)
 		_assert_equal("jungle orb %d is not inside a solid" % index, space.intersect_shape(query, 4).size(), 0)
-		var ground := _ray(space, orb, orb + Vector3.DOWN * 3.0)
+		var ground := _ray(space, orb, orb + Vector3.DOWN * 3.0, [], 1)
 		_assert_true("jungle orb %d has ground within reach below it" % index, not ground.is_empty() and orb.y - ground.position.y <= 1.15)
 		index += 1
 
@@ -143,7 +144,7 @@ func _test_spawn_points_free() -> void:
 			query.collision_mask = 1
 			query.transform = Transform3D(Basis.IDENTITY, Vector3(spawn.x, 0.5 + 0.95, spawn.z))
 			_assert_equal("jungle spawn team '%s' slot %d is free" % [team, slot], space.intersect_shape(query, 4).size(), 0)
-			var ground := _ray(space, Vector3(spawn.x, 3.0, spawn.z), Vector3(spawn.x, -3.0, spawn.z))
+			var ground := _ray(space, Vector3(spawn.x, 3.0, spawn.z), Vector3(spawn.x, -3.0, spawn.z), [], 1)
 			var ground_text := "no ground" if ground.is_empty() else "%s at %s" % [str(ground.collider.get_parent().name), str(ground.position)]
 			_assert_true("jungle spawn team '%s' slot %d at %s stands on the causeway (%s)" % [team, slot, str(spawn), ground_text], not ground.is_empty() and absf(ground.position.y - 0.5) < 0.12)
 
