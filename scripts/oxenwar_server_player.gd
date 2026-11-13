@@ -44,6 +44,8 @@ var damage_received := 0.0
 var match_outcome := "abandoned"
 var emote_id := ""
 var is_swimming := false
+## The dedicated server builds map 4 (see main.gd), so its swim zone is that map's.
+var swim_map_index := 4
 var xp := 0
 var match_xp := 0
 var collection_counts: Dictionary = {}
@@ -140,7 +142,7 @@ func _physics_process(delta: float) -> void:
 		else:
 			stamina = minf(MAX_STAMINA, stamina + 20.0 * delta)
 	move_and_slide()
-	is_swimming = global_position.x >= -16.0 and global_position.x <= -8.0 and global_position.z >= -13.0 and global_position.z <= -5.0 and global_position.y <= 3.5 and not is_dead
+	is_swimming = MapWorldBuilder.in_swim_zone(swim_map_index, global_position) and not is_dead
 
 func apply_damage(amount: float) -> bool:
 	if is_dead or amount <= 0.0:

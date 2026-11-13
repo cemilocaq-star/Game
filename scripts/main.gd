@@ -8,7 +8,7 @@ const NETWORK_SCRIPT = preload("res://scripts/oxenwar_network.gd")
 const EVENT_FX_SCRIPT = preload("res://scripts/oxenwar_event_fx.gd")
 const COMBAT_FX_SCRIPT = preload("res://scripts/combat_fx.gd")
 const MAP_WORLD_SCRIPT = preload("res://scripts/map_world_builder.gd")
-const MAP_NAMES := ["LOST MALL", "NEON CITY", "SPACE ISLANDS", "CANDY WORLD", "SUNKEN OASIS", "JUNGLE TEMPLE", "REDSTONE CANYON"]
+const MAP_NAMES := ["LOST MALL", "NEON CITY", "SPACE ISLANDS", "CANDY WORLD", "SUNKEN OASIS", "JUNGLE ARENA", "REDSTONE CANYON"]
 const REMOTE_PLAYER_SCRIPT = preload("res://scripts/oxenwar_remote_player.gd")
 var local_player_name := "Player"
 var local_admin_authorized := false
@@ -119,6 +119,8 @@ var graphics_option: OptionButton
 var arena_meshes: Array[MeshInstance3D] = []
 var arena_colors: Array[Color] = []
 var map_extras: Array[Node3D] = []
+var arena_bodies: Array[Node] = []
+var arena_detail_root: Node3D
 var active_map_index := 4
 var selected_game_mode := "ffa"
 var _client_grenade_visuals: Dictionary = {}
@@ -911,11 +913,20 @@ func _build_arena() -> void:
 	var wall_color := Color("#806349") if desert_palette else (Color("#263F36") if jungle_palette else Color(0.045, 0.07, 0.12))
 	var stage_color := Color("#A77B50") if desert_palette else (Color("#6C8060") if jungle_palette else Color(0.19, 0.26, 0.36))
 	var platform_color := Color("#B88C5B") if desert_palette else (Color("#718E65") if jungle_palette else Color(0.22, 0.29, 0.39))
-	_make_box("ArenaFloor", Vector3(36, 0.8, 30), Vector3(0, -0.4, 0), floor_color)
-	_make_box("NorthWall", Vector3(36, 3.6, 0.9), Vector3(0, 1.8, -14.55), wall_color)
-	_make_box("SouthWall", Vector3(36, 3.6, 0.9), Vector3(0, 1.8, 14.55), wall_color)
-	_make_box("EastWall", Vector3(0.9, 3.6, 28.2), Vector3(17.55, 1.8, 0), wall_color)
-	_make_box("WestWall", Vector3(0.9, 3.6, 28.2), Vector3(-17.55, 1.8, 0), wall_color)
+	var jungle_map := active_map_index == 5
+	if not jungle_map:
+		_make_box("ArenaFloor", Vector3(36, 0.8, 30), Vector3(0, -0.4, 0), floor_color)
+	# Jungle Arena has 3 m high platforms next to the walls, so its walls are tall enough that
+	# nobody can jump over them from a treehouse or pyramid.
+	var wall_height := 9.0 if jungle_map else 3.6
+	_make_box("NorthWall", Vector3(36, wall_height, 0.9), Vector3(0, wall_height * 0.5, -14.55), wall_color)
+	_make_box("SouthWall", Vector3(36, wall_height, 0.9), Vector3(0, wall_height * 0.5, 14.55), wall_color)
+	_make_box("EastWall", Vector3(0.9, wall_height, 28.2), Vector3(17.55, wall_height * 0.5, 0), wall_color)
+	_make_box("WestWall", Vector3(0.9, wall_height, 28.2), Vector3(-17.55, wall_height * 0.5, 0), wall_color)
+	if jungle_map:
+		# Jungle Arena builds its own floor, river and platforms in MapWorldBuilder.
+		_apply_map_variant()
+		return
 	_make_box("CentralStage", Vector3(9, 1.2, 6.2), Vector3(0, 0.6, 0), stage_color)
 	_make_box("WestUpperPlatform", Vector3(6.5, 1.2, 5.2), Vector3(-11.2, 1.9, -5.6), platform_color)
 	_make_box("EastUpperPlatform", Vector3(6.5, 1.2, 5.2), Vector3(11.2, 1.9, -5.6), platform_color)
@@ -936,6 +947,7 @@ func _build_arena_detail_pass() -> void:
 	var root := Node3D.new()
 	root.name = "ArenaArtDetailPass"
 	add_child(root)
+	arena_detail_root = root
 	var trim := Color("#21DCCB")
 	var pale := Color("#8BEAFF")
 	var dark := Color("#18283A")
@@ -1032,6 +1044,7 @@ func _make_box(node_name: String, size: Vector3, position: Vector3, color: Color
 	mesh_node.material_override = graphics.make_material(color)
 	body.add_child(mesh_node)
 	add_child(body)
+	arena_bodies.append(body)
 
 func _spawn_player() -> void:
 	player = PLAYER_SCRIPT.new()
@@ -1052,6 +1065,7 @@ func _spawn_player() -> void:
 	player.is_admin = local_admin_authorized
 	admin_available = player.is_admin
 	player.position = Vector3(0, 1.5, 6)
+	player.swim_map_index = active_map_index
 	player.collected.connect(_on_collected)
 	add_child(player)
 
@@ -1708,16 +1722,34 @@ func _admin_cycle_map() -> void:
 	if not admin_available:
 		return
 	active_map_index = (active_map_index + 1) % MAP_NAMES.size()
-	for extra in map_extras:
-		if is_instance_valid(extra):
-			extra.queue_free()
-	map_extras.clear()
-	_apply_map_variant()
+	_rebuild_arena()
+	if is_instance_valid(player):
+		player.swim_map_index = active_map_index
+		# The new layout can put solids where the player stands, so return to the spawn point.
+		player.global_position = Vector3(0, 1.5, 6)
+		player.velocity = Vector3.ZERO
 	if is_instance_valid(admin_panel):
 		for child in admin_panel.find_children("Button", "Button", true, false):
 			if child is Button and child.text.begins_with("Cycle Map:"):
 				child.text = "Cycle Map: %s" % _map_name()
 	_show_meme_toast("MAP: %s" % _map_name())
+
+## Frees the arena base and the map layout, then builds both again for `active_map_index`.
+func _rebuild_arena() -> void:
+	for body in arena_bodies:
+		if is_instance_valid(body):
+			body.queue_free()
+	arena_bodies.clear()
+	arena_meshes.clear()
+	arena_colors.clear()
+	for extra in map_extras:
+		if is_instance_valid(extra):
+			extra.queue_free()
+	map_extras.clear()
+	if is_instance_valid(arena_detail_root):
+		arena_detail_root.queue_free()
+		arena_detail_root = null
+	_build_arena()
 
 func _map_name() -> String:
 	return MAP_NAMES[clampi(active_map_index, 0, MAP_NAMES.size() - 1)]

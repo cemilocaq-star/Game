@@ -102,6 +102,8 @@ var _character_detail_root: Node3D
 var _motion_rig: Node3D
 var _motion_clock := 0.0
 var is_swimming := false
+## Which map's swim zone applies (see MapWorldBuilder.in_swim_zone); set by main.
+var swim_map_index := 4
 
 func _ready() -> void:
 	floor_snap_length = CharacterMovement.FLOOR_SNAP_LENGTH
@@ -702,7 +704,7 @@ func _physics_process(delta: float) -> void:
 		try_dash(direction)
 
 	move_and_slide()
-	set_swimming(global_position.x >= -16.0 and global_position.x <= -8.0 and global_position.z >= -13.0 and global_position.z <= -5.0 and global_position.y <= 3.5)
+	set_swimming(MapWorldBuilder.in_swim_zone(swim_map_index, global_position))
 	_update_footsteps(delta)
 	if _camera:
 		var target_camera_height := 1.05 if _is_sliding else 1.55

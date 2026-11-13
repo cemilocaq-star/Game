@@ -189,6 +189,9 @@ jobs:
       - name: Test movement and grenade physics
         run: timeout 60s godot --headless --path . --script tests/test_movement_physics.gd
 
+      - name: Test Jungle Arena map
+        run: timeout 90s godot --headless --path . --script tests/test_jungle_arena.gd
+
       - name: Verify dedicated server rejects missing secret
         shell: bash
         run: |
