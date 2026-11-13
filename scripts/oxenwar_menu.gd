@@ -2,6 +2,7 @@ extends CanvasLayer
 signal play_requested(identity: Dictionary)
 
 const I18N = preload("res://scripts/oxenwar_i18n.gd")
+const ARENA_LAYOUT = preload("res://scripts/arena_layout.gd")
 const CHARACTER_VISUALS = preload("res://scripts/character_visuals.gd")
 const CHARACTER_MOTION_RIG = preload("res://scripts/character_motion_rig.gd")
 var backend: Node
@@ -22,6 +23,7 @@ var preview_spin: Node3D
 var preview_model: Node3D
 var server_host := ""
 var selected_game_mode := "ffa"
+var selected_map_index := 4
 var room_code_field: LineEdit
 var server_host_field: LineEdit
 var lobby_notice_label: Label
@@ -325,6 +327,21 @@ func _render_play_tab() -> void:
 	mode_select.item_selected.connect(func(index: int): selected_game_mode = str(mode_select.get_item_metadata(index)))
 	mode_row.add_child(mode_select)
 
+	var map_row := HBoxContainer.new()
+	map_row.add_theme_constant_override("separation", 10)
+	content.add_child(map_row)
+	var map_label := _label("MAP")
+	map_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	map_row.add_child(map_label)
+	var map_select := OptionButton.new()
+	map_select.custom_minimum_size = Vector2(220, 44)
+	for map_index in range(ARENA_LAYOUT.MAP_COUNT):
+		map_select.add_item(ARENA_LAYOUT.map_name(map_index))
+		map_select.set_item_metadata(map_index, map_index)
+	map_select.select(selected_map_index)
+	map_select.item_selected.connect(func(index: int): selected_map_index = int(map_select.get_item_metadata(index)))
+	map_row.add_child(map_select)
+
 	var server_panel := PanelContainer.new()
 	server_panel.add_theme_stylebox_override("panel", _panel_style())
 	content.add_child(server_panel)
@@ -423,6 +440,7 @@ func _launch_game(action: String) -> void:
 		"is_admin": is_admin,
 		"launch_action": action,
 		"game_mode": selected_game_mode,
+		"map_index": selected_map_index,
 		"room_code": room_code,
 		"server_host": host
 	})

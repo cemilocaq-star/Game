@@ -8,7 +8,8 @@ const NETWORK_SCRIPT = preload("res://scripts/oxenwar_network.gd")
 const EVENT_FX_SCRIPT = preload("res://scripts/oxenwar_event_fx.gd")
 const COMBAT_FX_SCRIPT = preload("res://scripts/combat_fx.gd")
 const MAP_WORLD_SCRIPT = preload("res://scripts/map_world_builder.gd")
-const MAP_NAMES := ["LOST MALL", "NEON CITY", "SPACE ISLANDS", "CANDY WORLD", "SUNKEN OASIS", "JUNGLE ARENA", "REDSTONE CANYON"]
+const ARENA_LAYOUT := preload("res://scripts/arena_layout.gd")
+const MAP_NAMES := ARENA_LAYOUT.MAP_NAMES
 const REMOTE_PLAYER_SCRIPT = preload("res://scripts/oxenwar_remote_player.gd")
 var local_player_name := "Player"
 var local_admin_authorized := false
@@ -123,6 +124,7 @@ var arena_bodies: Array[Node] = []
 var arena_detail_root: Node3D
 var active_map_index := 4
 var selected_game_mode := "ffa"
+var selected_map_index := 4
 var _client_grenade_visuals: Dictionary = {}
 var _last_objective_result := ""
 var _objective_core_visual: Node3D
@@ -233,6 +235,7 @@ func _request_player_identity() -> void:
 	pending_launch_action = str(identity.get("launch_action", "quick_match"))
 	pending_launch_room_code = str(identity.get("room_code", ""))
 	selected_game_mode = str(identity.get("game_mode", "ffa"))
+	selected_map_index = ARENA_LAYOUT.sanitize_map(int(identity.get("map_index", 4)))
 	launch_server_host = str(identity.get("server_host", "")).strip_edges()
 	menu.queue_free()
 
@@ -305,15 +308,15 @@ func _on_network_authentication_changed(authenticated: bool, message: String) ->
 			# A reconnect may already have restored the previous room on the server.
 			# Only re-queue when no valid reconnect reservation was restored.
 			if not network.session_restored_on_auth:
-				network.request_quick_match(selected_game_mode)
+				network.request_quick_match(selected_game_mode, selected_map_index)
 		else:
 			match pending_launch_action:
 				"create_room":
-					network.request_create_room(true, selected_game_mode)
+					network.request_create_room(true, selected_game_mode, selected_map_index)
 				"join_room":
 					network.request_join_room(pending_launch_room_code)
 				_:
-					network.request_quick_match(selected_game_mode)
+					network.request_quick_match(selected_game_mode, selected_map_index)
 		pending_launch_action = ""
 		_show_meme_toast("SERVER VERIFIED • " + message)
 	elif is_instance_valid(player) and not authenticated:
@@ -362,6 +365,15 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 	_update_hud()
 
 func _on_network_room_state(state: Dictionary) -> void:
+	if state.has("map_index"):
+		var room_map := ARENA_LAYOUT.sanitize_map(int(state.get("map_index", active_map_index)))
+		if room_map != active_map_index:
+			# The server decides the map of the room; the client builds the same one.
+			active_map_index = room_map
+			_rebuild_arena()
+			if is_instance_valid(player):
+				player.swim_map_index = active_map_index
+			_show_meme_toast("MAP: %s" % _map_name())
 	_update_objective_core(state)
 	if state.has("event_id"):
 		var next_event := str(state.get("event_id", ""))
@@ -509,11 +521,11 @@ func _on_network_connect_pressed() -> void:
 
 func _on_create_room_pressed() -> void:
 	if is_instance_valid(network):
-		network.request_create_room(true, selected_game_mode)
+		network.request_create_room(true, selected_game_mode, selected_map_index)
 
 func _on_quick_match_pressed() -> void:
 	if is_instance_valid(network):
-		network.request_quick_match(selected_game_mode)
+		network.request_quick_match(selected_game_mode, selected_map_index)
 
 func _on_join_room_pressed() -> void:
 	if is_instance_valid(network) and is_instance_valid(room_code_input):
@@ -909,36 +921,19 @@ func _build_environment() -> void:
 func _build_arena() -> void:
 	var desert_palette := active_map_index in [4, 6]
 	var jungle_palette := active_map_index == 5
-	var floor_color := Color("#CDB17D") if desert_palette else (Color("#385846") if jungle_palette else Color(0.07, 0.12, 0.19))
-	var wall_color := Color("#806349") if desert_palette else (Color("#263F36") if jungle_palette else Color(0.045, 0.07, 0.12))
-	var stage_color := Color("#A77B50") if desert_palette else (Color("#6C8060") if jungle_palette else Color(0.19, 0.26, 0.36))
-	var platform_color := Color("#B88C5B") if desert_palette else (Color("#718E65") if jungle_palette else Color(0.22, 0.29, 0.39))
-	var jungle_map := active_map_index == 5
-	if not jungle_map:
-		_make_box("ArenaFloor", Vector3(36, 0.8, 30), Vector3(0, -0.4, 0), floor_color)
-	# Jungle Arena has 3 m high platforms next to the walls, so its walls are tall enough that
-	# nobody can jump over them from a treehouse or pyramid.
-	var wall_height := 9.0 if jungle_map else 3.6
-	_make_box("NorthWall", Vector3(36, wall_height, 0.9), Vector3(0, wall_height * 0.5, -14.55), wall_color)
-	_make_box("SouthWall", Vector3(36, wall_height, 0.9), Vector3(0, wall_height * 0.5, 14.55), wall_color)
-	_make_box("EastWall", Vector3(0.9, wall_height, 28.2), Vector3(17.55, wall_height * 0.5, 0), wall_color)
-	_make_box("WestWall", Vector3(0.9, wall_height, 28.2), Vector3(-17.55, wall_height * 0.5, 0), wall_color)
-	if jungle_map:
-		# Jungle Arena builds its own floor, river and platforms in MapWorldBuilder.
-		_apply_map_variant()
-		return
-	_make_box("CentralStage", Vector3(9, 1.2, 6.2), Vector3(0, 0.6, 0), stage_color)
-	_make_box("WestUpperPlatform", Vector3(6.5, 1.2, 5.2), Vector3(-11.2, 1.9, -5.6), platform_color)
-	_make_box("EastUpperPlatform", Vector3(6.5, 1.2, 5.2), Vector3(11.2, 1.9, -5.6), platform_color)
-	_make_box("SouthPlatform", Vector3(8.2, 1.2, 4.0), Vector3(0, 1.5, 9.5), platform_color)
-	_make_box("NorthBridge", Vector3(12, 0.8, 2.2), Vector3(0, 1.8, -10), platform_color)
-	_make_box("WestHop", Vector3(2.2, 1.3, 2.2), Vector3(-5.2, 0.65, -3.8), platform_color)
-	_make_box("EastHop", Vector3(2.2, 1.3, 2.2), Vector3(5.2, 0.65, -3.8), platform_color)
-	_make_box("SouthHop", Vector3(2.2, 1.3, 2.2), Vector3(-5.2, 0.65, 3.8), platform_color)
-	_make_box("NorthHop", Vector3(2.2, 1.3, 2.2), Vector3(5.2, 0.65, 3.8), platform_color)
-	_make_box("WestRampBlock", Vector3(7, 0.7, 3.0), Vector3(-8.3, 0.55, 0.8), platform_color)
-	_make_box("EastRampBlock", Vector3(7, 0.7, 3.0), Vector3(8.3, 0.55, 0.8), platform_color)
+	var role_colors := {
+		"floor": Color("#CDB17D") if desert_palette else (Color("#385846") if jungle_palette else Color(0.07, 0.12, 0.19)),
+		"wall": Color("#806349") if desert_palette else (Color("#263F36") if jungle_palette else Color(0.045, 0.07, 0.12)),
+		"stage": Color("#A77B50") if desert_palette else (Color("#6C8060") if jungle_palette else Color(0.19, 0.26, 0.36)),
+		"platform": Color("#B88C5B") if desert_palette else (Color("#718E65") if jungle_palette else Color(0.22, 0.29, 0.39))
+	}
+	# The base boxes come from ArenaLayout, which the dedicated server also uses for every room.
+	for box in ARENA_LAYOUT.base_boxes(active_map_index):
+		_make_box(str(box.name), box.size, box.position, role_colors[str(box.role)])
 	_apply_map_variant()
+	if active_map_index == ARENA_LAYOUT.JUNGLE_MAP:
+		# Jungle Arena builds its own floor, river and platforms in MapWorldBuilder.
+		return
 	if not OS.get_cmdline_user_args().has("--server"):
 		_build_arena_detail_pass()
 
@@ -1070,7 +1065,7 @@ func _spawn_player() -> void:
 	add_child(player)
 
 func _build_collectibles() -> void:
-	orb_spawns = [Vector3(-12, 1.0, -8), Vector3(-7, 2.0, -5), Vector3(0, 2.0, -10), Vector3(7, 2.0, -5), Vector3(12, 1.0, -8), Vector3(-10, 1.0, 5), Vector3(-4, 1.8, 1), Vector3(4, 1.8, 1), Vector3(10, 1.0, 5), Vector3(0, 2.2, 10), Vector3(-2, 1.2, -2), Vector3(2, 1.2, -2)]
+	orb_spawns.assign(ARENA_LAYOUT.orb_positions(active_map_index))
 	for i in orb_spawns.size():
 		_spawn_orb(i)
 
@@ -1099,7 +1094,7 @@ func _spawn_orb(index: int) -> void:
 		mesh_node.mesh = mesh
 		visual = mesh_node
 	area.add_child(visual)
-	var bob := create_tween()
+	var bob := area.create_tween()
 	bob.set_loops()
 	bob.tween_property(visual, "rotation:y", TAU, 2.4)
 	bob.tween_property(visual, "position:y", 0.22, 0.65)
@@ -1721,6 +1716,10 @@ func _admin_trigger_event(event_id: String) -> void:
 func _admin_cycle_map() -> void:
 	if not admin_available:
 		return
+	if is_instance_valid(network) and network.is_authenticated:
+		# The server builds the map for the whole room, so a local-only change would desync the player.
+		_show_meme_toast("ONLINE: MAP IS SET WHEN THE ROOM IS CREATED")
+		return
 	active_map_index = (active_map_index + 1) % MAP_NAMES.size()
 	_rebuild_arena()
 	if is_instance_valid(player):
@@ -1750,6 +1749,15 @@ func _rebuild_arena() -> void:
 		arena_detail_root.queue_free()
 		arena_detail_root = null
 	_build_arena()
+	# The orbs follow the map: the Jungle Arena has its own pickup spots.
+	for orb in get_tree().get_nodes_in_group("local_collectibles"):
+		orb.queue_free()
+	_build_collectibles()
+	if is_instance_valid(network) and network.is_authenticated:
+		# Online pickups are decided by the server, so the local overlap check stays off.
+		for area in get_tree().get_nodes_in_group("local_collectibles"):
+			if area is Area3D and not area.is_queued_for_deletion():
+				area.monitoring = false
 
 func _map_name() -> String:
 	return MAP_NAMES[clampi(active_map_index, 0, MAP_NAMES.size() - 1)]

@@ -192,6 +192,9 @@ jobs:
       - name: Test Jungle Arena map
         run: timeout 90s godot --headless --path . --script tests/test_jungle_arena.gd
 
+      - name: Test per-room maps and isolated physics worlds
+        run: timeout 90s godot --headless --path . --script tests/test_room_worlds.gd
+
       - name: Verify dedicated server rejects missing secret
         shell: bash
         run: |
