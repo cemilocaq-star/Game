@@ -1,11 +1,15 @@
 extends Node3D
 
+const GRENADE_PHYSICS := preload("res://scripts/grenade_physics.gd")
 const PLAYER_SCRIPT = preload("res://scripts/player.gd")
 const BACKEND_SCRIPT = preload("res://scripts/oxenwar_supabase.gd")
 const MENU_SCRIPT = preload("res://scripts/oxenwar_menu.gd")
 const NETWORK_SCRIPT = preload("res://scripts/oxenwar_network.gd")
 const EVENT_FX_SCRIPT = preload("res://scripts/oxenwar_event_fx.gd")
 const COMBAT_FX_SCRIPT = preload("res://scripts/combat_fx.gd")
+const MAP_WORLD_SCRIPT = preload("res://scripts/map_world_builder.gd")
+const ARENA_LAYOUT := preload("res://scripts/arena_layout.gd")
+const MAP_NAMES := ARENA_LAYOUT.MAP_NAMES
 const REMOTE_PLAYER_SCRIPT = preload("res://scripts/oxenwar_remote_player.gd")
 var local_player_name := "Player"
 var local_admin_authorized := false
@@ -116,9 +120,15 @@ var graphics_option: OptionButton
 var arena_meshes: Array[MeshInstance3D] = []
 var arena_colors: Array[Color] = []
 var map_extras: Array[Node3D] = []
+var arena_bodies: Array[Node] = []
+var arena_detail_root: Node3D
 var active_map_index := 4
 var selected_game_mode := "ffa"
+var selected_map_index := 4
 var _client_grenade_visuals: Dictionary = {}
+var _last_objective_result := ""
+var _objective_core_visual: Node3D
+var _objective_core_site := ""
 var admin_available := false
 var admin_panel: PanelContainer
 var admin_hint: Label
@@ -148,9 +158,9 @@ var equipped_weapon_label: Label
 var arsenal_panel: PanelContainer
 var emote_wheel: Control
 var emote_wheel_button: Button
-const WEAPON_ORDER := ["aether", "minicore", "hand_cannon", "pulse_carbine", "star_piercer", "duck_launcher", "banana_boomerang", "confetti_cannon", "prism_scepter", "vortex_orbiter", "comet_bow", "bubble_burst", "glitch_ray", "meteor_mallet", "frost_wand", "solar_lance", "slime_slinger", "pixel_storm", "thunder_drum", "moon_disc", "jellyfish_staff", "portal_popper", "rubber_chicken"]
-const WEAPON_DISPLAY := {"aether":"AETHER BLASTER", "minicore":"MINICORE", "hand_cannon":"NOVA HAND CANNON", "pulse_carbine":"PULSE CARBINE", "star_piercer":"STAR PIERCER", "duck_launcher":"DUCK LAUNCHER", "banana_boomerang":"BANANA BOOMERANG", "confetti_cannon":"CONFETTI CANNON", "prism_scepter":"PRISM SCEPTER", "vortex_orbiter":"VORTEX ORBITER", "comet_bow":"COMET BOW", "bubble_burst":"BUBBLE BURST", "glitch_ray":"GLITCH RAY", "meteor_mallet":"METEOR MALLET", "frost_wand":"FROST WAND", "solar_lance":"SOLAR LANCE", "slime_slinger":"SLIME SLINGER", "pixel_storm":"PIXEL STORM", "thunder_drum":"THUNDER DRUM", "moon_disc":"MOON DISC", "jellyfish_staff":"JELLYFISH STAFF", "portal_popper":"PORTAL POPPER", "rubber_chicken":"RUBBER CHICKEN"}
-const WEAPON_ROLE := {"aether":"Energy blaster", "minicore":"Rapid pulse", "hand_cannon":"Heavy pulse", "pulse_carbine":"Balanced burst", "star_piercer":"Long-range prism", "duck_launcher":"Duck gag", "banana_boomerang":"Ricochet gag", "confetti_cannon":"Party burst", "prism_scepter":"Crystal beam", "vortex_orbiter":"Orbiting energy", "comet_bow":"Charged comet", "bubble_burst":"Bubble spray", "glitch_ray":"Pixel beam", "meteor_mallet":"Meteor bonk", "frost_wand":"Frost pulse", "solar_lance":"Solar charge", "slime_slinger":"Slime glob", "pixel_storm":"Voxel burst", "thunder_drum":"Thunder beat", "moon_disc":"Lunar ring", "jellyfish_staff":"Floating glow", "portal_popper":"Portal pulse", "rubber_chicken":"Squeaky chaos"}
+const WEAPON_ORDER := ["aether", "minicore", "hand_cannon", "pulse_carbine", "star_piercer", "duck_launcher", "banana_boomerang", "confetti_cannon", "prism_scepter", "vortex_orbiter", "comet_bow", "bubble_burst", "glitch_ray", "meteor_mallet", "frost_wand", "solar_lance", "slime_slinger", "pixel_storm", "thunder_drum", "moon_disc", "jellyfish_staff", "portal_popper", "rubber_chicken", "ranger_rifle", "heavy_sidearm", "longshot", "rotary_arc"]
+const WEAPON_DISPLAY := {"aether":"AETHER BLASTER", "minicore":"MINICORE", "hand_cannon":"NOVA HAND CANNON", "pulse_carbine":"PULSE CARBINE", "star_piercer":"STAR PIERCER", "duck_launcher":"DUCK LAUNCHER", "banana_boomerang":"BANANA BOOMERANG", "confetti_cannon":"CONFETTI CANNON", "prism_scepter":"PRISM SCEPTER", "vortex_orbiter":"VORTEX ORBITER", "comet_bow":"COMET BOW", "bubble_burst":"BUBBLE BURST", "glitch_ray":"GLITCH RAY", "meteor_mallet":"METEOR MALLET", "frost_wand":"FROST WAND", "solar_lance":"SOLAR LANCE", "slime_slinger":"SLIME SLINGER", "pixel_storm":"PIXEL STORM", "thunder_drum":"THUNDER DRUM", "moon_disc":"MOON DISC", "jellyfish_staff":"JELLYFISH STAFF", "portal_popper":"PORTAL POPPER", "rubber_chicken":"RUBBER CHICKEN", "ranger_rifle":"RANGER RIFLE", "heavy_sidearm":"HEAVY SIDEARM", "longshot":"LONGSHOT", "rotary_arc":"ROTARY ARC"}
+const WEAPON_ROLE := {"aether":"Energy blaster", "minicore":"Rapid pulse", "hand_cannon":"Heavy pulse", "pulse_carbine":"Balanced burst", "star_piercer":"Long-range prism", "duck_launcher":"Duck gag", "banana_boomerang":"Ricochet gag", "confetti_cannon":"Party burst", "prism_scepter":"Crystal beam", "vortex_orbiter":"Orbiting energy", "comet_bow":"Charged comet", "bubble_burst":"Bubble spray", "glitch_ray":"Pixel beam", "meteor_mallet":"Meteor bonk", "frost_wand":"Frost pulse", "solar_lance":"Solar charge", "slime_slinger":"Slime glob", "pixel_storm":"Voxel burst", "thunder_drum":"Thunder beat", "moon_disc":"Lunar ring", "jellyfish_staff":"Floating glow", "portal_popper":"Portal pulse", "rubber_chicken":"Squeaky chaos", "ranger_rifle":"Balanced rifle prop", "heavy_sidearm":"Heavy pulse sidearm", "longshot":"Precision prism", "rotary_arc":"Rotating energy array"}
 
 const RANK_THRESHOLDS := [
 	{"id":"bronze", "xp":0, "color":Color("#B87945")},
@@ -225,6 +235,7 @@ func _request_player_identity() -> void:
 	pending_launch_action = str(identity.get("launch_action", "quick_match"))
 	pending_launch_room_code = str(identity.get("room_code", ""))
 	selected_game_mode = str(identity.get("game_mode", "ffa"))
+	selected_map_index = ARENA_LAYOUT.sanitize_map(int(identity.get("map_index", 4)))
 	launch_server_host = str(identity.get("server_host", "")).strip_edges()
 	menu.queue_free()
 
@@ -297,15 +308,15 @@ func _on_network_authentication_changed(authenticated: bool, message: String) ->
 			# A reconnect may already have restored the previous room on the server.
 			# Only re-queue when no valid reconnect reservation was restored.
 			if not network.session_restored_on_auth:
-				network.request_quick_match(selected_game_mode)
+				network.request_quick_match(selected_game_mode, selected_map_index)
 		else:
 			match pending_launch_action:
 				"create_room":
-					network.request_create_room(true, selected_game_mode)
+					network.request_create_room(true, selected_game_mode, selected_map_index)
 				"join_room":
 					network.request_join_room(pending_launch_room_code)
 				_:
-					network.request_quick_match(selected_game_mode)
+					network.request_quick_match(selected_game_mode, selected_map_index)
 		pending_launch_action = ""
 		_show_meme_toast("SERVER VERIFIED • " + message)
 	elif is_instance_valid(player) and not authenticated:
@@ -354,6 +365,16 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 	_update_hud()
 
 func _on_network_room_state(state: Dictionary) -> void:
+	if state.has("map_index"):
+		var room_map := ARENA_LAYOUT.sanitize_map(int(state.get("map_index", active_map_index)))
+		if room_map != active_map_index:
+			# The server decides the map of the room; the client builds the same one.
+			active_map_index = room_map
+			_rebuild_arena()
+			if is_instance_valid(player):
+				player.swim_map_index = active_map_index
+			_show_meme_toast("MAP: %s" % _map_name())
+	_update_objective_core(state)
 	if state.has("event_id"):
 		var next_event := str(state.get("event_id", ""))
 		if next_event != active_event:
@@ -366,9 +387,20 @@ func _on_network_room_state(state: Dictionary) -> void:
 		hill_points_red = float(state.get("hill_points_red", hill_points_red))
 		hill_points_blue = float(state.get("hill_points_blue", hill_points_blue))
 		if is_instance_valid(objective_label):
-			objective_label.visible = active_room_mode == "king_of_the_hill"
-			var hill_owner := "RED" if hill_control >= 100.0 else ("BLUE" if hill_control <= -100.0 else ("CONTESTED" if absf(hill_control) > 0.1 else "NEUTRAL"))
-			objective_label.text = "HILL %s  •  RED %02d / BLUE %02d  •  CAPTURE %d%%" % [hill_owner, int(hill_points_red), int(hill_points_blue), int(absf(hill_control))]
+			objective_label.visible = active_room_mode in ["king_of_the_hill", "demolition"]
+			if active_room_mode == "demolition":
+				var planted := bool(state.get("bomb_planted", false))
+				var action := str(state.get("objective_action", ""))
+				var progress := float(state.get("objective_progress", 0.0))
+				var result := str(state.get("objective_result", "RED: PLANT A/B  •  BLUE: DEFUSE"))
+				if result != _last_objective_result and result == "CORE DETONATED":
+					var blast_site := str(state.get("bomb_site", "A"))
+					COMBAT_FX_SCRIPT.grenade_explosion(self, Vector3(-9.0, 0.5, -8.0) if blast_site == "A" else Vector3(9.0, 0.5, 8.0))
+				_last_objective_result = result
+				objective_label.text = result + ("  •  %d SEC" % int(ceil(float(state.get("bomb_fuse", 0.0)))) if planted else ("  •  %s %d%%" % [action.to_upper(), int(progress / 3.0 * 100.0)] if not action.is_empty() else "  •  PRESS F TO INTERACT"))
+			else:
+				var hill_owner := "RED" if hill_control >= 100.0 else ("BLUE" if hill_control <= -100.0 else ("CONTESTED" if absf(hill_control) > 0.1 else "NEUTRAL"))
+				objective_label.text = "HILL %s  •  RED %02d / BLUE %02d  •  CAPTURE %d%%" % [hill_owner, int(hill_points_red), int(hill_points_blue), int(absf(hill_control))]
 		if round_left <= 0.0 and not _round_finished:
 			_finish_round()
 		var available: Dictionary = state.get("orb_available", {})
@@ -387,6 +419,58 @@ func _on_network_room_state(state: Dictionary) -> void:
 				", ".join(names)
 			]
 	_update_hud()
+
+func _update_objective_core(state: Dictionary) -> void:
+	if str(state.get("mode", "")) != "demolition" or not bool(state.get("bomb_planted", false)):
+		if is_instance_valid(_objective_core_visual):
+			_objective_core_visual.queue_free()
+		_objective_core_visual = null
+		_objective_core_site = ""
+		return
+	var site := str(state.get("bomb_site", "A"))
+	if is_instance_valid(_objective_core_visual) and _objective_core_site == site:
+		return
+	if is_instance_valid(_objective_core_visual):
+		_objective_core_visual.queue_free()
+	_objective_core_site = site
+	_objective_core_visual = Node3D.new()
+	_objective_core_visual.name = "PlantedEnergyCore_" + site
+	_objective_core_visual.global_position = Vector3(-9.0, 0.25, -8.0) if site == "A" else Vector3(9.0, 0.25, 8.0)
+	add_child(_objective_core_visual)
+	var core := MeshInstance3D.new()
+	var core_mesh := SphereMesh.new()
+	core_mesh.radius = 0.38
+	core_mesh.height = 0.76
+	core.mesh = core_mesh
+	core.position.y = 0.72
+	var core_material := StandardMaterial3D.new()
+	core_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	core_material.albedo_color = Color("#FF8A55")
+	core_material.emission_enabled = true
+	core_material.emission = Color("#FF713F")
+	core_material.emission_energy_multiplier = 3.0
+	core.material_override = core_material
+	_objective_core_visual.add_child(core)
+	var ring := MeshInstance3D.new()
+	var ring_mesh := TorusMesh.new()
+	ring_mesh.inner_radius = 0.58
+	ring_mesh.outer_radius = 0.68
+	ring.mesh = ring_mesh
+	ring.position.y = 0.72
+	ring.rotation_degrees.x = 90.0
+	ring.material_override = core_material
+	_objective_core_visual.add_child(ring)
+	var light := OmniLight3D.new()
+	light.position.y = 0.8
+	light.light_color = Color("#FF8752")
+	light.light_energy = 2.8
+	light.omni_range = 8.0
+	_objective_core_visual.add_child(light)
+	var pulse := create_tween().set_loops()
+	pulse.tween_property(core, "scale", Vector3.ONE * 1.16, 0.42)
+	pulse.tween_property(core, "scale", Vector3.ONE * 0.88, 0.42)
+	var rotate_ring := create_tween().set_loops()
+	rotate_ring.tween_property(ring, "rotation:y", TAU, 2.0)
 
 func _on_server_event_changed(event_id: String) -> void:
 	if is_instance_valid(event_fx):
@@ -437,11 +521,11 @@ func _on_network_connect_pressed() -> void:
 
 func _on_create_room_pressed() -> void:
 	if is_instance_valid(network):
-		network.request_create_room(true, selected_game_mode)
+		network.request_create_room(true, selected_game_mode, selected_map_index)
 
 func _on_quick_match_pressed() -> void:
 	if is_instance_valid(network):
-		network.request_quick_match(selected_game_mode)
+		network.request_quick_match(selected_game_mode, selected_map_index)
 
 func _on_join_room_pressed() -> void:
 	if is_instance_valid(network) and is_instance_valid(room_code_input):
@@ -671,10 +755,10 @@ func _process(delta: float) -> void:
 		if not is_instance_valid(grenade_node):
 			_client_grenade_visuals.erase(grenade_id)
 			continue
-		var velocity: Vector3 = entry.get("velocity", Vector3.ZERO)
-		velocity.y -= 9.8 * delta
-		grenade_node.global_position += velocity * delta
-		entry.velocity = velocity
+		# Same bounce model as the server; only the world (layer 1) stops the visual.
+		var stepped: Dictionary = GRENADE_PHYSICS.step(grenade_node.global_position, entry.get("velocity", Vector3.ZERO), delta, get_world_3d().direct_space_state, [], 1)
+		grenade_node.global_position = stepped.position
+		entry.velocity = stepped.velocity
 		_client_grenade_visuals[grenade_id] = entry
 	if _round_finished:
 		return
@@ -729,6 +813,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		network.request_grenade_throw(-player.global_basis.z + Vector3.UP * 0.12)
 		get_viewport().set_input_as_handled()
 		return
+	if event.is_action_pressed("objective_interact") and is_instance_valid(network) and network.is_authenticated:
+		network.request_objective_interact()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB:
 		_toggle_scoreboard()
 		get_viewport().set_input_as_handled()
@@ -768,6 +856,7 @@ func _toggle_admin_panel() -> void:
 
 func _setup_input() -> void:
 	_add_key_action("throw_grenade", KEY_G)
+	_add_key_action("objective_interact", KEY_F)
 	_add_key_action("weapon_next", KEY_E)
 	_add_key_action("weapon_prev", KEY_R)
 	_add_key_action("emote_griddy", KEY_B)
@@ -830,24 +919,21 @@ func _build_environment() -> void:
 	graphics.configure(env, sun)
 
 func _build_arena() -> void:
-	_make_box("ArenaFloor", Vector3(36, 0.8, 30), Vector3(0, -0.4, 0), Color(0.07, 0.12, 0.19))
-	_make_box("NorthWall", Vector3(36, 3.6, 0.9), Vector3(0, 1.8, -14.55), Color(0.045, 0.07, 0.12))
-	_make_box("SouthWall", Vector3(36, 3.6, 0.9), Vector3(0, 1.8, 14.55), Color(0.045, 0.07, 0.12))
-	_make_box("EastWall", Vector3(0.9, 3.6, 28.2), Vector3(17.55, 1.8, 0), Color(0.045, 0.07, 0.12))
-	_make_box("WestWall", Vector3(0.9, 3.6, 28.2), Vector3(-17.55, 1.8, 0), Color(0.045, 0.07, 0.12))
-	_make_box("CentralStage", Vector3(9, 1.2, 6.2), Vector3(0, 0.6, 0), Color(0.19, 0.26, 0.36))
-	_make_box("WestUpperPlatform", Vector3(6.5, 1.2, 5.2), Vector3(-11.2, 1.9, -5.6), Color(0.08, 0.72, 0.58))
-	_make_box("EastUpperPlatform", Vector3(6.5, 1.2, 5.2), Vector3(11.2, 1.9, -5.6), Color(0.12, 0.35, 0.92))
-	_make_box("SouthPlatform", Vector3(8.2, 1.2, 4.0), Vector3(0, 1.5, 9.5), Color(0.88, 0.15, 0.42))
-	_make_box("NorthBridge", Vector3(12, 0.8, 2.2), Vector3(0, 1.8, -10), Color(0.22, 0.29, 0.39))
-	_make_box("WestHop", Vector3(2.2, 1.3, 2.2), Vector3(-5.2, 0.65, -3.8), Color(0.22, 0.29, 0.39))
-	_make_box("EastHop", Vector3(2.2, 1.3, 2.2), Vector3(5.2, 0.65, -3.8), Color(0.22, 0.29, 0.39))
-	_make_box("SouthHop", Vector3(2.2, 1.3, 2.2), Vector3(-5.2, 0.65, 3.8), Color(0.22, 0.29, 0.39))
-	_make_box("NorthHop", Vector3(2.2, 1.3, 2.2), Vector3(5.2, 0.65, 3.8), Color(0.22, 0.29, 0.39))
-	_make_box("WestRampBlock", Vector3(7, 0.7, 3.0), Vector3(-8.3, 0.55, 0.8), Color(0.96, 0.62, 0.12))
-	_make_box("EastRampBlock", Vector3(7, 0.7, 3.0), Vector3(8.3, 0.55, 0.8), Color(0.96, 0.62, 0.12))
+	var desert_palette := active_map_index in [4, 6]
+	var jungle_palette := active_map_index == 5
+	var role_colors := {
+		"floor": Color("#CDB17D") if desert_palette else (Color("#385846") if jungle_palette else Color(0.07, 0.12, 0.19)),
+		"wall": Color("#806349") if desert_palette else (Color("#263F36") if jungle_palette else Color(0.045, 0.07, 0.12)),
+		"stage": Color("#A77B50") if desert_palette else (Color("#6C8060") if jungle_palette else Color(0.19, 0.26, 0.36)),
+		"platform": Color("#B88C5B") if desert_palette else (Color("#718E65") if jungle_palette else Color(0.22, 0.29, 0.39))
+	}
+	# The base boxes come from ArenaLayout, which the dedicated server also uses for every room.
+	for box in ARENA_LAYOUT.base_boxes(active_map_index):
+		_make_box(str(box.name), box.size, box.position, role_colors[str(box.role)])
 	_apply_map_variant()
-	_build_swimming_pool()
+	if active_map_index == ARENA_LAYOUT.JUNGLE_MAP:
+		# Jungle Arena builds its own floor, river and platforms in MapWorldBuilder.
+		return
 	if not OS.get_cmdline_user_args().has("--server"):
 		_build_arena_detail_pass()
 
@@ -856,6 +942,7 @@ func _build_arena_detail_pass() -> void:
 	var root := Node3D.new()
 	root.name = "ArenaArtDetailPass"
 	add_child(root)
+	arena_detail_root = root
 	var trim := Color("#21DCCB")
 	var pale := Color("#8BEAFF")
 	var dark := Color("#18283A")
@@ -880,8 +967,8 @@ func _build_arena_detail_pass() -> void:
 		beacon.omni_range = 5.5
 		beacon.shadow_enabled = graphics.resolved_quality == "ULTRA"
 		root.add_child(beacon)
-	_add_detail_box(root, "A_Site_Inlay", Vector3(2.2, 0.018, 0.08), Vector3(-11.0, 0.205, -13.0), Color("#FFB45C"), 0.3)
-	_add_detail_box(root, "B_Site_Inlay", Vector3(2.2, 0.018, 0.08), Vector3(11.0, 0.205, 13.0), Color("#64B7FF"), 0.3)
+	_add_detail_box(root, "WestGardenPathInlay", Vector3(2.2, 0.018, 0.08), Vector3(-11.0, 0.205, -13.0), Color("#D7B77B"), 0.3)
+	_add_detail_box(root, "EastGardenPathInlay", Vector3(2.2, 0.018, 0.08), Vector3(11.0, 0.205, 13.0), Color("#8FC7B7"), 0.3)
 	_add_detail_box(root, "Mid_Inlay", Vector3(0.08, 0.018, 2.2), Vector3(0, 0.205, -4.0), pale, 0.25)
 	_add_detail_box(root, "Hill_North_Beam", Vector3(10.0, 0.045, 0.12), Vector3(0, 0.24, -5.0), Color("#F5C65D"), 1.2)
 	_add_detail_box(root, "Hill_South_Beam", Vector3(10.0, 0.045, 0.12), Vector3(0, 0.24, 5.0), Color("#F5C65D"), 1.2)
@@ -952,6 +1039,7 @@ func _make_box(node_name: String, size: Vector3, position: Vector3, color: Color
 	mesh_node.material_override = graphics.make_material(color)
 	body.add_child(mesh_node)
 	add_child(body)
+	arena_bodies.append(body)
 
 func _spawn_player() -> void:
 	player = PLAYER_SCRIPT.new()
@@ -972,11 +1060,12 @@ func _spawn_player() -> void:
 	player.is_admin = local_admin_authorized
 	admin_available = player.is_admin
 	player.position = Vector3(0, 1.5, 6)
+	player.swim_map_index = active_map_index
 	player.collected.connect(_on_collected)
 	add_child(player)
 
 func _build_collectibles() -> void:
-	orb_spawns = [Vector3(-12, 1.0, -8), Vector3(-7, 2.0, -5), Vector3(0, 2.0, -10), Vector3(7, 2.0, -5), Vector3(12, 1.0, -8), Vector3(-10, 1.0, 5), Vector3(-4, 1.8, 1), Vector3(4, 1.8, 1), Vector3(10, 1.0, 5), Vector3(0, 2.2, 10), Vector3(-2, 1.2, -2), Vector3(2, 1.2, -2)]
+	orb_spawns.assign(ARENA_LAYOUT.orb_positions(active_map_index))
 	for i in orb_spawns.size():
 		_spawn_orb(i)
 
@@ -1005,7 +1094,7 @@ func _spawn_orb(index: int) -> void:
 		mesh_node.mesh = mesh
 		visual = mesh_node
 	area.add_child(visual)
-	var bob := create_tween()
+	var bob := area.create_tween()
 	bob.set_loops()
 	bob.tween_property(visual, "rotation:y", TAU, 2.4)
 	bob.tween_property(visual, "position:y", 0.22, 0.65)
@@ -1627,72 +1716,55 @@ func _admin_trigger_event(event_id: String) -> void:
 func _admin_cycle_map() -> void:
 	if not admin_available:
 		return
-	active_map_index = (active_map_index + 1) % 4
-	for extra in map_extras:
-		if is_instance_valid(extra):
-			extra.queue_free()
-	map_extras.clear()
-	_apply_map_variant()
+	if is_instance_valid(network) and network.is_authenticated:
+		# The server builds the map for the whole room, so a local-only change would desync the player.
+		_show_meme_toast("ONLINE: MAP IS SET WHEN THE ROOM IS CREATED")
+		return
+	active_map_index = (active_map_index + 1) % MAP_NAMES.size()
+	_rebuild_arena()
+	if is_instance_valid(player):
+		player.swim_map_index = active_map_index
+		# The new layout can put solids where the player stands, so return to the spawn point.
+		player.global_position = Vector3(0, 1.5, 6)
+		player.velocity = Vector3.ZERO
 	if is_instance_valid(admin_panel):
 		for child in admin_panel.find_children("Button", "Button", true, false):
 			if child is Button and child.text.begins_with("Cycle Map:"):
 				child.text = "Cycle Map: %s" % _map_name()
 	_show_meme_toast("MAP: %s" % _map_name())
 
+## Frees the arena base and the map layout, then builds both again for `active_map_index`.
+func _rebuild_arena() -> void:
+	for body in arena_bodies:
+		if is_instance_valid(body):
+			body.queue_free()
+	arena_bodies.clear()
+	arena_meshes.clear()
+	arena_colors.clear()
+	for extra in map_extras:
+		if is_instance_valid(extra):
+			extra.queue_free()
+	map_extras.clear()
+	if is_instance_valid(arena_detail_root):
+		arena_detail_root.queue_free()
+		arena_detail_root = null
+	_build_arena()
+	# The orbs follow the map: the Jungle Arena has its own pickup spots.
+	for orb in get_tree().get_nodes_in_group("local_collectibles"):
+		orb.queue_free()
+	_build_collectibles()
+	if is_instance_valid(network) and network.is_authenticated:
+		# Online pickups are decided by the server, so the local overlap check stays off.
+		for area in get_tree().get_nodes_in_group("local_collectibles"):
+			if area is Area3D and not area.is_queued_for_deletion():
+				area.monitoring = false
+
 func _map_name() -> String:
-	return ["LOST MALL", "NEON CITY", "SPACE ISLANDS", "CANDY WORLD"][active_map_index]
+	return MAP_NAMES[clampi(active_map_index, 0, MAP_NAMES.size() - 1)]
 
 func _apply_map_variant() -> void:
-	if active_map_index == 4:
-		_build_dust_two_inspired_layout()
-		return
-	if active_map_index == 0:
-		return
-	var tint := Color(0.1, 0.9, 0.78) if active_map_index == 1 else (Color(0.55, 0.35, 1.0) if active_map_index == 2 else Color(1.0, 0.35, 0.62))
-	var layouts := {
-		1: [[Vector3(5, 1, 5), Vector3(-12, 1.4, -7)], [Vector3(5, 1, 5), Vector3(12, 2.4, -7)], [Vector3(8, 0.8, 2), Vector3(0, 3.4, -10)], [Vector3(4, 2, 4), Vector3(-13, 3.0, 8)], [Vector3(4, 2, 4), Vector3(13, 3.0, 8)]],
-		2: [[Vector3(5, 1, 5), Vector3(-12, 2.0, -8)], [Vector3(5, 1, 5), Vector3(12, 3.0, -8)], [Vector3(4, 1, 4), Vector3(-8, 4.0, 5)], [Vector3(4, 1, 4), Vector3(8, 5.0, 5)], [Vector3(7, 0.8, 2), Vector3(0, 6.0, 0)]],
-		3: [[Vector3(7, 1, 5), Vector3(-11, 1.5, -7)], [Vector3(7, 1, 5), Vector3(11, 1.5, -7)], [Vector3(5, 1, 5), Vector3(-10, 2.8, 8)], [Vector3(5, 1, 5), Vector3(10, 2.8, 8)], [Vector3(9, 0.8, 2), Vector3(0, 3.6, 0)]]
-	}
-	for i in range(layouts[active_map_index].size()):
-		var entry: Array = layouts[active_map_index][i]
-		var platform := StaticBody3D.new()
-		platform.name = "AdminMapPlatform_%d" % i
-		platform.position = entry[1]
-		var collider := CollisionShape3D.new()
-		var shape := BoxShape3D.new()
-		shape.size = entry[0]
-		collider.shape = shape
-		platform.add_child(collider)
-		var mesh_node := MeshInstance3D.new()
-		var mesh := BoxMesh.new()
-		mesh.size = entry[0]
-		mesh_node.mesh = mesh
-		mesh_node.material_override = graphics.make_material(tint)
-		platform.add_child(mesh_node)
-		add_child(platform)
-		map_extras.append(platform)
-
-func _build_dust_two_inspired_layout() -> void:
-	# Original desert three-lane tactical layout; no Counter-Strike assets are copied.
-	var sand := Color("#B99463")
-	var stone := Color("#80694F")
-	var dark := Color("#514638")
-	_make_box("Dust2_A_Long_Cover_01", Vector3(5, 2.2, 1.0), Vector3(-11, 1.1, -8), stone)
-	_make_box("Dust2_A_Long_Cover_02", Vector3(1.0, 2.2, 6), Vector3(-15, 1.1, -4), stone)
-	_make_box("Dust2_A_Site", Vector3(9, 0.35, 7), Vector3(-11, 0.18, -10), sand)
-	_make_box("Dust2_A_Site_BackWall", Vector3(0.8, 4.2, 10), Vector3(-16.5, 2.1, -10), dark)
-	_make_box("Dust2_Mid_Catwalk", Vector3(15, 0.35, 3.5), Vector3(0, 0.18, -4), sand)
-	_make_box("Dust2_Mid_CentralCover", Vector3(2.2, 2.4, 3.2), Vector3(0, 1.2, -5), stone)
-	_make_box("Dust2_Mid_Tunnel_Left", Vector3(1.0, 3.2, 9), Vector3(-5.5, 1.6, 2), dark)
-	_make_box("Dust2_Mid_Tunnel_Right", Vector3(1.0, 3.2, 9), Vector3(5.5, 1.6, 2), dark)
-	_make_box("Dust2_B_Site", Vector3(9, 0.35, 7), Vector3(11, 0.18, 10), sand)
-	_make_box("Dust2_B_BackWall", Vector3(0.8, 4.2, 10), Vector3(16.5, 2.1, 10), dark)
-	_make_box("Dust2_B_Tunnel_Cover", Vector3(4, 2.0, 1.0), Vector3(11, 1.0, 6), stone)
-	_make_box("Dust2_Short_Connector", Vector3(7, 0.35, 2.8), Vector3(7, 0.18, 0), sand)
-	_make_box("Dust2_Long_Approach", Vector3(2.8, 0.35, 10), Vector3(-15, 0.18, 1), sand)
-	_make_box("Dust2_TSpawn_Arch", Vector3(5, 3.4, 0.7), Vector3(0, 1.7, 13.5), stone)
-	_make_box("Dust2_Mid_Upper_Cover", Vector3(4, 1.8, 2), Vector3(0, 0.9, 4), stone)
+	var map_root: Node3D = MAP_WORLD_SCRIPT.build(self, active_map_index)
+	map_extras.append(map_root)
 
 func _spawn_meteor_shower() -> void:
 	for i in range(7):
@@ -1746,12 +1818,13 @@ func _build_touch_controls(root: Control) -> void:
 	_add_touch_button(root, "SLIDE", "slide", Vector2(-98, -58), Vector2(76, 52), true)
 	_add_touch_button(root, "FIRE", "fire", Vector2(-190, -260), Vector2(82, 62), true)
 	_add_touch_button(root, "GRENADE", "throw_grenade", Vector2(-98, -250), Vector2(76, 58), false)
+	_add_touch_button(root, "PLANT / DEFUSE", "objective_interact", Vector2(-98, -390), Vector2(112, 48), false)
 	_add_touch_button(root, "WEAPON +", "weapon_next", Vector2(-190, -330), Vector2(82, 48), false)
 	_add_touch_button(root, "WEAPON -", "weapon_prev", Vector2(-98, -316), Vector2(76, 48), false)
 	_build_emote_wheel(root)
 
 func _release_all_touch_actions() -> void:
-	for action in ["move_left", "move_right", "move_forward", "move_back", "jump", "dash", "sprint", "slide", "fire", "throw_grenade"]:
+	for action in ["move_left", "move_right", "move_forward", "move_back", "jump", "dash", "sprint", "slide", "fire", "throw_grenade", "objective_interact"]:
 		Input.action_release(action)
 
 func _set_mobile_move_input(value: Vector2) -> void:

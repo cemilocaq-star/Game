@@ -148,8 +148,52 @@ jobs:
       - name: Test mobile joystick input transitions
         run: timeout 45s godot --headless --path . --script tests/test_mobile_joystick.gd
 
+      - name: Test character visuals, run cycle and emotes
+        run: timeout 45s godot --headless --path . --script tests/test_character_motion_rig.gd
+
+      # Screenshots of the costumes so their look can be reviewed without a device.
+      # Non-blocking: a software-GL hiccup must never fail the build or the exports.
+      - name: Render character costume screenshots
+        continue-on-error: true
+        shell: bash
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          PREVIEW_DIR: ${{ runner.temp }}/character_previews
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 libegl1 > /dev/null
+          mkdir -p "$PREVIEW_DIR"
+          timeout 150s xvfb-run -a -s "-screen 0 1280x1024x24" \
+            godot --path . --rendering-driver opengl3 --script tests/render_character_previews.gd 2>&1 \
+            | tee "$PREVIEW_DIR/render.log"
+          test -f "$PREVIEW_DIR/contact_sheet.png"
+
+      - name: Upload character screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: OxenWar-character-previews
+          path: ${{ runner.temp }}/character_previews/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Test arcade weapon models
+        run: timeout 45s godot --headless --path . --script tests/test_weapon_visuals.gd
+
       - name: Test matchmaking room state and reconnect modes
         run: timeout 45s godot --headless --path . --script tests/test_matchmaking_logic.gd
+
+      - name: Test Bomb Rush plant and defuse state machine
+        run: timeout 45s godot --headless --path . --script tests/test_bomb_rush_objective.gd
+
+      - name: Test movement and grenade physics
+        run: timeout 60s godot --headless --path . --script tests/test_movement_physics.gd
+
+      - name: Test Jungle Arena map
+        run: timeout 90s godot --headless --path . --script tests/test_jungle_arena.gd
+
+      - name: Test per-room maps and isolated physics worlds
+        run: timeout 90s godot --headless --path . --script tests/test_room_worlds.gd
 
       - name: Verify dedicated server rejects missing secret
         shell: bash

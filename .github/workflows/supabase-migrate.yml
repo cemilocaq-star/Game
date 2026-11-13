@@ -1,0 +1,75 @@
+name: Apply Supabase migrations (manual)
+
+# Applies supabase/migrations/*.sql to the hosted Supabase project. It only runs when started by
+# hand from the Actions tab and the "confirm" box is typed. The credentials are GitHub repository
+# secrets that the repository owner adds; they never appear in the code.
+#   SUPABASE_ACCESS_TOKEN  - personal access token from supabase.com/dashboard/account/tokens
+#   SUPABASE_PROJECT_REF   - the project reference id (Project Settings > General)
+#   SUPABASE_DB_PASSWORD   - the database password of that project
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY to push the migrations to the hosted project'
+        required: true
+        default: ''
+      dry_run:
+        description: 'Only list the pending migrations without applying them'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Apply migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "APPLY" ]; then
+            echo "Type APPLY in the confirm box to run this workflow."
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Check required secrets
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF SUPABASE_DB_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "Missing repository secret: $name"
+              exit 1
+            fi
+          done
+
+      - name: Link project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}" --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Push migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            supabase db push --dry-run --password "$SUPABASE_DB_PASSWORD"
+          else
+            supabase db push --password "$SUPABASE_DB_PASSWORD"
+          fi

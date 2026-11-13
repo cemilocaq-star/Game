@@ -2,7 +2,9 @@ extends CanvasLayer
 signal play_requested(identity: Dictionary)
 
 const I18N = preload("res://scripts/oxenwar_i18n.gd")
+const ARENA_LAYOUT = preload("res://scripts/arena_layout.gd")
 const CHARACTER_VISUALS = preload("res://scripts/character_visuals.gd")
+const CHARACTER_MOTION_RIG = preload("res://scripts/character_motion_rig.gd")
 var backend: Node
 var locale := "az"
 var profile: Dictionary = {}
@@ -21,6 +23,7 @@ var preview_spin: Node3D
 var preview_model: Node3D
 var server_host := ""
 var selected_game_mode := "ffa"
+var selected_map_index := 4
 var room_code_field: LineEdit
 var server_host_field: LineEdit
 var lobby_notice_label: Label
@@ -319,8 +322,25 @@ func _render_play_tab() -> void:
 	mode_select.set_item_metadata(1, "team_deathmatch")
 	mode_select.add_item(_t("mode_koth"))
 	mode_select.set_item_metadata(2, "king_of_the_hill")
+	mode_select.add_item("BOMB RUSH • PLANT / DEFUSE")
+	mode_select.set_item_metadata(3, "demolition")
 	mode_select.item_selected.connect(func(index: int): selected_game_mode = str(mode_select.get_item_metadata(index)))
 	mode_row.add_child(mode_select)
+
+	var map_row := HBoxContainer.new()
+	map_row.add_theme_constant_override("separation", 10)
+	content.add_child(map_row)
+	var map_label := _label("MAP")
+	map_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	map_row.add_child(map_label)
+	var map_select := OptionButton.new()
+	map_select.custom_minimum_size = Vector2(220, 44)
+	for map_index in range(ARENA_LAYOUT.MAP_COUNT):
+		map_select.add_item(ARENA_LAYOUT.map_name(map_index))
+		map_select.set_item_metadata(map_index, map_index)
+	map_select.select(selected_map_index)
+	map_select.item_selected.connect(func(index: int): selected_map_index = int(map_select.get_item_metadata(index)))
+	map_row.add_child(map_select)
 
 	var server_panel := PanelContainer.new()
 	server_panel.add_theme_stylebox_override("panel", _panel_style())
@@ -420,6 +440,7 @@ func _launch_game(action: String) -> void:
 		"is_admin": is_admin,
 		"launch_action": action,
 		"game_mode": selected_game_mode,
+		"map_index": selected_map_index,
 		"room_code": room_code,
 		"server_host": host
 	})
@@ -881,7 +902,7 @@ func _refresh_character_preview(color_id: String, outfit_id: String, accessory_i
 		"color_lime": Color("#A7E34B")
 	}
 	var avatar_color: Color = color_map.get(color_id, Color("#27D7E7"))
-	var suit_color := avatar_color
+	var suit_color: Color = CHARACTER_VISUALS.suit_color_for(outfit_id, avatar_color)
 	if outfit_id == "outfit_iron_vanguard":
 		suit_color = Color("#A92332")
 	elif outfit_id == "outfit_web_sentinel":
@@ -893,64 +914,19 @@ func _refresh_character_preview(color_id: String, outfit_id: String, accessory_i
 	body.mesh = capsule
 	body.position.y = 0.9
 	body.material_override = _preview_material(suit_color)
-	if outfit_id == "outfit_neon":
-		var neon := _preview_material(avatar_color)
-		neon.emission_enabled = true
-		neon.emission = avatar_color
-		neon.emission_energy_multiplier = 0.45
-		body.material_override = neon
-	elif outfit_id == "outfit_runner":
-		body.scale = Vector3(0.94, 1.0, 0.94)
 	preview_model.add_child(body)
+	CHARACTER_VISUALS.apply_body_shape(body, outfit_id)
 	CHARACTER_VISUALS.build(body, outfit_id, avatar_color)
-	_add_preview_accessory(preview_model, accessory_id, avatar_color)
+	# Same limb rig as in-game so the preview shows arms, legs and footwear too.
+	CHARACTER_MOTION_RIG.build(body, suit_color, outfit_id)
+	_add_preview_accessory(body, accessory_id, avatar_color)
 
-	if outfit_id == "outfit_iron_vanguard" or outfit_id == "outfit_web_sentinel":
-		var helmet := MeshInstance3D.new()
-		var helmet_mesh := SphereMesh.new()
-		helmet_mesh.radius = 0.245
-		helmet_mesh.height = 0.44
-		helmet.mesh = helmet_mesh
-		helmet.position = Vector3(0, 1.56, 0.0)
-		helmet.material_override = _preview_material(suit_color.lightened(0.16))
-		preview_model.add_child(helmet)
-		var visor := MeshInstance3D.new()
-		var visor_mesh := BoxMesh.new()
-		visor_mesh.size = Vector3(0.30, 0.12, 0.055)
-		visor.mesh = visor_mesh
-		visor.position = Vector3(0, 1.56, -0.205)
-		visor.material_override = _preview_material(Color("#101A2A"))
-		preview_model.add_child(visor)
+	# Same hero armor as in-game, fitted to the slim torso.
+	CHARACTER_VISUALS.add_hero_details(body, outfit_id)
 
-func _add_preview_accessory(parent: Node3D, accessory_id: String, avatar_color: Color) -> void:
-	if accessory_id == "accessory_cap":
-		var cap := MeshInstance3D.new()
-		var cap_mesh := SphereMesh.new()
-		cap_mesh.radius = 0.24
-		cap_mesh.height = 0.18
-		cap.mesh = cap_mesh
-		cap.position = Vector3(0, 1.82, 0)
-		cap.material_override = _preview_material(avatar_color.lightened(0.25))
-		parent.add_child(cap)
-		var brim := MeshInstance3D.new()
-		var brim_mesh := CylinderMesh.new()
-		brim_mesh.top_radius = 0.22
-		brim_mesh.bottom_radius = 0.22
-		brim_mesh.height = 0.035
-		brim.mesh = brim_mesh
-		brim.position = Vector3(0, 1.75, -0.12)
-		brim.material_override = _preview_material(avatar_color.darkened(0.2))
-		parent.add_child(brim)
-	elif accessory_id == "accessory_headphones":
-		for side in [-1.0, 1.0]:
-			var ear := MeshInstance3D.new()
-			var ear_mesh := SphereMesh.new()
-			ear_mesh.radius = 0.105
-			ear_mesh.height = 0.22
-			ear.mesh = ear_mesh
-			ear.position = Vector3(side * 0.31, 1.70, 0)
-			ear.material_override = _preview_material(avatar_color)
-			parent.add_child(ear)
+func _add_preview_accessory(body: Node3D, accessory_id: String, avatar_color: Color) -> void:
+	# Same head-fitted accessory as in-game.
+	CHARACTER_VISUALS.add_accessory(body, accessory_id, avatar_color)
 
 func _preview_material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()

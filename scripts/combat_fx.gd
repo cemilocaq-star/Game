@@ -33,6 +33,19 @@ static func grenade_explosion(parent: Node3D, world_position: Vector3) -> void:
 	ring.material_override = ring_material
 	root.add_child(ring)
 
+	# A second, cooler halo gives the arcade blast a readable two-stage pulse.
+	var halo_material := _fx_material(Color("#8DEBFF"), 1.8)
+	var halo := MeshInstance3D.new()
+	halo.name = "SecondaryEnergyHalo"
+	var halo_mesh := TorusMesh.new()
+	halo_mesh.inner_radius = 0.48
+	halo_mesh.outer_radius = 0.56
+	halo.mesh = halo_mesh
+	halo.rotation_degrees.x = 90.0
+	halo.position.y = 0.08
+	halo.material_override = halo_material
+	root.add_child(halo)
+
 	var smoke_material := _fx_material(Color(0.22, 0.27, 0.32, 0.56), 0.0)
 	smoke_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	for index in range(5):
@@ -75,6 +88,8 @@ static func grenade_explosion(parent: Node3D, world_position: Vector3) -> void:
 	tween.tween_property(core_material, "albedo_color:a", 0.0, 0.30)
 	tween.tween_property(ring, "scale", Vector3.ONE * 8.0, 0.42)
 	tween.tween_property(ring_material, "albedo_color:a", 0.0, 0.42)
+	tween.tween_property(halo, "scale", Vector3.ONE * 10.5, 0.58)
+	tween.tween_property(halo_material, "albedo_color:a", 0.0, 0.58)
 	tween.tween_property(flash, "light_energy", 0.0, 0.30)
 	tween.chain().tween_interval(0.42)
 	tween.tween_callback(root.queue_free)
@@ -111,7 +126,7 @@ static func hit_impact(parent: Node3D, world_position: Vector3, weapon_id: Strin
 	ring.material_override = material
 	root.add_child(ring)
 
-	# Distinct silhouettes make the 23 archetypes readable without changing hit logic.
+	# Distinct silhouettes make the 27 archetypes readable without changing hit logic.
 	var shard_count := 6
 	var shard_shape := "orb"
 	match weapon_id:
@@ -130,6 +145,15 @@ static func hit_impact(parent: Node3D, world_position: Vector3, weapon_id: Strin
 		"duck_launcher", "rubber_chicken", "confetti_cannon":
 			shard_count = 9
 			shard_shape = "confetti"
+		"longshot":
+			shard_count = 4
+			shard_shape = "disc"
+		"rotary_arc":
+			shard_count = 8
+			shard_shape = "pixel"
+		"ranger_rifle", "heavy_sidearm":
+			shard_count = 7
+			shard_shape = "spark"
 	for index in range(shard_count):
 		var shard := MeshInstance3D.new()
 		shard.name = "ImpactShard_%02d" % index

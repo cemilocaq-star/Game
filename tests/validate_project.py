@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 errors = []
 
 required = [
-    "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/arcade_weapon_visuals.gd", "scripts/character_visuals.gd", "scripts/character_motion_rig.gd", "scripts/combat_fx.gd",
+    "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/arcade_weapon_visuals.gd", "scripts/character_visuals.gd", "scripts/character_motion_rig.gd", "scripts/map_world_builder.gd", "scripts/combat_fx.gd",
     "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd",
     "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "scripts/oxenwar_server_player.gd", "server/README.md", "Dockerfile", "fly.toml", "render.yaml",
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
@@ -29,7 +29,7 @@ required = [
     "tools/fetch_open_audio_assets.py", "docs/EVENT_AUDIO_ASSETS.md",
     "scripts/progression.gd", "scripts/graphics_manager.gd", "scripts/oxenwar_event_fx.gd", "shaders/neon_surface.gdshader",
     "tools/set_android_version.py", "tests/test_android_version.py",
-    "tests/test_live_websocket_proxy.py",
+    "tests/test_live_websocket_proxy.py", "tests/test_character_motion_rig.gd",
 ]
 for rel in required:
     if not (ROOT / rel).is_file():
@@ -59,11 +59,25 @@ i18n = read("scripts/oxenwar_i18n.gd")
 workflow = read(".github/workflows/godot-ci.yml")
 presets = read("export_presets.cfg")
 readme = read("README.md")
+map_builder = read("scripts/map_world_builder.gd")
+character_visuals = read("scripts/character_visuals.gd")
+character_rig = read("scripts/character_motion_rig.gd")
 
 checks = [
     ('config/name="OxenWar"', project, "OxenWar application name"),
     ("textures/vram_compression/import_etc2_astc=true", project, "Android ETC2/ASTC texture import required by Godot export"),
     ("OxenWarMainMenu", main, "OxenWar menu integration"),
+    ('const MAP_WORLD_SCRIPT = preload("res://scripts/map_world_builder.gd")', main, "procedural exploration map builder integration"),
+    ("SUNKEN OASIS", read("scripts/arena_layout.gd"), "first desert exploration map selection"),
+    ("JUNGLE ARENA", read("scripts/arena_layout.gd"), "jungle exploration map selection"),
+    ("REDSTONE CANYON", read("scripts/arena_layout.gd"), "second desert exploration map selection"),
+    ("func _build_sunken_oasis(root: Node3D)", map_builder, "oasis environment geometry"),
+    ("func _build_jungle_temple(root: Node3D)", map_builder, "jungle temple environment geometry"),
+    ("func _build_redstone_canyon(root: Node3D)", map_builder, "canyon environment geometry"),
+    ("HeadPivot", character_visuals, "oversized animated troll head"),
+    ("EyeWhite_", character_visuals, "expressive troll face geometry"),
+    ("FriendlyBadge", character_visuals, "non-combat character costume details"),
+    ('get_node_or_null("CharacterDetailPass")', character_rig, "head animation linked to motion rig"),
     ("OnlinePresenceHeartbeat", main, "presence heartbeat"),
     ('get_cmdline_user_args().has("--server")', main, "dedicated server entry point"),
     ("_start_multiplayer_client", main, "multiplayer client startup"),
@@ -231,7 +245,7 @@ checks = [
     ("_server_throw_grenade", read("scripts/oxenwar_network.gd"), "server-validated grenade throw"),
     ("_server_detonate_grenade", read("scripts/oxenwar_network.gd"), "server-authoritative grenade blast"),
     ("_server_step_grenades", read("scripts/oxenwar_network.gd"), "server grenade fuse and movement"),
-    ("Dust2_A_Site", main, "original Dust II-inspired map geometry"),
+    ("SUNKEN OASIS", read("scripts/arena_layout.gd"), "desert exploration map selection"),
     ("get_friend_presence", menu, "friend online/offline display"),
     ('"az"', i18n, "Azerbaijani localization"),
     ('"en"', i18n, "English localization"),
@@ -296,8 +310,16 @@ checks.extend([
 
     ("_launch_game.bind(\"quick_match\")", menu, "menu quick-match intent is passed into gameplay"),
     ("pending_launch_action", main, "game applies the selected menu matchmaking action after server authentication"),
-    ("network.request_create_room(true, selected_game_mode)", main, "main menu room creation reaches the authoritative server"),
-    ("network.request_quick_match(selected_game_mode)", main, "main menu matchmaking reaches the authoritative server"),
+    ("network.request_create_room(true, selected_game_mode, selected_map_index)", main, "main menu room creation reaches the authoritative server with the chosen map"),
+    ("network.request_quick_match(selected_game_mode, selected_map_index)", main, "main menu matchmaking reaches the authoritative server with the chosen map"),
+    ('"map_index": selected_map_index', menu, "menu sends the chosen map to the game"),
+    ('"map_index": map_index', read("scripts/oxenwar_network.gd"), "rooms store their own map"),
+    ('"map_index": int(room.get("map_index", 4))', read("scripts/oxenwar_network.gd"), "room state tells clients which map to build"),
+    ("viewport.own_world_3d = true", read("scripts/oxenwar_network.gd"), "every server room has its own physics world"),
+    ("ARENA_LAYOUT.build_collision(viewport", read("scripts/oxenwar_network.gd"), "server builds the room map collision"),
+    ("_room_space(room_code)", read("scripts/oxenwar_network.gd"), "grenades use the physics world of their room"),
+    ("ARENA_LAYOUT.base_boxes(active_map_index)", main, "client draws the same base boxes as the server"),
+    ("room_map != active_map_index", main, "client rebuilds the map announced by the room"),
 
 
     ("class MobileJoystick extends Control", main, "custom circular analog movement joystick"),
@@ -329,15 +351,61 @@ checks.extend([
     ("preview_spin.rotation.y += delta", menu, "rotating character showcase"),
     ("SubViewportContainer", menu, "character customization 3D preview container"),
     ("CharacterVisuals.build(_visual", read("scripts/oxenwar_remote_player.gd"), "shared remote character detail model"),
-    ("TacticalVest", read("scripts/character_visuals.gd"), "layered tactical vest mesh"),
-    ("BootSole", read("scripts/character_visuals.gd"), "separate boot and sole geometry"),
-    ("Backpack", read("scripts/character_visuals.gd"), "backpack silhouette detail"),
+    ("TunicFrontPanel", read("scripts/character_visuals.gd"), "layered cartoon tunic detail"),
+    ("SmileTooth_", read("scripts/character_visuals.gd"), "expressive troll face detail"),
+    ("PilotCap", read("scripts/character_visuals.gd"), "distinct pilot character outfit"),
+    ("render_character_previews.gd", read(".github/workflows/godot-ci.yml"), "CI renders character costume screenshots"),
+    ("CharacterVisuals.apply_body_shape(_body_mesh, cosmetic_outfit)", player, "local avatar uses the slim troll body"),
+    ("CharacterVisuals.apply_body_shape(_visual, _outfit_id)", read("scripts/oxenwar_remote_player.gd"), "remote avatar body shape follows the outfit"),
+    ("CHARACTER_VISUALS.apply_body_shape(body, outfit_id)", menu, "customization preview uses the slim troll body"),
+    ("static func add_accessory", read("scripts/character_visuals.gd"), "cap and headphones are fitted to the head by one shared function"),
+    ("CharacterVisuals.add_accessory(_body_mesh, cosmetic_accessory, cosmetic_color)", player, "local accessories follow the head"),
+    ("CHARACTER_VISUALS.add_accessory(body, accessory_id, avatar_color)", menu, "customization preview accessories match the game"),
+    ("static func set_clothing_visible", read("scripts/character_visuals.gd"), "swimming hides clothes but keeps the head"),
+    ("CharacterVisuals.set_clothing_visible(_character_detail_root, not enabled)", player, "local swimming keeps the head visible"),
+    ("CharacterVisuals.set_clothing_visible(_character_detail_root, not swimming)", read("scripts/oxenwar_remote_player.gd"), "remote swimming keeps the head visible"),
+    ("static func in_swim_zone", read("scripts/map_world_builder.gd"), "swim zone is defined per map"),
+    ("MapWorldBuilder.in_swim_zone(swim_map_index, global_position)", read("scripts/oxenwar_server_player.gd"), "server swimming uses the per-map swim zone"),
+    ("MapWorldBuilder.in_swim_zone(swim_map_index, global_position)", player, "local swimming uses the per-map swim zone"),
+    ("JUNGLE ARENA", read("scripts/arena_layout.gd"), "map 5 is named Jungle Arena"),
+    ("func _rebuild_arena", read("scripts/main.gd"), "switching maps rebuilds the arena base"),
+    ("CharacterMovement.step_horizontal", read("scripts/oxenwar_server_player.gd"), "server player uses the shared movement model"),
+    ("CharacterMovement.step_horizontal", player, "local player uses the same movement model as the server"),
+    ("GRENADE_PHYSICS.step", read("scripts/oxenwar_network.gd"), "server grenades use the shared bounce model"),
+    ("GRENADE_PHYSICS.step", read("scripts/main.gd"), "client grenade visuals use the same bounce model as the server"),
+    ("static func add_hero_details", read("scripts/character_visuals.gd"), "hero skin armor is built by one shared function"),
+    ("CharacterVisuals.add_hero_details(_body_mesh, cosmetic_outfit)", player, "local hero skin armor fits the slim body"),
+    ("CharacterVisuals.add_hero_details(_visual, _outfit_id)", read("scripts/oxenwar_remote_player.gd"), "remote players show hero skin armor"),
+    ("CHARACTER_VISUALS.add_hero_details(body, outfit_id)", menu, "customization preview shows the same hero armor as the game"),
+    ("PilotScarf", read("scripts/character_visuals.gd"), "Golden Pilot Troll scarf and bomber-jacket kit"),
+    ("GhostBalaclava", read("scripts/character_visuals.gd"), "Ghost-Ops Troll balaclava hood"),
+    ("SkullJawPatch", read("scripts/character_visuals.gd"), "Ghost-Ops Troll skull mask"),
+    ("RiotHelmet", read("scripts/character_visuals.gd"), "Neon Cyan Riot Troll helmet"),
+    ("RiotShield", read("scripts/character_visuals.gd"), "Neon Cyan Riot Troll shield"),
+    ("FlipFlopSole", read("scripts/character_motion_rig.gd"), "Ghost-Ops mismatched flip-flop footwear"),
+    ("RiotKneePad", read("scripts/character_motion_rig.gd"), "Riot Troll knee pads"),
+    ("CharacterMotionRig.build(_body_mesh, suit_color, cosmetic_outfit)", player, "local avatar limbs follow the outfit costume"),
+    ("CharacterMotionRig.build(_visual, _base_color, _outfit_id)", read("scripts/oxenwar_remote_player.gd"), "remote avatar limbs follow the outfit costume"),
+    ("CHARACTER_MOTION_RIG.build(body, suit_color, outfit_id)", menu, "customization preview shows the full costumed figure"),
+    ("outfit_ghost_ops", read("supabase/migrations/20261110210000_oxenwar_ghost_ops_outfit.sql"), "Ghost-Ops outfit catalog migration"),
     ("grenade_explosion", read("scripts/combat_fx.gd"), "layered grenade explosion visual"),
+    ("_server_objective_interact", network, "server-authoritative plant/defuse interaction"),
+    ("_server_step_objective", network, "server-side objective progress and fuse"),
+    ("objective_winner_team", network, "team objective win resolution"),
+    ("BOMB RUSH • PLANT / DEFUSE", read("scripts/oxenwar_menu.gd"), "bomb objective game mode selection"),
+    ("_build_objective_sites(root)", read("scripts/map_world_builder.gd"), "A/B sites on every generated map"),
+    ("ObjectiveSite_%s_EnergyRing", read("scripts/map_world_builder.gd"), "A/B site energy ring visuals"),
+    ("objective_interact", read("scripts/main.gd"), "keyboard/mobile plant and defuse input"),
+    ("PlantedEnergyCore_", read("scripts/main.gd"), "visible animated planted energy core"),
+    ("CORE DETONATED", read("scripts/main.gd"), "objective-specific detonation VFX trigger"),
     ("ExpandingShockRing", read("scripts/combat_fx.gd"), "grenade shockwave ring"),
     ("ImpactCore", read("scripts/combat_fx.gd"), "weapon-aware arcade impact core visual"),
     ("COMBAT_FX_SCRIPT.grenade_explosion", main, "grenade explosion FX integration"),
     ("COMBAT_FX_SCRIPT.hit_impact", main, "remote blaster impact FX integration"),
     ("ProceduralMotionRig", read("scripts/character_motion_rig.gd"), "procedural animated limb rig"),
+    ("ElbowPivot", read("scripts/character_motion_rig.gd"), "articulated elbow animation pivot"),
+    ("KneePivot", read("scripts/character_motion_rig.gd"), "articulated knee animation pivot"),
+    ("tests/test_character_motion_rig.gd", workflow, "CI runs character motion regression test"),
     ("ArmPivot_L", read("scripts/character_motion_rig.gd"), "left arm animation pivot"),
     ("LegPivot_R", read("scripts/character_motion_rig.gd"), "right leg animation pivot"),
     ("CharacterMotionRig.animate", player, "local procedural movement animation"),
@@ -387,6 +455,10 @@ checks.extend([
     ("INSPECT  [H]", main, "arsenal weapon inspect control"),
     ("_inspect_current_weapon", main, "inspect UI action routing"),
     ("func _animate_weapon_fire() -> void:", player, "weapon-family firing animation"),
+    ("func _animate_weapon_details() -> void:", player, "idle weapon energy-detail animation"),
+    ('"SecondaryEnergyHalo"', read("scripts/combat_fx.gd"), "second-stage arcade explosion halo"),
+    ('"SoftShoulderPad_%s"', read("scripts/character_visuals.gd"), "rounded layered troll shoulder costume"),
+    ('"BeltPouch_%s"', read("scripts/character_visuals.gd"), "rounded character costume pouches"),
     ('"comet_bow", "star_piercer", "solar_lance"', player, "precision archetype firing animation"),
     ('"prism_scepter", "frost_wand", "jellyfish_staff"', player, "staff archetype firing animation"),
     ("ArcadeWeaponImpactFX_", read("scripts/combat_fx.gd"), "weapon-specific impact effects"),
@@ -406,6 +478,17 @@ if "ARSENAL  •  23" not in main or "_build_arsenal_panel" not in main:
 if "set_selected_weapon" not in player or "ARCADE_WEAPON_VISUALS.build_weapon" not in player:
     errors.append("weapon equip flow does not rebuild the selected first-person model")
 
+for label, source, function_name in [
+    ("hero outfit", player, "func _add_hero_skin_details()"),
+    ("local swimwear", player, "func _build_swimwear()"),
+    ("remote swimwear", read("scripts/oxenwar_remote_player.gd"), "func _build_remote_swimwear()"),
+]:
+    start = source.find(function_name)
+    end = source.find("\nfunc ", start + 1) if start >= 0 else -1
+    body = source[start:end] if start >= 0 and end > start else source[start:]
+    if "BoxMesh.new()" in body:
+        errors.append(f"{label} still contains block-shaped character geometry")
+
 for needle, source, label in checks:
     if needle not in source:
         errors.append(f"missing {label}")
@@ -420,6 +503,21 @@ if "service_role" in backend.lower() or "sb_secret_" in backend:
     errors.append("secret/service-role credential must never be present in the game client")
 if "ADMIN_CODE_SHA256" in main or "ADMIN_PLAYER_NAME" in main:
     errors.append("obsolete client-side admin password/name authorization remains")
+
+
+weapon_visuals = read("scripts/arcade_weapon_visuals.gd")
+new_weapon_ids = ("ranger_rifle", "heavy_sidearm", "longshot", "rotary_arc")
+for weapon_id in new_weapon_ids:
+    for rel, source in (
+        ("scripts/arcade_weapon_visuals.gd", weapon_visuals),
+        ("scripts/player.gd", player),
+        ("scripts/oxenwar_network.gd", network),
+        ("scripts/main.gd", main),
+    ):
+        if f'"{weapon_id}"' not in source:
+            errors.append(f"missing weapon registration/model reference: {weapon_id} in {rel}")
+if any(name not in main for name in ("RANGER RIFLE", "HEAVY SIDEARM", "LONGSHOT", "ROTARY ARC")):
+    errors.append("new weapon display names are incomplete")
 
 if errors:
     print("VALIDATION FAILED")

@@ -28,7 +28,11 @@ const ARCADE_WEAPON_LOCAL := {
 	"moon_disc": {"name":"MOON DISC", "cooldown":0.52, "range":68.0, "color":Color("#BCC7FF")},
 	"jellyfish_staff": {"name":"JELLYFISH STAFF", "cooldown":0.30, "range":50.0, "color":Color("#D39BFF")},
 	"portal_popper": {"name":"PORTAL POPPER", "cooldown":0.64, "range":62.0, "color":Color("#9C72FF")},
-	"rubber_chicken": {"name":"RUBBER CHICKEN", "cooldown":0.48, "range":32.0, "color":Color("#FFB56C")}
+	"rubber_chicken": {"name":"RUBBER CHICKEN", "cooldown":0.48, "range":32.0, "color":Color("#FFB56C")},
+	"ranger_rifle": {"name":"RANGER RIFLE", "cooldown":0.16, "range":68.0, "color":Color("#86D6B8")},
+	"heavy_sidearm": {"name":"HEAVY SIDEARM", "cooldown":0.60, "range":52.0, "color":Color("#F0BC77")},
+	"longshot": {"name":"LONGSHOT", "cooldown":1.25, "range":100.0, "color":Color("#AFC4FF")},
+	"rotary_arc": {"name":"ROTARY ARC", "cooldown":0.075, "range":48.0, "color":Color("#FF8A9C")}
 }
 
 signal collected(points: int)
@@ -98,8 +102,11 @@ var _character_detail_root: Node3D
 var _motion_rig: Node3D
 var _motion_clock := 0.0
 var is_swimming := false
+## Which map's swim zone applies (see MapWorldBuilder.in_swim_zone); set by main.
+var swim_map_index := 4
 
 func _ready() -> void:
+	floor_snap_length = CharacterMovement.FLOOR_SNAP_LENGTH
 	_build_visuals()
 	_setup_footstep_audio()
 	_setup_blaster()
@@ -120,26 +127,20 @@ func _build_visuals() -> void:
 	body.radius = 0.38
 	body.height = 1.8
 	_body_mesh.mesh = body
-	var suit_color := cosmetic_color
+	# Golden Pilot, Ghost-Ops and Neon Cyan Riot trolls use their own costume colors.
+	var suit_color := CharacterVisuals.suit_color_for(cosmetic_outfit, cosmetic_color)
 	if cosmetic_outfit == "outfit_iron_vanguard":
 		suit_color = Color("#A92332")
 	elif cosmetic_outfit == "outfit_web_sentinel":
 		suit_color = Color("#B52D3D")
 	_body_mesh.material_override = _material(suit_color)
-	if cosmetic_outfit == "outfit_neon":
-		var neon_material := _material(cosmetic_color)
-		neon_material.emission_enabled = true
-		neon_material.emission = cosmetic_color
-		neon_material.emission_energy_multiplier = 0.45
-		_body_mesh.material_override = neon_material
-	elif cosmetic_outfit == "outfit_runner":
-		_body_mesh.scale = Vector3(0.94, 1.0, 0.94)
+	CharacterVisuals.apply_body_shape(_body_mesh, cosmetic_outfit)
 	_add_selected_accessory()
 	_body_mesh.position.y = 0.9
 	add_child(_body_mesh)
 	_build_swimwear()
 	_character_detail_root = CharacterVisuals.build(_body_mesh, cosmetic_outfit, cosmetic_color)
-	_motion_rig = CharacterMotionRig.build(_body_mesh, suit_color)
+	_motion_rig = CharacterMotionRig.build(_body_mesh, suit_color, cosmetic_outfit)
 	if cosmetic_outfit == "outfit_iron_vanguard" or cosmetic_outfit == "outfit_web_sentinel":
 		_add_hero_skin_details()
 
@@ -170,95 +171,12 @@ func _set_visual_layer_recursive(node: Node, layer_mask: int) -> void:
 		_set_visual_layer_recursive(child, layer_mask)
 
 func _add_hero_skin_details() -> void:
-	# Original hero-inspired silhouettes; no copied movie/game meshes or logos.
-	var iron := cosmetic_outfit == "outfit_iron_vanguard"
-	var primary := Color("#A92332") if iron else Color("#B52D3D")
-	var secondary := Color("#D9B45B") if iron else Color("#183D78")
-	var glow := Color("#66EFFF") if iron else Color("#E34A62")
-	var armor := _blaster_material(secondary, 0.55)
-	var accent := _blaster_material(glow, 0.25, true)
-	var chest := MeshInstance3D.new()
-	var chest_mesh := BoxMesh.new()
-	chest_mesh.size = Vector3(0.48, 0.42, 0.16)
-	chest.mesh = chest_mesh
-	chest.position = Vector3(0, 0.05, -0.34)
-	chest.material_override = armor
-	_body_mesh.add_child(chest)
-	var core := MeshInstance3D.new()
-	var core_mesh := SphereMesh.new()
-	core_mesh.radius = 0.105 if iron else 0.075
-	core_mesh.height = 0.10 if iron else 0.08
-	core.mesh = core_mesh
-	core.position = Vector3(0, 0.08, -0.435)
-	core.material_override = accent
-	_body_mesh.add_child(core)
-	for side in [-1.0, 1.0]:
-		var shoulder := MeshInstance3D.new()
-		var shoulder_mesh := SphereMesh.new()
-		shoulder_mesh.radius = 0.19
-		shoulder_mesh.height = 0.25
-		shoulder.mesh = shoulder_mesh
-		shoulder.position = Vector3(side * 0.32, 0.43, 0)
-		shoulder.material_override = armor
-		_body_mesh.add_child(shoulder)
-	var helmet := MeshInstance3D.new()
-	var helmet_mesh := SphereMesh.new()
-	helmet_mesh.radius = 0.31
-	helmet_mesh.height = 0.42
-	helmet.mesh = helmet_mesh
-	helmet.position = Vector3(0, 0.72, 0)
-	helmet.material_override = _blaster_material(primary, 0.42)
-	_body_mesh.add_child(helmet)
-	var visor := MeshInstance3D.new()
-	var visor_mesh := BoxMesh.new()
-	visor_mesh.size = Vector3(0.34, 0.09, 0.055)
-	visor.mesh = visor_mesh
-	visor.position = Vector3(0, 0.73, -0.285)
-	visor.material_override = accent
-	_body_mesh.add_child(visor)
-	if not iron:
-		for side in [-1.0, 1.0]:
-			var web_line := MeshInstance3D.new()
-			var line_mesh := BoxMesh.new()
-			line_mesh.size = Vector3(0.025, 0.48, 0.018)
-			web_line.mesh = line_mesh
-			web_line.position = Vector3(side * 0.12, 0.05, -0.432)
-			web_line.material_override = _material(Color("#DDEBFF"))
-			_body_mesh.add_child(web_line)
+	# Original rounded hero-inspired silhouettes, shared with remote players and the preview.
+	CharacterVisuals.add_hero_details(_body_mesh, cosmetic_outfit)
 
 func _add_selected_accessory() -> void:
-	var accessory_root := Node3D.new()
-	accessory_root.name = "FreeCosmeticAccessory"
-	accessory_root.position.y = 1.72
-	add_child(accessory_root)
-	if cosmetic_accessory == "accessory_cap":
-		var cap := MeshInstance3D.new()
-		var cap_mesh := SphereMesh.new()
-		cap_mesh.radius = 0.24
-		cap_mesh.height = 0.18
-		cap.mesh = cap_mesh
-		cap.position.y = 0.08
-		cap.material_override = _material(cosmetic_color.lightened(0.25))
-		accessory_root.add_child(cap)
-		var brim := MeshInstance3D.new()
-		var brim_mesh := CylinderMesh.new()
-		brim_mesh.top_radius = 0.22
-		brim_mesh.bottom_radius = 0.22
-		brim_mesh.height = 0.035
-		brim.mesh = brim_mesh
-		brim.position = Vector3(0, 0.015, -0.12)
-		brim.material_override = _material(cosmetic_color.darkened(0.2))
-		accessory_root.add_child(brim)
-	elif cosmetic_accessory == "accessory_headphones":
-		for side in [-1.0, 1.0]:
-			var ear := MeshInstance3D.new()
-			var ear_mesh := SphereMesh.new()
-			ear_mesh.radius = 0.105
-			ear_mesh.height = 0.22
-			ear.mesh = ear_mesh
-			ear.position = Vector3(side * 0.31, -0.02, 0)
-			ear.material_override = _material(cosmetic_color)
-			accessory_root.add_child(ear)
+	# Fitted to the head and attached to the body so it follows the head's motion.
+	CharacterVisuals.add_accessory(_body_mesh, cosmetic_accessory, cosmetic_color)
 
 
 func _build_swimwear() -> void:
@@ -266,47 +184,61 @@ func _build_swimwear() -> void:
 	_swimwear_root.name = "BeachSwimwear"
 	_swimwear_root.visible = false
 	_body_mesh.add_child(_swimwear_root)
+
 	var shirt := MeshInstance3D.new()
 	shirt.name = "BeachShirt"
-	var shirt_mesh := BoxMesh.new()
-	shirt_mesh.size = Vector3(0.66, 0.56, 0.44)
+	var shirt_mesh := CapsuleMesh.new()
+	shirt_mesh.radius = 0.31
+	shirt_mesh.height = 0.54
 	shirt.mesh = shirt_mesh
-	shirt.position.y = 0.18
+	shirt.position = Vector3(0.0, 0.02, 0.0)
 	shirt.material_override = _material(Color("#16A6C8"))
 	_swimwear_root.add_child(shirt)
+
 	var shorts := MeshInstance3D.new()
 	shorts.name = "SwimShorts"
-	var shorts_mesh := BoxMesh.new()
-	shorts_mesh.size = Vector3(0.68, 0.34, 0.46)
+	var shorts_mesh := SphereMesh.new()
+	shorts_mesh.radius = 0.30
+	shorts_mesh.height = 0.60
 	shorts.mesh = shorts_mesh
-	shorts.position.y = -0.30
+	shorts.scale = Vector3(1.12, 0.62, 0.82)
+	shorts.position = Vector3(0.0, -0.17, 0.0)
 	shorts.material_override = _material(Color("#FFB347"))
 	_swimwear_root.add_child(shorts)
+
 	var glasses := Node3D.new()
 	glasses.name = "Sunglasses"
-	glasses.position = Vector3(0.0, 0.62, -0.34)
+	glasses.position = Vector3(0.0, 0.76, -0.33)
 	_swimwear_root.add_child(glasses)
 	for side in [-1.0, 1.0]:
 		var lens := MeshInstance3D.new()
-		var lens_mesh := BoxMesh.new()
-		lens_mesh.size = Vector3(0.22, 0.12, 0.055)
+		var lens_mesh := SphereMesh.new()
+		lens_mesh.radius = 0.09
+		lens_mesh.height = 0.18
 		lens.mesh = lens_mesh
+		lens.scale = Vector3(1.2, 0.72, 0.34)
 		lens.position.x = side * 0.13
 		lens.material_override = _material(Color("#172638"))
 		glasses.add_child(lens)
+
 	var bridge := MeshInstance3D.new()
-	var bridge_mesh := BoxMesh.new()
-	bridge_mesh.size = Vector3(0.10, 0.035, 0.05)
+	var bridge_mesh := CapsuleMesh.new()
+	bridge_mesh.radius = 0.018
+	bridge_mesh.height = 0.12
 	bridge.mesh = bridge_mesh
+	bridge.rotation.z = deg_to_rad(90.0)
 	bridge.material_override = _material(Color("#F4D36B"))
 	glasses.add_child(bridge)
 
 func set_swimming(enabled: bool) -> void:
+	var changed := enabled != is_swimming
 	is_swimming = enabled
 	if is_instance_valid(_swimwear_root):
 		_swimwear_root.visible = enabled
-	if is_instance_valid(_character_detail_root):
-		_character_detail_root.visible = not enabled
+	# The beach outfit replaces the clothes; the head stays. Called every frame, so only
+	# touch the detail nodes when the state actually changes.
+	if changed:
+		CharacterVisuals.set_clothing_visible(_character_detail_root, not enabled)
 
 func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("emote_griddy"):
@@ -334,8 +266,32 @@ func _process(delta: float) -> void:
 		if (_weapon_inspect_tween == null or not _weapon_inspect_tween.is_running()) and (_weapon_fire_tween == null or not _weapon_fire_tween.is_running()):
 			_blaster_model.rotation.z = sin(_weapon_idle_clock * 1.35) * 0.012
 			_blaster_model.position.y = -0.24 + sin(_weapon_idle_clock * 1.7) * 0.006
+	if is_instance_valid(_blaster_model):
+		_animate_weapon_details()
 	if Input.is_action_pressed("fire") and _blaster_cooldown <= 0.0 and not arsenal_open:
 		_fire_blaster()
+
+
+func _animate_weapon_details() -> void:
+	# Client-only decorative motion: spinning energy rings, orbiting accents and pulsing cores.
+	var phase := _weapon_idle_clock
+	var vortex_ring := _blaster_model.get_node_or_null("VortexRing") as Node3D
+	if is_instance_valid(vortex_ring):
+		vortex_ring.rotation.z = phase * 1.35
+	var rotary_ring := _blaster_model.get_node_or_null("RotaryArcFrontRing") as Node3D
+	if is_instance_valid(rotary_ring):
+		rotary_ring.rotation.z = phase * 2.8
+	for index in range(3):
+		var moon := _blaster_model.get_node_or_null("OrbitingMoon_%d" % index) as Node3D
+		if is_instance_valid(moon):
+			var angle := phase * 1.6 + TAU * float(index) / 3.0
+			moon.position = Vector3(cos(angle) * 0.25, sin(angle) * 0.18, -0.28)
+	var pulse := 1.0 + sin(phase * 4.0) * 0.055
+	for core_name in ["AetherCell", "PulseCore", "RangerSideCell", "SidearmChargeGem", "LongshotChargeCell", "RotaryArcPowerCore"]:
+		var core := _blaster_model.get_node_or_null(core_name) as Node3D
+		if is_instance_valid(core):
+			core.scale = Vector3.ONE * pulse
+
 
 func play_emote(emote_id: String) -> void:
 	if emote_id not in ["griddy", "goofy", "robot", "wave"]:
@@ -518,7 +474,11 @@ func _make_weapon_stream(weapon_id: String) -> AudioStreamWAV:
 		"moon_disc":[270.0, 210.0, 810.0, 0.18],
 		"jellyfish_staff":[720.0, 440.0, 1440.0, 0.20],
 		"portal_popper":[225.0, 420.0, 900.0, 0.24],
-		"rubber_chicken":[390.0, 720.0, 1170.0, 0.42]
+		"rubber_chicken":[390.0, 720.0, 1170.0, 0.42],
+		"ranger_rifle":[305.0, 95.0, 610.0, 0.18],
+		"heavy_sidearm":[155.0, 48.0, 310.0, 0.28],
+		"longshot":[820.0, 540.0, 1640.0, 0.09],
+		"rotary_arc":[175.0, 34.0, 525.0, 0.25]
 	}
 	var profile: Array = profiles.get(weapon_id, profiles["aether"])
 	var base_frequency := float(profile[0])
@@ -572,11 +532,11 @@ func _animate_weapon_fire() -> void:
 	var tilt := Vector3.ZERO
 	var squash := Vector3.ONE
 	match selected_weapon_id:
-		"hand_cannon", "meteor_mallet", "thunder_drum":
+		"hand_cannon", "heavy_sidearm", "meteor_mallet", "thunder_drum":
 			kick = Vector3(0.0, -0.035, 0.0)
 			tilt = Vector3(deg_to_rad(-9.0), 0.0, deg_to_rad(-4.0))
 			squash = Vector3(0.96, 1.04, 0.94)
-		"comet_bow", "star_piercer", "solar_lance":
+		"comet_bow", "star_piercer", "solar_lance", "longshot":
 			kick = Vector3(0.0, 0.025, 0.0)
 			tilt = Vector3(deg_to_rad(5.0), 0.0, deg_to_rad(3.0))
 			squash = Vector3(1.04, 0.96, 1.06)
@@ -589,6 +549,12 @@ func _animate_weapon_fire() -> void:
 		"rubber_chicken", "duck_launcher", "bubble_burst", "slime_slinger":
 			tilt = Vector3(deg_to_rad(-5.0), 0.0, deg_to_rad(8.0))
 			kick = Vector3(0.0, -0.025, 0.0)
+		"ranger_rifle":
+			kick = Vector3(0.0, 0.008, 0.035)
+			tilt = Vector3(deg_to_rad(-2.5), 0.0, 0.0)
+		"rotary_arc":
+			kick = Vector3(0.0, 0.006, 0.045)
+			tilt = Vector3(deg_to_rad(-1.5), 0.0, deg_to_rad(1.0))
 		_:
 			kick = Vector3(0.0, 0.012, 0.055)
 			tilt = Vector3(deg_to_rad(-3.0), 0.0, 0.0)
@@ -687,7 +653,7 @@ func _physics_process(delta: float) -> void:
 		_coyote_left = COYOTE_TIME
 	else:
 		_coyote_left = maxf(0.0, _coyote_left - delta)
-		velocity.y -= GRAVITY * event_gravity_scale * delta
+		velocity.y = CharacterMovement.apply_gravity(velocity.y, GRAVITY, event_gravity_scale, delta)
 
 	if Input.is_action_just_pressed("jump"):
 		_jump_buffer_left = JUMP_BUFFER_TIME
@@ -730,20 +696,15 @@ func _physics_process(delta: float) -> void:
 			stamina = minf(MAX_STAMINA, stamina + 20.0 * delta)
 
 		target_speed *= event_speed_scale
-		if direction.length() > 0.01:
-			var acceleration := 34.0 if _is_sliding else 28.0
-			velocity.x = move_toward(velocity.x, direction.x * target_speed, acceleration * delta)
-			velocity.z = move_toward(velocity.z, direction.z * target_speed, acceleration * delta)
-		else:
-			var friction := 3.5 if active_event_ice() else (7.0 if _is_sliding else 20.0)
-			velocity.x = move_toward(velocity.x, 0.0, friction * delta)
-			velocity.z = move_toward(velocity.z, 0.0, friction * delta)
+		var next_horizontal := CharacterMovement.step_horizontal(Vector2(velocity.x, velocity.z), Vector2(direction.x, direction.z), target_speed, is_on_floor(), _is_sliding, active_event_ice(), delta)
+		velocity.x = next_horizontal.x
+		velocity.z = next_horizontal.y
 
 	if Input.is_action_just_pressed("dash"):
 		try_dash(direction)
 
 	move_and_slide()
-	set_swimming(global_position.x >= -16.0 and global_position.x <= -8.0 and global_position.z >= -13.0 and global_position.z <= -5.0 and global_position.y <= 3.5)
+	set_swimming(MapWorldBuilder.in_swim_zone(swim_map_index, global_position))
 	_update_footsteps(delta)
 	if _camera:
 		var target_camera_height := 1.05 if _is_sliding else 1.55

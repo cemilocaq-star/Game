@@ -14,14 +14,14 @@ OxenWar is a free-to-play Godot 4.4.1 parkour arena project. Its visual directio
 - Server-owned score, XP awards, collectible inventory and event timers.
 - Event-specific procedural 3D centerpieces, animated particles, original synthesized motifs, and hash-verified CC0 event cues/music.
 - Local 3D footsteps with distinct generated sound profiles for stone, wood, metal, grass, dirt and ice; surfaces can be identified by `surface_type` metadata or `surface_<type>` groups.
-- Twenty-three selectable arcade weapon archetypes: Aether Blaster, MiniCore, Nova Hand Cannon, Pulse Carbine, Star Piercer, Duck Launcher, Banana Boomerang, Confetti Cannon, Prism Scepter, Vortex Orbiter, Comet Bow, Bubble Burst, Glitch Ray, Meteor Mallet, Frost Wand, Solar Lance, Slime Slinger, Pixel Storm, Thunder Drum, Moon Disc, Jellyfish Staff, Portal Popper and Rubber Chicken. All are fictional, stylized arcade props rather than realistic firearm replicas.
-- A scrollable 23-card Arsenal screen opens with V or the ARSENAL HUD button. Each weapon has a dedicated procedural first-person 3D silhouette and color identity; E/R and mobile WEAPON + / WEAPON - cycle the full roster, while number keys 1–8 remain quick-select shortcuts. Equipping rebuilds the view model with a short transition; firing uses a weapon-specific synthetic pitch, and the server remains authoritative for selection, hit validation, cooldown, range and damage.
+- Twenty-seven selectable weapon archetypes: the original 23 arcade props plus Ranger Rifle, Heavy Sidearm, Longshot and Rotary Arc. The four additions are original, non-functional first-person game props with separate silhouettes, colors, synthetic audio and cosmetic impact styles.
+- A scrollable 27-card Arsenal screen opens with V or the ARSENAL HUD button. Each of the 27 weapons has a dedicated procedural first-person 3D silhouette and color identity; E/R and mobile WEAPON + / WEAPON - cycle the full roster, while number keys 1–8 remain quick-select shortcuts. Equipping rebuilds the view model with a short transition; firing uses a weapon-specific synthetic pitch, and the server remains authoritative for selection, hit validation, cooldown, range and damage.
 - Server-authoritative health: players start with 100 HP, each confirmed pulse hit deals 34 damage, zero HP triggers a 4-second K.O. state, then automatic full-health respawn; a final hit grants a bonus score.
 - Consecutive-kill streaks are tracked by the server, reset when eliminated, and award milestone score bonuses at 3, 5, 7 and 10 kills with live HUD announcements.
 - Weapon mastery is awarded by the game server from accepted combat events. Match XP is synced through the authenticated server-sync function into `player_weapon_mastery`; the Career Stats page reads persistent Aether Blaster and Grenade totals and shows Recruit/Bronze/Silver/Gold progression (100/300/600 XP). The migration `20261109193000_oxenwar_weapon_mastery.sql` and updated `oxenwar-server-sync` Edge Function must be deployed before hosted persistence works. Weapon skin unlock/equip is not yet implemented.
 - Free-for-all and Team Deathmatch room modes. Team assignment is server-owned, with team spawns, team HUD colours and friendly-fire protection.
 - Server-simulated grenades with a 2.5-second fuse, 5-metre blast radius, distance-scaled damage, cooldown validation and replicated projectile/explosion visuals.
-- Original Dust II-inspired desert three-lane map blockout (A Long/site, Mid, connector and B site) built from procedural geometry; no Valve assets are copied.
+- Seven themed procedural arena variants, including Sunken Oasis, Jungle Arena and Redstone Canyon. The new maps add sandstone courtyards, market stalls, palm trees, river bridges, temple ruins, a waterfall, canyon arches and lookout structures.
 - Match results are persisted through a Supabase Edge Function using one-time HMAC game tickets and a server-only session/secret.
 - Free starter cosmetics plus two original hero-inspired outfits: Iron Vanguard (red/gold armored hero) and Web Sentinel (red/blue masked agility hero); outfit selection uses the existing character customization tab and is replicated to remote players.
 - Azerbaijani, English, Turkish and Russian menu localization.
@@ -46,7 +46,7 @@ Database schema source is in `supabase/migrations/`. Apply all new migrations, i
 5. Register/sign in with an OxenWar username and password. Registration also asks for a display name; no email address is requested. Password recovery is not yet implemented, so players must keep their password safe.
 6. Run a dedicated server in another terminal: `godot --headless --path . -- --server`.
 7. In the game, enter the server's LAN address or public hostname and press **CONNECT**.
-8. Choose **FREE FOR ALL** or **TEAM DEATHMATCH** in the in-game mode selector. Use **CREATE ROOM** to make a private friend room, **JOIN** with its code, or **QUICK MATCH** to enter a public room of the selected mode. The current arena is the original Dust II-inspired desert blockout.
+8. Choose **FREE FOR ALL** or **TEAM DEATHMATCH** in the in-game mode selector. Use **CREATE ROOM** to make a private friend room, **JOIN** with its code, or **QUICK MATCH** to enter a public room of the selected mode. The default arena is Sunken Oasis; an authorized admin can cycle through the available themed arenas.
 
 For a private room, share its six-character code with an existing OxenWar friend. The server checks the friendship relationship before allowing entry. Public quick-match rooms are available to all authenticated players.
 
@@ -91,10 +91,10 @@ GitHub Actions validates the structure, imports/parses the project with Godot he
 
 ## Visual quality pass
 
-The client arena receives a lightweight procedural art-detail pass with floor inlays, perimeter trims, site markers, corner beacon housings and quality-scaled fill lights. The shared surface shader adds subtle procedural material variation, while the graphics manager applies filmic tonemapping, color grading and quality-scaled glow/fog. These are visual-only additions; the dedicated server skips the art-detail pass and collision/gameplay geometry is unchanged.
+The client arena uses a lightweight procedural environment builder with themed props and traversal pieces. Sunken Oasis adds sandstone halls, market awnings, palms, a fountain and rock gardens; Jungle Arena adds a swimmable river trench with a waterfall, a stepped pyramid and a ruined temple that mirror each other around the two energy sites, treehouses with rope bridges, log and stone crossings, flag bases, crates and jungle foliage; Redstone Canyon adds rock formations, an aqueduct walkway, caravan tents and a lookout. These are original low-poly procedural blockouts with collision on major structures, not finished AAA or imported production map assets.
 
 ## Character model detail pass
-The local player and replicated remote-player proxies now share a lightweight procedural equipment model: helmet/visor, layered vest and chest plate, shoulder pads, sleeves, forearm guards, gloves, utility belt and pouches, separate leg and knee pieces, boots, backpack and small accent panels. Outfit palettes are derived from the selected cosmetic, with dedicated Iron Vanguard and Web Sentinel colors. The detail meshes are visual-only, sit inside the existing movement capsule, and are hidden while the beach outfit is active. This pass does not add a skeletal rig, motion-captured animation, or change collision and server movement.
+The local player, remote players and 3D customization preview now share the same original cartoon-troll detail model: rounded oversized heads, expressive eyes and brows, ears, cheeks, smiles, hair and outfit accents. Pilot/goggle, neon and other costume variations reuse the selected cosmetic outfit. The meshes are procedural low-poly visuals, not imported character assets; the existing movement capsule, server physics and network snapshots remain unchanged.
 
 ## Aether Blaster detail pass
 The Aether Blaster retains its original procedural model. The selectable arcade weapon registry now adds distinct server-validated damage/cooldown/range profiles and color-coded impact effects for each fictional archetype. Duck Launcher, Banana Boomerang and Confetti Cannon use intentionally silly visual impact cues. Weapon models are currently represented by the shared first-person device; unique first-person meshes and per-weapon mastery are follow-up work.
@@ -102,12 +102,23 @@ The Aether Blaster retains its original procedural model. The selectable arcade 
 ## Combat visual effects pass
 Grenade detonations now use a client-only layered effect with an expanding shock ring, short orange light flash, rising smoke puffs and outward sparks. Remote Aether Blaster impacts receive a brief cyan energy flash and ring at the reported endpoint. These effects are cosmetic only: authoritative grenade movement, blast radius, damage, hit validation and score logic remain on the server.
 
+### Signature troll characters
+Three original troll costumes are modeled procedurally (rounded primitives, no imported assets) and share the same head, limb rig and animation as every other outfit:
+
+| Outfit id | Character | Highlights |
+| --- | --- | --- |
+| `outfit_runner` | Golden Pilot Troll | gold skin, brown bomber jacket with fleece collar, white scarf with trailing tails, leather aviator cap with brass goggles, olive shorts, bare feet |
+| `outfit_ghost_ops` | Ghost-Ops Troll | pale skin, black balaclava hood and skull-print mask, tactical vest with pouches and shoulder radio, cargo shorts, mismatched pink/cyan flip-flops |
+| `outfit_neon` | Neon Cyan Riot Troll | neon cyan skin, black riot armor with glowing trim, riot helmet with translucent visor, shoulder armor, left-side riot shield, knee pads |
+
+`outfit_runner` and `outfit_neon` reuse the existing catalog ids, so their look changes for existing accounts without a database change. `outfit_ghost_ops` is a new catalog id: apply `20261110210000_oxenwar_ghost_ops_outfit.sql` to a hosted Supabase project before it appears in the customization tab. These three characters use a slimmer torso (`CharacterVisuals.apply_body_shape()`) so the oversized head, arms and legs are fully visible and the soles reach the ground line; the default and hero outfits keep the original capsule body. The beach swimwear overlay is still sized for the original capsule, so on the slim trolls it is not visible. Costume colors live in `CharacterVisuals.profile_for()`; the motion rig and the customization preview read the same table. The shield and other gear are cosmetic and add no collision or hitbox changes.
+
 ## Character movement animation pass
-Local and remote characters now share a lightweight procedural limb rig with separate arm and leg pivots. The rig animates alternating arm/leg swings while moving, a restrained idle breathing/bob motion, and a forward-lean pose while sliding. Existing CharacterBody3D movement, collision shapes, server input simulation and network snapshots are unchanged. This is procedural animation, not a skeletal/retargeted animation asset.
+Local and remote characters share the articulated procedural limb rig. It animates alternating arm/leg swings, idle breathing, slide and emote poses; the troll head now adds a small movement-aware tilt/bounce during running, jumping, sliding and emotes. Existing CharacterBody3D movement, collision shapes, server input simulation and network snapshots are unchanged. This is procedural animation, not skeletal or motion-captured animation.
 
 ## Beach / swimwear
 
-The arena includes a shallow, non-blocking pool. Entering its marked swim zone switches the character to a modest beach outfit (shirt, swim shorts and sunglasses); leaving restores the regular appearance. The server derives the swim-zone state from player position and replicates it in snapshots so remote players see the same outfit. This is a visual zone only; it does not yet implement swimming physics or water movement.
+The previous beach/swim outfit visual remains in the codebase for compatibility, but the current themed arenas do not enable a dedicated swim trigger or swimming physics. Oasis water and jungle river surfaces are environmental scenery in this pass.
 
 ## Emotes
 Players can trigger four distinct emotes: Griddy (**B** / mobile **GRIDDY**), Goofy (**N** / **GOOFY**), Robot (**M** / **ROBOT**) and Wave (**J** / **WAVE**). Each has a different procedural limb/body pattern; selecting the active emote again stops it and sends the stopped state to the server. The server replicates all four states to other players. Griddy retains its short original synthesized beat; no third-party dance audio or character animation assets are bundled.
@@ -135,12 +146,12 @@ A third multiplayer mode, King of the Hill, assigns players to balanced red/blue
 
 
 ## Expanded arcade arsenal and weapon presentation
-The roster has 23 server-registered fictional archetypes plus the separate grenade throwable. Fifteen additions expand the range from crystal and orbit effects to bubbles, pixels, frost, solar energy, slime, moon discs and deliberately silly duck/chicken props. The client arsenal is a scrollable card grid; selecting a card changes the selected server weapon and rebuilds a distinct procedural first-person silhouette. These meshes are lightweight Godot primitives, not imported production weapon assets. Equip transition, existing firing recoil, colored beams and original synthesized shot audio are presentation effects only. The server continues to validate equipped IDs and combat values.
+The roster has 27 server-registered weapon archetypes plus the separate grenade throwable. Fifteen additions expand the range from crystal and orbit effects to bubbles, pixels, frost, solar energy, slime, moon discs and deliberately silly duck/chicken props. The client arsenal is a scrollable card grid; selecting a card changes the selected server weapon and rebuilds a distinct procedural first-person silhouette. These meshes are lightweight Godot primitives, not imported production weapon assets. Equip transition, existing firing recoil, colored beams and original synthesized shot audio are presentation effects only. The server continues to validate equipped IDs and combat values.
 
 
 ### Weapon inspect and sound pass
 - Press **H** to inspect the equipped arcade weapon, or open the Arsenal and use **INSPECT [H]**. The inspect motion briefly presents the prop at an angle, then restores its first-person position; a subtle idle sway continues between actions.
-- Each of the 23 weapons now has a separately synthesized original sound profile built from its own frequency/sweep/overtone mix. These are generated locally at runtime and are not recordings or imitations of real-world weapons.
+- Each of the 27 weapons now has a separately synthesized original sound profile built from its own frequency/sweep/overtone mix. These are generated locally at runtime and are not recordings or imitations of real-world weapons.
 - The new pass is presentation-only: server-side damage, range, cooldown and selection validation remain unchanged. There is no magazine/ammunition/reload economy in this phase.
 
 
