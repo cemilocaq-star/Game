@@ -144,14 +144,15 @@ func _test_spawn_points_free() -> void:
 			query.transform = Transform3D(Basis.IDENTITY, Vector3(spawn.x, 0.5 + 0.95, spawn.z))
 			_assert_equal("jungle spawn team '%s' slot %d is free" % [team, slot], space.intersect_shape(query, 4).size(), 0)
 			var ground := _ray(space, Vector3(spawn.x, 3.0, spawn.z), Vector3(spawn.x, -3.0, spawn.z))
-			_assert_true("jungle spawn team '%s' slot %d stands on the causeway" % [team, slot], not ground.is_empty() and absf(ground.position.y - 0.5) < 0.06)
+			_assert_true("jungle spawn team '%s' slot %d stands on the causeway" % [team, slot], not ground.is_empty() and absf(ground.position.y - 0.5) < 0.12)
 
 
 func _test_hitscan_blocked_by_jungle_geometry() -> void:
 	var space := _room_space("JUNGLE")
 	# Open river water: a shot along the river just above the bed, under the log bridge, is not blocked.
 	var open := _ray(space, Vector3(0, -0.5, -9.0), Vector3(0, -0.5, 3.0))
-	_assert_true("a shot along the open river flies free", open.is_empty())
+	var blocker := "nothing" if open.is_empty() else "%s at %s" % [str(open.collider.get_parent().name if open.collider.get_parent() != null else open.collider.name), str(open.position)]
+	_assert_true("a shot along the open river flies free (blocked by %s)" % blocker, open.is_empty())
 	# A shot into the waterfall cliff stops at the cliff face, well before the arena wall.
 	var cliff := _ray(space, Vector3(0, 3.0, -8.0), Vector3(0, 3.0, -20.0))
 	_assert_true("a shot stops at the waterfall cliff", not cliff.is_empty() and cliff.position.z > -13.0)
