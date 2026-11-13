@@ -27,6 +27,7 @@ const EVENT_DURATION := 12.0
 const SUPABASE_URL := "https://lznnfwhlsquiitkhjzlc.supabase.co"
 const SUPABASE_KEY := "sb_publishable_z7UuZtF9NQwox1Ae0droQA_mxpD-P7L"
 const SERVER_PLAYER_SCRIPT := preload("res://scripts/oxenwar_server_player.gd")
+const GRENADE_PHYSICS := preload("res://scripts/grenade_physics.gd")
 const ORB_POSITIONS: Array[Vector3] = [
 	Vector3(-12, 1.0, -8), Vector3(-7, 2.0, -5), Vector3(0, 2.0, -10),
 	Vector3(7, 2.0, -5), Vector3(12, 1.0, -8), Vector3(-10, 1.0, 5),
@@ -791,23 +792,13 @@ func _server_step_grenades(room_code: String, room: Dictionary, delta: float) ->
 	var keep: Array = []
 	for grenade_value in grenades:
 		var grenade: Dictionary = grenade_value
-		var velocity: Vector3 = grenade.get("velocity", Vector3.ZERO)
-		var position: Vector3 = grenade.get("position", Vector3.ZERO)
-		velocity.y -= 9.8 * delta
-		var next_position := position + velocity * delta
-		var query := PhysicsRayQueryParameters3D.create(position, next_position)
 		var owner_peer := int(grenade.get("owner", 0))
+		var exclude: Array = []
 		if _server_players.has(owner_peer):
-			query.exclude = [_server_players[owner_peer].get_rid()]
-		query.collide_with_areas = false
-		var collision: Dictionary = get_viewport().world_3d.direct_space_state.intersect_ray(query)
-		if not collision.is_empty():
-			next_position = collision.position + collision.normal * 0.08
-			velocity = velocity.bounce(collision.normal) * 0.42
-			if velocity.length() < 1.2:
-				velocity = Vector3.ZERO
-		grenade.position = next_position
-		grenade.velocity = velocity
+			exclude.append(_server_players[owner_peer].get_rid())
+		var stepped: Dictionary = GRENADE_PHYSICS.step(grenade.get("position", Vector3.ZERO), grenade.get("velocity", Vector3.ZERO), delta, get_viewport().world_3d.direct_space_state, exclude)
+		grenade.position = stepped.position
+		grenade.velocity = stepped.velocity
 		grenade.fuse = float(grenade.get("fuse", 0.0)) - delta
 		if float(grenade.fuse) <= 0.0:
 			_server_detonate_grenade(room_code, grenade)

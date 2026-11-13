@@ -186,6 +186,9 @@ jobs:
       - name: Test Bomb Rush plant and defuse state machine
         run: timeout 45s godot --headless --path . --script tests/test_bomb_rush_objective.gd
 
+      - name: Test movement and grenade physics
+        run: timeout 60s godot --headless --path . --script tests/test_movement_physics.gd
+
       - name: Verify dedicated server rejects missing secret
         shell: bash
         run: |

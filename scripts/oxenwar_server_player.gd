@@ -66,6 +66,7 @@ func _ready() -> void:
 	_collider = get_node_or_null("CollisionShape3D") as CollisionShape3D
 	if is_instance_valid(_collider):
 		_capsule = _collider.shape as CapsuleShape3D
+	floor_snap_length = CharacterMovement.FLOOR_SNAP_LENGTH
 
 func _physics_process(delta: float) -> void:
 	rotation.y = look_yaw
@@ -88,7 +89,7 @@ func _physics_process(delta: float) -> void:
 		_coyote_left = COYOTE_TIME
 	else:
 		_coyote_left = maxf(0.0, _coyote_left - delta)
-		velocity.y -= GRAVITY * gravity_scale * delta
+		velocity.y = CharacterMovement.apply_gravity(velocity.y, GRAVITY, gravity_scale, delta)
 
 	if jump_requested:
 		_jump_buffer_left = JUMP_BUFFER_TIME
@@ -129,14 +130,9 @@ func _physics_process(delta: float) -> void:
 	else:
 		var target_speed := SLIDE_SPEED if _was_sliding else (SPRINT_SPEED if sprinting and stamina > 0.0 else WALK_SPEED)
 		target_speed *= speed_scale
-		if direction.length() > 0.01:
-			var acceleration := 34.0 if _was_sliding else 28.0
-			velocity.x = move_toward(velocity.x, direction.x * target_speed, acceleration * delta)
-			velocity.z = move_toward(velocity.z, direction.z * target_speed, acceleration * delta)
-		else:
-			var friction := 3.5 if event_id == "ICE_WORLD" else (7.0 if _was_sliding else 20.0)
-			velocity.x = move_toward(velocity.x, 0.0, friction * delta)
-			velocity.z = move_toward(velocity.z, 0.0, friction * delta)
+		var next_horizontal := CharacterMovement.step_horizontal(Vector2(velocity.x, velocity.z), Vector2(direction.x, direction.z), target_speed, is_on_floor(), _was_sliding, event_id == "ICE_WORLD", delta)
+		velocity.x = next_horizontal.x
+		velocity.z = next_horizontal.y
 		if _was_sliding:
 			stamina = maxf(0.0, stamina - 5.0 * delta)
 		elif sprinting and stamina > 0.0:

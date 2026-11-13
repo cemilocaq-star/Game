@@ -104,6 +104,7 @@ var _motion_clock := 0.0
 var is_swimming := false
 
 func _ready() -> void:
+	floor_snap_length = CharacterMovement.FLOOR_SNAP_LENGTH
 	_build_visuals()
 	_setup_footstep_audio()
 	_setup_blaster()
@@ -650,7 +651,7 @@ func _physics_process(delta: float) -> void:
 		_coyote_left = COYOTE_TIME
 	else:
 		_coyote_left = maxf(0.0, _coyote_left - delta)
-		velocity.y -= GRAVITY * event_gravity_scale * delta
+		velocity.y = CharacterMovement.apply_gravity(velocity.y, GRAVITY, event_gravity_scale, delta)
 
 	if Input.is_action_just_pressed("jump"):
 		_jump_buffer_left = JUMP_BUFFER_TIME
@@ -693,14 +694,9 @@ func _physics_process(delta: float) -> void:
 			stamina = minf(MAX_STAMINA, stamina + 20.0 * delta)
 
 		target_speed *= event_speed_scale
-		if direction.length() > 0.01:
-			var acceleration := 34.0 if _is_sliding else 28.0
-			velocity.x = move_toward(velocity.x, direction.x * target_speed, acceleration * delta)
-			velocity.z = move_toward(velocity.z, direction.z * target_speed, acceleration * delta)
-		else:
-			var friction := 3.5 if active_event_ice() else (7.0 if _is_sliding else 20.0)
-			velocity.x = move_toward(velocity.x, 0.0, friction * delta)
-			velocity.z = move_toward(velocity.z, 0.0, friction * delta)
+		var next_horizontal := CharacterMovement.step_horizontal(Vector2(velocity.x, velocity.z), Vector2(direction.x, direction.z), target_speed, is_on_floor(), _is_sliding, active_event_ice(), delta)
+		velocity.x = next_horizontal.x
+		velocity.z = next_horizontal.y
 
 	if Input.is_action_just_pressed("dash"):
 		try_dash(direction)

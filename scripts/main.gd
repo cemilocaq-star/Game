@@ -1,5 +1,6 @@
 extends Node3D
 
+const GRENADE_PHYSICS := preload("res://scripts/grenade_physics.gd")
 const PLAYER_SCRIPT = preload("res://scripts/player.gd")
 const BACKEND_SCRIPT = preload("res://scripts/oxenwar_supabase.gd")
 const MENU_SCRIPT = preload("res://scripts/oxenwar_menu.gd")
@@ -740,10 +741,10 @@ func _process(delta: float) -> void:
 		if not is_instance_valid(grenade_node):
 			_client_grenade_visuals.erase(grenade_id)
 			continue
-		var velocity: Vector3 = entry.get("velocity", Vector3.ZERO)
-		velocity.y -= 9.8 * delta
-		grenade_node.global_position += velocity * delta
-		entry.velocity = velocity
+		# Same bounce model as the server; only the world (layer 1) stops the visual.
+		var stepped: Dictionary = GRENADE_PHYSICS.step(grenade_node.global_position, entry.get("velocity", Vector3.ZERO), delta, get_world_3d().direct_space_state, [], 1)
+		grenade_node.global_position = stepped.position
+		entry.velocity = stepped.velocity
 		_client_grenade_visuals[grenade_id] = entry
 	if _round_finished:
 		return
