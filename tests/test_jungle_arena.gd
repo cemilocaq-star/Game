@@ -21,6 +21,7 @@ func _run_tests() -> void:
 	await physics_frame
 	await physics_frame
 	_test_structure()
+	_test_node_budget()
 	_test_heights()
 	_test_ramp_surfaces()
 	_test_spawn_points_are_free()
@@ -69,6 +70,32 @@ func _test_structure() -> void:
 			renamed += 1
 			failures.append("duplicate or invalid node name: %s" % str(node.name))
 	_assert_equal("no duplicate node names", renamed, 0)
+
+
+## Phone budget: counts what the renderer has to draw. The limits are generous guard rails against
+## the map growing unnoticed; real frame rate on a phone still has to be measured on a device.
+func _test_node_budget() -> void:
+	var nodes := 0
+	var meshes := 0
+	var bodies := 0
+	var lights := 0
+	var stack: Array[Node] = [world]
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		nodes += 1
+		if node is MeshInstance3D:
+			meshes += 1
+		if node is StaticBody3D:
+			bodies += 1
+		if node is Light3D:
+			lights += 1
+		for child in node.get_children():
+			stack.append(child)
+	print("Jungle Arena budget: %d nodes, %d meshes, %d static bodies, %d lights" % [nodes, meshes, bodies, lights])
+	_assert_true("node count stays below 900 (%d)" % nodes, nodes < 900)
+	_assert_true("mesh count stays below 700 (%d)" % meshes, meshes < 700)
+	_assert_true("static body count stays below 400 (%d)" % bodies, bodies < 400)
+	_assert_true("no extra lights on the map (%d)" % lights, lights <= 4)
 
 
 func _ground_y(x: float, z: float) -> float:
