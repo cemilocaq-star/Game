@@ -473,8 +473,8 @@ for weapon_id in new_weapon_ids:
     checks.append((f'"{weapon_id}"', read("scripts/oxenwar_network.gd"), f"server weapon registry: {weapon_id}"))
     checks.append((f'"{weapon_id}"', player, f"local weapon profile: {weapon_id}"))
     checks.append((f'"{weapon_id}"', read("scripts/arcade_weapon_visuals.gd"), f"procedural weapon silhouette: {weapon_id}"))
-if "ARSENAL  •  23" not in main or "_build_arsenal_panel" not in main:
-    errors.append("23-slot arcade arsenal selection screen is missing")
+if 'ARSENAL  •  %d" % WEAPON_ORDER.size()' not in main or "_build_arsenal_panel" not in main:
+    errors.append("arcade arsenal selection screen (weapon-count button) is missing")
 if "set_selected_weapon" not in player or "ARCADE_WEAPON_VISUALS.build_weapon" not in player:
     errors.append("weapon equip flow does not rebuild the selected first-person model")
 

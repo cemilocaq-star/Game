@@ -93,6 +93,8 @@ var _weapon_fire_tween: Tween
 var _weapon_idle_clock := 0.0
 var selected_weapon_id := "aether"
 var arsenal_open := false
+## Set by the HUD while a full-screen overlay (results, pause) is open: no firing or looking.
+var ui_blocked := false
 var active_emote := ""
 var _emote_clock := 0.0
 var _emote_music: AudioStreamPlayer
@@ -268,7 +270,10 @@ func _process(delta: float) -> void:
 			_blaster_model.position.y = -0.24 + sin(_weapon_idle_clock * 1.7) * 0.006
 	if is_instance_valid(_blaster_model):
 		_animate_weapon_details()
-	if Input.is_action_pressed("fire") and _blaster_cooldown <= 0.0 and not arsenal_open:
+	# A raw mouse click on a HUD button must not fire: on desktop only shoot while the
+	# mouse is captured. Touch devices fire through the on-screen FIRE button instead.
+	var fire_input_allowed := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED or DisplayServer.is_touchscreen_available()
+	if Input.is_action_pressed("fire") and _blaster_cooldown <= 0.0 and not arsenal_open and not ui_blocked and fire_input_allowed:
 		_fire_blaster()
 
 
@@ -933,10 +938,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		var viewport_size := get_viewport().get_visible_rect().size
 		if event.position.x > viewport_size.x * 0.38:
 			_apply_look(event.relative)
-	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED
+	# Esc is handled by the HUD (pause menu), which also frees/captures the mouse.
 
 func _apply_look(relative: Vector2) -> void:
+	if ui_blocked:
+		return
 	rotate_y(-relative.x * look_sensitivity)
 	pitch = clampf(pitch - relative.y * look_sensitivity, deg_to_rad(-82.0), deg_to_rad(82.0))
 	_camera.rotation.x = pitch

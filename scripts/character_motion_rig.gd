@@ -253,7 +253,9 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 		_move_rotation(arm, Vector3(arm_x, 0.0, arm_z), delta, 11.0)
 		_move_rotation(elbow, Vector3(elbow_x, 0.0, 0.0), delta, 13.0)
 		_move_rotation(leg, Vector3(leg_x, 0.0, leg_z), delta, 10.0)
-		_move_rotation(knee, Vector3(knee_x, 0.0, 0.0), delta, 12.0)
+		# The character faces -Z, where a positive X rotation swings a hanging limb forward.
+		# A knee only bends backward (shin toward +Z), so flexion is the negative angle.
+		_move_rotation(knee, Vector3(-knee_x, 0.0, 0.0), delta, 12.0)
 
 
 static func _emote_rate(emote: String) -> float:
@@ -289,6 +291,10 @@ static func _add_capsule(parent: Node3D, node_name: String, radius: float, heigh
 	var mesh := CapsuleMesh.new()
 	mesh.radius = radius
 	mesh.height = height
+	# Godot's defaults (64 radial x 8 rings) are far more than a limb needs and add up
+	# quickly with several avatars on a phone GPU.
+	mesh.radial_segments = 12
+	mesh.rings = 4
 	instance.mesh = mesh
 	instance.position = position
 	instance.rotation = rotation_value
@@ -302,6 +308,8 @@ static func _add_ellipsoid(parent: Node3D, node_name: String, radius: float, sca
 	var mesh := SphereMesh.new()
 	mesh.radius = radius
 	mesh.height = radius * 2.0
+	mesh.radial_segments = 16
+	mesh.rings = 8
 	instance.mesh = mesh
 	instance.scale = scale_value
 	instance.position = position
