@@ -32,6 +32,7 @@ var local_admin_authorized := false
 var pending_launch_action := "quick_match"
 var pending_launch_room_code := ""
 var launch_server_host := ""
+var _connection_error_toast_shown := false
 var player_profile: Dictionary = {}
 var backend: Node
 const ROUND_SECONDS := 300.0
@@ -252,6 +253,9 @@ func _ready() -> void:
 	heartbeat.timeout.connect(_send_presence_heartbeat)
 	add_child(heartbeat)
 	_send_presence_heartbeat()
+	if pending_launch_action == "practice":
+		# The menu was started without a server address: this is the offline training arena.
+		_show_meme_toast("OFFLINE TRAINING • type a server in the MULTIPLAYER box to play online")
 
 func _request_player_identity() -> void:
 	backend = BACKEND_SCRIPT.new()
@@ -333,6 +337,7 @@ func _on_network_status_changed(message: String) -> void:
 
 func _on_network_authentication_changed(authenticated: bool, message: String) -> void:
 	if is_instance_valid(player) and authenticated:
+		_connection_error_toast_shown = false
 		# Online movement is simulated by the server; the client only sends input.
 		player.set_physics_process(false)
 		for area in get_tree().get_nodes_in_group("local_collectibles"):
@@ -355,6 +360,10 @@ func _on_network_authentication_changed(authenticated: bool, message: String) ->
 		_show_meme_toast("SERVER VERIFIED • " + message)
 	elif is_instance_valid(player) and not authenticated:
 		player.set_physics_process(false)
+		if not _connection_error_toast_shown:
+			# Without a hint the player just stands frozen; tell them how to change the server.
+			_connection_error_toast_shown = true
+			_show_meme_toast("CONNECTION PROBLEM • %s • open MENU > LEAVE MATCH to change the server" % message)
 
 func _on_authoritative_local_state(state: Dictionary) -> void:
 	if not is_instance_valid(player):

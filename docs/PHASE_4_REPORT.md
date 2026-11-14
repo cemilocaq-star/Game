@@ -41,6 +41,46 @@ Built on the Phase 3 source. Godot 4.4.1 Standard opens the project. Keep the Wi
 - Authenticated live matches and Supabase persistence require test accounts and a test deployment. Local WebSocket and ENet smoke tests do not exercise those flows.
 - Native Windows execution and physical Android testing require corresponding runtime access or hardware. Screenshots were not captured in this headless run.
 
+## Main menu redesign and lobby button fixes
+
+Reason: the START and CREATE ROOM buttons did nothing, and the menu did not feel like a shooter. Root cause: the game ships without a default server address, and the three lobby buttons were disabled until a valid address was typed. The only explanation was a small line of text.
+
+### IMPLEMENTED
+
+- **Buttons never dead.** START, CREATE ROOM and JOIN are always enabled. START with an empty server address opens the offline training arena (`launch_action: "practice"`) and shows a toast. CREATE ROOM and JOIN with no address show a banner and focus the address field. A malformed address shows an error banner. A bad room code shows an error banner.
+- **Server address remembered.** The last valid address is saved in `user://game_settings.cfg` (`network/server_host`) and restored on the next start. The typed address and room code now survive tab switches and language changes (they used to reset).
+- **FPS-style lobby.** Top navigation bar with player chip, mode cards on the left (Free For All, Team Deathmatch, King of the Hill, Bomb Rush) with a description each, the player's own 3D character in the middle, map tiles with a colour per map, a server status light and one large angled START button on the right. Animated dark backdrop with drifting light bars. Angled buttons, sharp panels, selected-card accent bars. The pattern follows what Valorant, CS2, Apex Legends and Call of Duty lobbies share; no assets or layouts were copied.
+- **Career tab.** Statistics are shown as a grid of large value tiles instead of plain rows. Friends list shows an online/offline status light.
+- **Pause menu** uses the same style (RESUME primary, LEAVE MATCH danger). Button texts and signals are unchanged.
+- **Connection hint.** If the server connection fails after launch, a toast explains how to change the server (before, the player stood frozen with no hint).
+- New localized strings in Azerbaijani, English, Turkish and Russian (`EXTRA` table in `oxenwar_i18n.gd`).
+- New files: `scripts/fps_ui.gd`, `tests/test_menu_ui.gd` (added to the CI workflow).
+
+### UI errors found and fixed
+
+| Error | Fix |
+|---|---|
+| Lobby buttons disabled with no clear reason | Always enabled; explain the missing step |
+| Typed server address and room code lost on tab or language change | Kept in menu state and saved |
+| Short labels with word wrap collapse to a sliver inside rows (XP, friend rows) | Only long text wraps |
+| Sign-out button hidden at the bottom of the play tab | Moved to the top bar |
+| Frozen player after a failed connection with no explanation | Toast with the next step |
+| Pause menu looked unrelated to the menu | Shared style |
+
+### VERIFIED
+
+- `python3 tests/validate_project.py` passes (56 required files, plus new checks that the lobby buttons are never disabled again).
+- Static lint of the edited scripts (indentation, bracket balance, duplicate functions, undefined helper calls) found no issues. This is not a Godot parse.
+
+### NOT VERIFIED
+
+- Godot was not available in the build container, so none of the GDScript was parsed or run, and nothing was rendered. `tests/test_menu_ui.gd` covers button behaviour, the offline fallback, tab persistence and translations; it will run in GitHub Actions.
+- The angled button shape (`StyleBoxFlat.skew`), the 3D hero stage, the layout on a real phone and the backdrop animation need a visual check on a device.
+
+### BLOCKED
+
+- A default public server address. The Render service name suggests `oxenwar-game-server`, but the deployed URL is not confirmed, so none is hard-coded. Set `oxenwar/server_host` in `project.godot` or the `OXENWAR_SERVER_HOST` environment variable to ship one.
+
 ## Exports and checks
 
 The ZIP contains Windows x86-64 EXE/PCK and a signed ARM64 Android debug APK, plus build logs and APK signature/package checks. See `docs/qa/phase4`. To repeat the new regression after importing the project, run `godot --headless --path . --script tests/test_meme_events.gd`.

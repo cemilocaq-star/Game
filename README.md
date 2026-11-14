@@ -46,6 +46,7 @@ Database schema source is in `supabase/migrations/`. Apply all new migrations, i
 5. Register/sign in with an OxenWar username and password. Registration also asks for a display name; no email address is requested. Password recovery is not yet implemented, so players must keep their password safe.
 6. Run a dedicated server in another terminal: `godot --headless --path . -- --server`.
 7. In the game, enter the server's LAN address or public hostname and press **CONNECT**.
+   In the main menu, type the address in the **Server** box once; it is remembered. With the box empty, **START** opens the offline training arena, while **CREATE ROOM** and **JOIN** need a server.
 8. Choose **FREE FOR ALL** or **TEAM DEATHMATCH** in the in-game mode selector. Use **CREATE ROOM** to make a private friend room, **JOIN** with its code, or **QUICK MATCH** to enter a public room of the selected mode. The default arena is Sunken Oasis; an authorized admin can cycle through the available themed arenas.
 
 For a private room, share its six-character code with an existing OxenWar friend. The server checks the friendship relationship before allowing entry. Public quick-match rooms are available to all authenticated players.

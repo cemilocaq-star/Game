@@ -186,6 +186,9 @@ jobs:
       - name: Test HUD overlays, pause menu and settings
         run: timeout 60s godot --headless --path . --script tests/test_ui_overlays.gd
 
+      - name: Test FPS-style main menu buttons and offline fallback
+        run: timeout 60s godot --headless --path . --script tests/test_menu_ui.gd
+
       - name: Test Bomb Rush plant and defuse state machine
         run: timeout 45s godot --headless --path . --script tests/test_bomb_rush_objective.gd
 

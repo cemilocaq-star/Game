@@ -48,6 +48,77 @@ const TEXTS := {
 	}
 }
 
+## Strings added by the FPS-style menu redesign. Kept separate so the original table stays untouched.
+const EXTRA := {
+	"az": {
+		"map":"XƏRİTƏ", "mode_bomb":"BOMBA HÜCUMU • QUR / ZƏRƏRSİZLƏŞDİR",
+		"mode_desc_ffa":"Hamı hamıya qarşı. Ən çox kill edən qalib gəlir.",
+		"mode_desc_tdm":"Qırmızı və mavi komanda. Komanda xalı qalibi seçir.",
+		"mode_desc_koth":"Mərkəzi nöqtəni tut və onu müdafiə et.",
+		"mode_desc_bomb":"Bombanı qur və ya zərərsizləşdir. Raund sistemi.",
+		"server_status_ready":"SERVER HAZIRDIR", "server_status_none":"SERVER YOXDUR", "server_status_bad":"ÜNVAN YANLIŞDIR",
+		"start_training":"BAŞLA • TƏLİM ARENASI", "training_notice":"Server ünvanı yoxdur. Oflayn təlim arenası açılır.",
+		"need_server_room":"Otaq yaratmaq üçün əvvəlcə server ünvanını daxil et.",
+		"need_server_join":"Otağa qoşulmaq üçün əvvəlcə server ünvanını daxil et.",
+		"server_field_hint":"wss://… və ya host/IP", "your_server":"SERVER",
+		"footer_hint":"[WASD] hərəkət   [SHIFT] qaç   [CTRL] sürüş   [Q] dash   [V] arsenal   [ESC] fasilə",
+		"private_room":"ÖZƏL OTAQ", "quick_match_label":"SÜRƏTLİ MATÇ", "level":"RANK",
+		"login_title":"HESABINA DAXİL OL"
+	},
+	"en": {
+		"map":"MAP", "mode_bomb":"BOMB RUSH • PLANT / DEFUSE",
+		"mode_desc_ffa":"Everyone for themselves. Most kills wins.",
+		"mode_desc_tdm":"Red versus blue. Team score decides the match.",
+		"mode_desc_koth":"Capture the central zone and hold it.",
+		"mode_desc_bomb":"Plant or defuse the bomb. Round-based.",
+		"server_status_ready":"SERVER READY", "server_status_none":"NO SERVER", "server_status_bad":"CHECK ADDRESS",
+		"start_training":"START • TRAINING ARENA", "training_notice":"No server address set. Opening the offline training arena.",
+		"need_server_room":"Enter a server address first to create a room.",
+		"need_server_join":"Enter a server address first to join a room.",
+		"server_field_hint":"wss://… or host/IP", "your_server":"SERVER",
+		"footer_hint":"[WASD] move   [SHIFT] sprint   [CTRL] slide   [Q] dash   [V] arsenal   [ESC] pause",
+		"private_room":"PRIVATE ROOM", "quick_match_label":"QUICK MATCH", "level":"RANK",
+		"login_title":"SIGN IN TO YOUR ACCOUNT"
+	},
+	"tr": {
+		"map":"HARİTA", "mode_bomb":"BOMBA HÜCUMU • KUR / ETKİSİZLEŞTİR",
+		"mode_desc_ffa":"Herkes tek başına. En çok kill yapan kazanır.",
+		"mode_desc_tdm":"Kırmızı takım mavi takıma karşı. Takım skoru belirler.",
+		"mode_desc_koth":"Merkez bölgeyi ele geçir ve savun.",
+		"mode_desc_bomb":"Bombayı kur veya etkisiz hale getir. Raund tabanlı.",
+		"server_status_ready":"SUNUCU HAZIR", "server_status_none":"SUNUCU YOK", "server_status_bad":"ADRESİ KONTROL ET",
+		"start_training":"BAŞLA • ANTRENMAN ARENASI", "training_notice":"Sunucu adresi yok. Çevrimdışı antrenman arenası açılıyor.",
+		"need_server_room":"Oda oluşturmak için önce sunucu adresi gir.",
+		"need_server_join":"Odaya katılmak için önce sunucu adresi gir.",
+		"server_field_hint":"wss://… veya host/IP", "your_server":"SUNUCU",
+		"footer_hint":"[WASD] hareket   [SHIFT] koş   [CTRL] kay   [Q] dash   [V] arsenal   [ESC] duraklat",
+		"private_room":"ÖZEL ODA", "quick_match_label":"HIZLI MAÇ", "level":"RÜTBE",
+		"login_title":"HESABINA GİRİŞ YAP"
+	},
+	"ru": {
+		"map":"КАРТА", "mode_bomb":"БОМБА • ЗАЛОЖИТЬ / ОБЕЗВРЕДИТЬ",
+		"mode_desc_ffa":"Каждый сам за себя. Побеждает тот, у кого больше убийств.",
+		"mode_desc_tdm":"Красные против синих. Счёт команды решает матч.",
+		"mode_desc_koth":"Захватите центральную зону и удерживайте её.",
+		"mode_desc_bomb":"Заложите или обезвредьте бомбу. Раундовый режим.",
+		"server_status_ready":"СЕРВЕР ГОТОВ", "server_status_none":"НЕТ СЕРВЕРА", "server_status_bad":"ПРОВЕРЬТЕ АДРЕС",
+		"start_training":"СТАРТ • ТРЕНИРОВКА", "training_notice":"Адрес сервера не указан. Открывается офлайн-арена для тренировки.",
+		"need_server_room":"Чтобы создать комнату, сначала введите адрес сервера.",
+		"need_server_join":"Чтобы войти в комнату, сначала введите адрес сервера.",
+		"server_field_hint":"wss://… или хост/IP", "your_server":"СЕРВЕР",
+		"footer_hint":"[WASD] движение   [SHIFT] бег   [CTRL] скольжение   [Q] рывок   [V] арсенал   [ESC] пауза",
+		"private_room":"ЧАСТНАЯ КОМНАТА", "quick_match_label":"БЫСТРЫЙ МАТЧ", "level":"РАНГ",
+		"login_title":"ВХОД В АККАУНТ"
+	}
+}
+
 static func text_for(key: String, locale: String) -> String:
 	var language: Dictionary = TEXTS.get(locale, TEXTS["en"])
-	return str(language.get(key, TEXTS["en"].get(key, key)))
+	if language.has(key):
+		return str(language[key])
+	var extra: Dictionary = EXTRA.get(locale, EXTRA["en"])
+	if extra.has(key):
+		return str(extra[key])
+	if TEXTS["en"].has(key):
+		return str(TEXTS["en"][key])
+	return str(EXTRA["en"].get(key, key))

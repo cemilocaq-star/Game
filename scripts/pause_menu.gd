@@ -10,6 +10,7 @@ signal leave_requested
 signal sensitivity_changed(value: float)
 
 const USER_SETTINGS := preload("res://scripts/user_settings.gd")
+const FPS_UI := preload("res://scripts/fps_ui.gd")
 const ACCENT := Color("#25D7C2")
 const MUTED := Color("#91A5B8")
 
@@ -39,11 +40,9 @@ func _build() -> void:
 	add_child(center)
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(520, 0)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.03, 0.065, 0.105, 0.98)
+	var style := FPS_UI.panel_style(0.98)
 	style.border_color = ACCENT
 	style.set_border_width_all(2)
-	style.set_corner_radius_all(16)
 	style.content_margin_left = 24
 	style.content_margin_right = 24
 	style.content_margin_top = 18
@@ -67,7 +66,7 @@ func _build() -> void:
 	title.add_theme_color_override("font_color", ACCENT)
 	column.add_child(title)
 
-	var resume := _button("RESUME")
+	var resume := _button("RESUME", "primary")
 	resume.pressed.connect(func(): resume_requested.emit())
 	column.add_child(resume)
 
@@ -123,8 +122,7 @@ func _build() -> void:
 	help.add_theme_color_override("font_color", Color("#C9DAE8"))
 	column.add_child(help)
 
-	var leave := _button("LEAVE MATCH")
-	leave.add_theme_color_override("font_color", Color("#FF8A93"))
+	var leave := _button("LEAVE MATCH", "danger")
 	leave.pressed.connect(func(): leave_requested.emit())
 	column.add_child(leave)
 
@@ -139,8 +137,5 @@ func _section_label(text_value: String) -> Label:
 	label.add_theme_color_override("font_color", MUTED)
 	return label
 
-func _button(text_value: String) -> Button:
-	var button := Button.new()
-	button.text = text_value
-	button.custom_minimum_size = Vector2(0, 46)
-	return button
+func _button(text_value: String, kind: String = "secondary") -> Button:
+	return FPS_UI.button(text_value, kind, 46.0, 17)

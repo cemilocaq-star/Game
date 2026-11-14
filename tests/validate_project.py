@@ -6,7 +6,7 @@ errors = []
 
 required = [
     "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/arcade_weapon_visuals.gd", "scripts/character_visuals.gd", "scripts/character_motion_rig.gd", "scripts/map_world_builder.gd", "scripts/combat_fx.gd",
-    "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd",
+    "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd", "scripts/fps_ui.gd", "tests/test_menu_ui.gd",
     "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "scripts/oxenwar_server_player.gd", "server/README.md", "Dockerfile", "fly.toml", "render.yaml",
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
     "supabase/migrations/20261109114619_oxenwar_social_foundation.sql",
@@ -497,6 +497,18 @@ if 'ProjectSettings.get_setting("oxenwar/server_host", "127.0.0.1")' in main or 
     errors.append("multiplayer client must not default to localhost when no dedicated server is configured")
 if "email_input" in menu:
     errors.append("email field remains in the account UI")
+# The lobby action buttons must never be silently disabled; they explain what is missing instead.
+for disabled_button in ("start.disabled", "create.disabled", "join.disabled", "start_button.disabled", "create_button.disabled", "join_button.disabled"):
+    if disabled_button in menu:
+        errors.append(f"lobby button is disabled again: {disabled_button}")
+for needle, label in (
+    ('"practice"', "offline training fallback when no server address is set"),
+    ("_show_notice(_t(\"need_server_room\")", "visible hint when creating a room without a server"),
+    ("FPS_UI.MenuBackdrop", "FPS-style animated menu backdrop"),
+    ("_build_hero", "3D hero character in the play lobby"),
+):
+    if needle not in menu:
+        errors.append(f"missing menu behavior: {label}")
 if "/auth/v1/signup" in backend or "/auth/v1/token?grant_type=password" in backend:
     errors.append("game client still calls email-based Supabase Auth endpoints directly")
 if "service_role" in backend.lower() or "sb_secret_" in backend:

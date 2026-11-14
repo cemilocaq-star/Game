@@ -1,6 +1,8 @@
 extends CanvasLayer
 
 const COMPETITIVE_THEME := preload("res://scripts/competitive_theme.gd")
+const FPS_UI := preload("res://scripts/fps_ui.gd")
+const USER_SETTINGS := preload("res://scripts/user_settings.gd")
 signal play_requested(identity: Dictionary)
 
 const I18N = preload("res://scripts/oxenwar_i18n.gd")
@@ -31,17 +33,46 @@ var server_host := ""
 var selected_game_mode := "ffa"
 var selected_map_index := 4
 var room_code_field: LineEdit
+## Typed room code survives tab switches and language changes (the fields are rebuilt).
+var room_code_text := ""
 var server_host_field: LineEdit
 var lobby_notice_label: Label
+var nav_box: HBoxContainer
+var notice_panel: PanelContainer
+var notice_label: Label
+var _notice_tween: Tween
+var mode_buttons: Dictionary = {}
+var map_buttons: Dictionary = {}
+var server_dot: Panel
+var server_status_label: Label
+var start_button: Button
+var create_button: Button
+var join_button: Button
 
-const BG := Color("#07111F")
-const PANEL := Color("#101F32")
-const ACCENT := Color("#25D7C2")
-const MUTED := Color("#91A5B8")
+const BG := FPS_UI.BG
+const PANEL := FPS_UI.PANEL
+const ACCENT := FPS_UI.ACCENT
+const MUTED := FPS_UI.MUTED
+
+const MODE_IDS := ["ffa", "team_deathmatch", "king_of_the_hill", "demolition"]
+const MODE_COLORS := {
+	"ffa": Color("#25D7C2"),
+	"team_deathmatch": Color("#4DA3FF"),
+	"king_of_the_hill": Color("#FFC36B"),
+	"demolition": Color("#FF4D5E")
+}
+## One accent color per map, in the same order as ArenaLayout.MAP_NAMES.
+const MAP_COLORS := [
+	Color("#D9A441"), Color("#B65CFF"), Color("#5B8CFF"), Color("#FF6FA8"),
+	Color("#25D7C2"), Color("#58C46A"), Color("#E0653D")
+]
 
 func configure(client: Node, restored: Dictionary = {}, configured_server_host: String = "") -> void:
 	backend = client
 	server_host = configured_server_host.strip_edges()
+	if server_host.is_empty():
+		# Remember the last address the player used so it only has to be typed once.
+		server_host = str(USER_SETTINGS.read_value("network", "server_host", "")).strip_edges()
 	if restored.get("ok", false):
 		await _load_account()
 	_build()
@@ -60,49 +91,63 @@ func _build() -> void:
 	_render_id += 1
 	preview_spin = null
 	preview_model = null
+	mode_buttons.clear()
+	map_buttons.clear()
+	nav_box = null
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
-	var backdrop := ColorRect.new()
-	backdrop.theme = COMPETITIVE_THEME.create()
-	backdrop.color = BG
-	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(backdrop)
+	var root_control := Control.new()
+	root_control.name = "MenuRoot"
+	root_control.theme = COMPETITIVE_THEME.create()
+	root_control.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(root_control)
+	var base := ColorRect.new()
+	base.color = BG
+	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	base.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root_control.add_child(base)
+	var art := FPS_UI.MenuBackdrop.new()
+	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root_control.add_child(art)
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", 28)
 	margin.add_theme_constant_override("margin_right", 28)
-	margin.add_theme_constant_override("margin_top", 22)
-	margin.add_theme_constant_override("margin_bottom", 22)
-	backdrop.add_child(margin)
-
-	var shell := PanelContainer.new()
-	shell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	shell.add_theme_stylebox_override("panel", _panel_style())
-	margin.add_child(shell)
+	margin.add_theme_constant_override("margin_top", 14)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	root_control.add_child(margin)
 
 	var outer := VBoxContainer.new()
-	outer.add_theme_constant_override("separation", 18)
-	shell.add_child(outer)
+	outer.add_theme_constant_override("separation", 14)
+	margin.add_child(outer)
 
+	var top_bar := PanelContainer.new()
+	top_bar.name = "TopBar"
+	top_bar.add_theme_stylebox_override("panel", _top_bar_style())
+	outer.add_child(top_bar)
 	var header := HBoxContainer.new()
-	outer.add_child(header)
-	var brand := Label.new()
-	brand.text = "OXENWAR"
-	brand.add_theme_font_size_override("font_size", 34)
-	brand.add_theme_color_override("font_color", ACCENT)
-	header.add_child(brand)
-	var tagline := Label.new()
-	tagline.text = "  //  " + _t("subtitle")
-	tagline.add_theme_color_override("font_color", MUTED)
-	tagline.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	header.add_child(tagline)
+	header.add_theme_constant_override("separation", 18)
+	top_bar.add_child(header)
+	header.add_child(_build_brand())
+	if authenticated:
+		nav_box = HBoxContainer.new()
+		nav_box.name = "MainNav"
+		nav_box.add_theme_constant_override("separation", 4)
+		header.add_child(nav_box)
+		_refresh_nav()
 	var header_spacer := Control.new()
 	header_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(header_spacer)
+	if authenticated:
+		header.add_child(_build_player_chip())
+		var sign_out := FPS_UI.button(_t("logout"), "ghost", 40, 14)
+		sign_out.name = "SignOutButton"
+		sign_out.pressed.connect(_on_logout)
+		header.add_child(sign_out)
 	var language := OptionButton.new()
+	language.custom_minimum_size = Vector2(84, 40)
 	for item in [["AZ","az"],["EN","en"],["TR","tr"],["RU","ru"]]:
 		language.add_item(item[0])
 		language.set_item_metadata(language.item_count - 1, item[1])
@@ -110,28 +155,32 @@ func _build() -> void:
 	language.item_selected.connect(_on_language_selected)
 	header.add_child(language)
 
-	var line := ColorRect.new()
-	line.custom_minimum_size.y = 2
-	line.color = Color("#20354A")
-	outer.add_child(line)
+	# Floating banner for errors and hints. It sits above everything so a message is never hidden.
+	notice_panel = PanelContainer.new()
+	notice_panel.name = "MenuNotice"
+	notice_panel.visible = false
+	notice_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	notice_panel.anchor_left = 0.5
+	notice_panel.anchor_right = 0.5
+	notice_panel.anchor_top = 0.0
+	notice_panel.anchor_bottom = 0.0
+	notice_panel.offset_left = -310.0
+	notice_panel.offset_right = 310.0
+	notice_panel.offset_top = 92.0
+	notice_panel.offset_bottom = 92.0
+	notice_panel.grow_vertical = Control.GROW_DIRECTION_END
+	notice_label = Label.new()
+	notice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	notice_label.add_theme_font_size_override("font_size", 16)
+	notice_panel.add_child(notice_label)
+	root_control.add_child(notice_panel)
 
 	if not authenticated:
 		_build_auth(outer)
+		_add_footer(outer)
 		return
 
-	var nav := HBoxContainer.new()
-	nav.add_theme_constant_override("separation", 10)
-	outer.add_child(nav)
-	for tab in ["play", "stats", "friends", "character"]:
-		var button := _button(_t(tab), tab == active_tab)
-		button.pressed.connect(_on_tab_pressed.bind(tab))
-		nav.add_child(button)
-	var account := Label.new()
-	account.text = str(profile.get("username", "Player")) + "  •  " + ("ADMIN" if is_admin else "PLAYER")
-	account.add_theme_color_override("font_color", ACCENT)
-	account.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	account.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	nav.add_child(account)
 	# Tabs can be taller than a phone-landscape viewport, so they scroll vertically.
 	content_scroll = ScrollContainer.new()
 	content_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -142,6 +191,7 @@ func _build() -> void:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 12)
 	content_scroll.add_child(content)
+	_add_footer(outer)
 	var heartbeat := Timer.new()
 	heartbeat.name = "MenuPresenceHeartbeat"
 	heartbeat.wait_time = 30.0
@@ -151,7 +201,106 @@ func _build() -> void:
 	_send_presence_heartbeat()
 	_render_tab()
 	if not registration_notice.is_empty():
-		content.add_child(_label(registration_notice))
+		content.add_child(_paragraph(registration_notice))
+
+func _top_bar_style() -> StyleBoxFlat:
+	var style := FPS_UI.flat_box(Color(PANEL.r, PANEL.g, PANEL.b, 0.9), FPS_UI.EDGE, 1)
+	style.border_width_left = 0
+	style.border_width_right = 0
+	style.border_width_top = 0
+	style.border_width_bottom = 2
+	style.content_margin_left = 20
+	style.content_margin_right = 14
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
+	return style
+
+func _build_brand() -> Control:
+	var brand := HBoxContainer.new()
+	brand.add_theme_constant_override("separation", 0)
+	var first := Label.new()
+	first.text = "OXEN"
+	first.add_theme_font_size_override("font_size", 34)
+	first.add_theme_color_override("font_color", FPS_UI.TEXT)
+	brand.add_child(first)
+	var second := Label.new()
+	second.text = "WAR"
+	second.add_theme_font_size_override("font_size", 34)
+	second.add_theme_color_override("font_color", ACCENT)
+	brand.add_child(second)
+	return brand
+
+func _build_player_chip() -> Control:
+	var chip := HBoxContainer.new()
+	chip.add_theme_constant_override("separation", 10)
+	var badge := ColorRect.new()
+	badge.color = ACCENT
+	badge.custom_minimum_size = Vector2(5, 34)
+	badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	chip.add_child(badge)
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 0)
+	chip.add_child(stack)
+	var name_label := Label.new()
+	name_label.text = str(profile.get("username", "Player"))
+	name_label.add_theme_font_size_override("font_size", 17)
+	name_label.add_theme_color_override("font_color", FPS_UI.TEXT)
+	stack.add_child(name_label)
+	var role_label := Label.new()
+	role_label.text = "ADMIN" if is_admin else "PLAYER"
+	role_label.add_theme_font_size_override("font_size", 12)
+	role_label.add_theme_color_override("font_color", FPS_UI.GOLD if is_admin else MUTED)
+	stack.add_child(role_label)
+	return chip
+
+func _refresh_nav() -> void:
+	if not is_instance_valid(nav_box):
+		return
+	for child in nav_box.get_children():
+		nav_box.remove_child(child)
+		child.queue_free()
+	for tab in ["play", "stats", "friends", "character"]:
+		var button := FPS_UI.nav_button(_t(tab), tab == active_tab)
+		button.name = "Nav_" + tab
+		button.pressed.connect(_on_tab_pressed.bind(tab))
+		nav_box.add_child(button)
+
+func _add_footer(parent: VBoxContainer) -> void:
+	# Keyboard hints mean nothing on a touch screen, so the strip is only drawn with a keyboard.
+	if DisplayServer.is_touchscreen_available():
+		return
+	var hint := Label.new()
+	hint.text = _t("footer_hint")
+	hint.add_theme_font_size_override("font_size", 13)
+	hint.add_theme_color_override("font_color", Color("#5E7791"))
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	parent.add_child(hint)
+
+## kind: "error" (red), "warn" (amber) or "info" (accent).
+func _show_notice(text: String, kind: String = "error") -> void:
+	if not is_instance_valid(notice_panel) or not is_instance_valid(notice_label):
+		return
+	var tint := FPS_UI.DANGER
+	if kind == "warn":
+		tint = FPS_UI.GOLD
+	elif kind == "info":
+		tint = ACCENT
+	var box := FPS_UI.flat_box(Color(0.04, 0.07, 0.11, 0.97), tint, 2)
+	box.border_width_left = 8
+	box.content_margin_top = 12
+	box.content_margin_bottom = 12
+	notice_panel.add_theme_stylebox_override("panel", box)
+	notice_label.text = text
+	notice_label.add_theme_color_override("font_color", FPS_UI.TEXT)
+	notice_panel.modulate = Color(1, 1, 1, 0)
+	notice_panel.show()
+	if _notice_tween != null and _notice_tween.is_valid():
+		_notice_tween.kill()
+	_notice_tween = create_tween()
+	_notice_tween.tween_property(notice_panel, "modulate:a", 1.0, 0.15)
+	_notice_tween.tween_interval(4.5)
+	_notice_tween.tween_property(notice_panel, "modulate:a", 0.0, 0.35)
+	_notice_tween.tween_callback(notice_panel.hide)
 
 func _build_auth(parent: VBoxContainer) -> void:
 	# The form is rebuilt on logout/language change with the display-name field hidden.
@@ -159,12 +308,20 @@ func _build_auth(parent: VBoxContainer) -> void:
 	var center := CenterContainer.new()
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	parent.add_child(center)
+	var card := PanelContainer.new()
+	card.custom_minimum_size = Vector2(420, 0)
+	card.add_theme_stylebox_override("panel", FPS_UI.panel_style(0.95))
+	center.add_child(card)
 	var form := VBoxContainer.new()
-	form.custom_minimum_size = Vector2(360, 0)
-	form.add_theme_constant_override("separation", 10)
-	center.add_child(form)
-	var heading := Label.new()
-	heading.text = _t("auth_hint")
+	form.add_theme_constant_override("separation", 12)
+	card.add_child(form)
+	var title := Label.new()
+	title.text = _t("login_title")
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", FPS_UI.TEXT)
+	form.add_child(title)
+	var heading := _paragraph(_t("auth_hint"))
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	heading.add_theme_color_override("font_color", MUTED)
 	form.add_child(heading)
@@ -189,59 +346,30 @@ func _build_auth(parent: VBoxContainer) -> void:
 	register.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	register.pressed.connect(_on_register)
 	actions.add_child(register)
-	message_label = Label.new()
-	message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	message_label = _paragraph("")
 	message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	message_label.add_theme_color_override("font_color", Color("#FFC36B"))
+	message_label.add_theme_color_override("font_color", FPS_UI.GOLD)
 	form.add_child(message_label)
 
 func _field(label_text: String, hint: String, secret: bool = false) -> LineEdit:
 	var field := LineEdit.new()
 	field.placeholder_text = label_text + " — " + hint
 	field.secret = secret
-	field.custom_minimum_size.y = 44
-	field.add_theme_color_override("font_color", Color("#EAF4FF"))
+	field.custom_minimum_size.y = 46
+	field.add_theme_color_override("font_color", FPS_UI.TEXT)
+	field.add_theme_color_override("font_placeholder_color", Color("#5E7791"))
 	field.add_theme_stylebox_override("normal", _input_style())
 	field.add_theme_stylebox_override("focus", _input_style(true))
 	return field
 
 func _button(label_text: String, primary: bool) -> Button:
-	var button := Button.new()
-	button.text = label_text
-	button.custom_minimum_size.y = 48
-	button.add_theme_color_override("font_color", Color("#04131D") if primary else Color("#DCEBFA"))
-	var style := StyleBoxFlat.new()
-	style.bg_color = ACCENT if primary else Color("#1A3047")
-	style.set_corner_radius_all(8)
-	style.content_margin_left = 14
-	style.content_margin_right = 14
-	button.add_theme_stylebox_override("normal", style)
-	var hover := style.duplicate()
-	hover.bg_color = Color("#55E8D5") if primary else Color("#29445F")
-	button.add_theme_stylebox_override("hover", hover)
-	return button
+	return FPS_UI.button(label_text, "primary" if primary else "secondary", 48.0, 17)
 
 func _panel_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = PANEL
-	style.border_color = Color("#254158")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(14)
-	style.content_margin_left = 24
-	style.content_margin_right = 24
-	style.content_margin_top = 20
-	style.content_margin_bottom = 20
-	return style
+	return FPS_UI.panel_style(0.9)
 
 func _input_style(focused: bool = false) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("#0A1726")
-	style.border_color = ACCENT if focused else Color("#29445B")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(7)
-	style.content_margin_left = 10
-	style.content_margin_right = 10
-	return style
+	return FPS_UI.input_style(focused)
 
 func _on_auth_submitted(_text: String) -> void:
 	if registration_mode:
@@ -257,6 +385,8 @@ func _on_language_selected(index: int) -> void:
 	var typed_password := password_input.text if is_instance_valid(password_input) else ""
 	var typed_display := display_input.text if is_instance_valid(display_input) else ""
 	var was_registering := registration_mode
+	if is_instance_valid(server_host_field):
+		server_host = server_host_field.text.strip_edges()
 	if authenticated:
 		await backend.update_profile({"locale": locale})
 	_build()
@@ -325,6 +455,7 @@ func _send_presence_heartbeat() -> void:
 
 func _on_tab_pressed(tab: String) -> void:
 	active_tab = tab
+	_refresh_nav()
 	_render_tab()
 
 func _render_tab() -> void:
@@ -348,102 +479,263 @@ func _render_tab() -> void:
 		"character":
 			_render_character()
 
+func _mode_title(mode_id: String) -> String:
+	match mode_id:
+		"ffa":
+			return _t("mode_ffa")
+		"team_deathmatch":
+			return _t("mode_tdm")
+		"king_of_the_hill":
+			return _t("mode_koth")
+		"demolition":
+			# Same wording as the in-game Bomb Rush objective: BOMB RUSH • PLANT / DEFUSE.
+			return _t("mode_bomb")
+	return mode_id.to_upper()
+
+func _mode_description(mode_id: String) -> String:
+	match mode_id:
+		"ffa":
+			return _t("mode_desc_ffa")
+		"team_deathmatch":
+			return _t("mode_desc_tdm")
+		"king_of_the_hill":
+			return _t("mode_desc_koth")
+		"demolition":
+			return _t("mode_desc_bomb")
+	return ""
+
 func _render_play_tab() -> void:
-	content.add_child(_large_label("OXENWAR"))
-	content.add_child(_label(_t("online_arena")))
-	var mode_row := HBoxContainer.new()
-	mode_row.add_theme_constant_override("separation", 10)
-	content.add_child(mode_row)
-	var mode_label := _label(_t("game_mode"))
-	mode_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mode_row.add_child(mode_label)
-	var mode_select := OptionButton.new()
-	mode_select.custom_minimum_size = Vector2(220, 44)
-	mode_select.add_item(_t("mode_ffa"))
-	mode_select.set_item_metadata(0, "ffa")
-	mode_select.add_item(_t("mode_tdm"))
-	mode_select.set_item_metadata(1, "team_deathmatch")
-	mode_select.add_item(_t("mode_koth"))
-	mode_select.set_item_metadata(2, "king_of_the_hill")
-	mode_select.add_item("BOMB RUSH • PLANT / DEFUSE")
-	mode_select.set_item_metadata(3, "demolition")
-	# Restore the visible choice when the Play tab is re-rendered.
-	for mode_index in range(mode_select.item_count):
-		if str(mode_select.get_item_metadata(mode_index)) == selected_game_mode:
-			mode_select.select(mode_index)
-	mode_select.item_selected.connect(func(index: int): selected_game_mode = str(mode_select.get_item_metadata(index)))
-	mode_row.add_child(mode_select)
+	mode_buttons.clear()
+	map_buttons.clear()
+	var columns := HBoxContainer.new()
+	columns.name = "PlayColumns"
+	columns.add_theme_constant_override("separation", 22)
+	columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(columns)
 
-	var map_row := HBoxContainer.new()
-	map_row.add_theme_constant_override("separation", 10)
-	content.add_child(map_row)
-	var map_label := _label("MAP")
-	map_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	map_row.add_child(map_label)
-	var map_select := OptionButton.new()
-	map_select.custom_minimum_size = Vector2(220, 44)
+	# Left: game mode cards (like the queue list in most competitive shooters).
+	var left := VBoxContainer.new()
+	left.name = "ModeColumn"
+	left.custom_minimum_size = Vector2(300, 0)
+	left.add_theme_constant_override("separation", 10)
+	columns.add_child(left)
+	left.add_child(FPS_UI.section_header(_t("game_mode")))
+	for mode_id in MODE_IDS:
+		left.add_child(_build_mode_card(mode_id))
+
+	# Middle: the player's own character on a rotating stage.
+	var middle := VBoxContainer.new()
+	middle.name = "HeroColumn"
+	middle.custom_minimum_size = Vector2(240, 0)
+	middle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	middle.add_theme_constant_override("separation", 8)
+	columns.add_child(middle)
+	_build_hero(middle)
+
+	# Right: map picker, server, one large START button and the room controls.
+	var right := VBoxContainer.new()
+	right.name = "StartColumn"
+	right.custom_minimum_size = Vector2(390, 0)
+	right.add_theme_constant_override("separation", 10)
+	columns.add_child(right)
+	_build_play_controls(right)
+	_refresh_selection_styles()
+	_refresh_server_state(server_host)
+
+func _build_mode_card(mode_id: String) -> Button:
+	var card := Button.new()
+	card.name = "Mode_" + mode_id
+	card.custom_minimum_size = Vector2(0, 86)
+	card.focus_mode = Control.FOCUS_ALL
+	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	card.clip_contents = true
+	var inner := MarginContainer.new()
+	inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.add_theme_constant_override("margin_left", 22)
+	inner.add_theme_constant_override("margin_right", 12)
+	inner.add_theme_constant_override("margin_top", 8)
+	inner.add_theme_constant_override("margin_bottom", 8)
+	card.add_child(inner)
+	var stack := VBoxContainer.new()
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_theme_constant_override("separation", 2)
+	inner.add_child(stack)
+	var title := Label.new()
+	title.text = _mode_title(mode_id)
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title.add_theme_font_size_override("font_size", 17)
+	title.add_theme_color_override("font_color", FPS_UI.TEXT)
+	stack.add_child(title)
+	var description := Label.new()
+	description.text = _mode_description(mode_id)
+	description.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	description.add_theme_font_size_override("font_size", 13)
+	description.add_theme_color_override("font_color", MUTED)
+	stack.add_child(description)
+	card.pressed.connect(_on_mode_selected.bind(mode_id))
+	mode_buttons[mode_id] = card
+	return card
+
+func _build_hero(parent: VBoxContainer) -> void:
+	var stage_panel := PanelContainer.new()
+	stage_panel.name = "HeroStage"
+	stage_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stage_panel.add_theme_stylebox_override("panel", FPS_UI.flat_box(Color("#0A1728"), FPS_UI.EDGE, 1))
+	parent.add_child(stage_panel)
+	var container := SubViewportContainer.new()
+	container.stretch = true
+	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.custom_minimum_size = Vector2(220, 400)
+	container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stage_panel.add_child(container)
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(512, 640)
+	viewport.own_world_3d = true
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	# Phones run the lobby at a lower cost: no multisampling on touch devices.
+	viewport.msaa_3d = Viewport.MSAA_DISABLED if DisplayServer.is_touchscreen_available() else Viewport.MSAA_2X
+	container.add_child(viewport)
+	_build_character_preview_stage(viewport)
+	_refresh_character_preview(
+		str(profile.get("avatar_color_id", "color_cyan")),
+		str(profile.get("outfit_id", "outfit_default")),
+		str(profile.get("accessory_id", "accessory_cap"))
+	)
+	var plate := Label.new()
+	plate.name = "HeroNamePlate"
+	plate.text = str(profile.get("display_name", profile.get("username", "Player"))).to_upper()
+	plate.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	plate.add_theme_font_size_override("font_size", 24)
+	plate.add_theme_color_override("font_color", FPS_UI.TEXT)
+	parent.add_child(plate)
+
+func _build_play_controls(right: VBoxContainer) -> void:
+	right.add_child(FPS_UI.section_header(_t("map")))
+	var grid := GridContainer.new()
+	grid.name = "MapGrid"
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	right.add_child(grid)
 	for map_index in range(ARENA_LAYOUT.MAP_COUNT):
-		map_select.add_item(ARENA_LAYOUT.map_name(map_index))
-		map_select.set_item_metadata(map_index, map_index)
-	map_select.select(selected_map_index)
-	map_select.item_selected.connect(func(index: int): selected_map_index = int(map_select.get_item_metadata(index)))
-	map_row.add_child(map_select)
+		var tile := Button.new()
+		tile.name = "Map_%d" % map_index
+		tile.text = ARENA_LAYOUT.map_name(map_index)
+		tile.custom_minimum_size = Vector2(0, 52)
+		tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tile.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		tile.clip_text = true
+		tile.focus_mode = Control.FOCUS_ALL
+		tile.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		tile.add_theme_font_size_override("font_size", 15)
+		tile.add_theme_color_override("font_color", FPS_UI.TEXT)
+		tile.pressed.connect(_on_map_selected.bind(map_index))
+		map_buttons[map_index] = tile
+		grid.add_child(tile)
 
+	right.add_child(FPS_UI.section_header(_t("server_title")))
 	var server_panel := PanelContainer.new()
 	server_panel.add_theme_stylebox_override("panel", _panel_style())
-	content.add_child(server_panel)
+	right.add_child(server_panel)
 	var server_stack := VBoxContainer.new()
 	server_stack.add_theme_constant_override("separation", 8)
 	server_panel.add_child(server_stack)
-	server_stack.add_child(_label(_t("server_title") + "  •  WSS / UDP 2456"))
+	var status_row := HBoxContainer.new()
+	status_row.add_theme_constant_override("separation", 8)
+	server_stack.add_child(status_row)
+	server_dot = FPS_UI.status_dot(MUTED)
+	status_row.add_child(server_dot)
+	server_status_label = Label.new()
+	server_status_label.add_theme_font_size_override("font_size", 14)
+	status_row.add_child(server_status_label)
 	server_host_field = _field(_t("server_address"), _t("server_hint"))
+	server_host_field.name = "ServerAddressField"
 	server_host_field.text = server_host
+	server_host_field.text_changed.connect(_refresh_server_state)
 	server_stack.add_child(server_host_field)
-	var initial_valid := _is_server_address_valid(server_host)
-	lobby_notice_label = _label(_t("server_ready") if initial_valid else (_t("server_missing") if server_host.is_empty() else _t("server_invalid")))
-	lobby_notice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lobby_notice_label.add_theme_color_override("font_color", ACCENT if initial_valid else Color("#FFC36B"))
+	lobby_notice_label = _paragraph("")
+	lobby_notice_label.add_theme_font_size_override("font_size", 13)
 	server_stack.add_child(lobby_notice_label)
 
-	var start := _button(_t("start_match"), true)
-	start.custom_minimum_size = Vector2(0, 58)
-	start.disabled = not initial_valid
-	start.pressed.connect(_launch_game.bind("quick_match"))
-	content.add_child(start)
+	# The action buttons are never disabled: pressing one with a missing server explains what to do.
+	start_button = FPS_UI.button(_t("start_match"), "primary", 68.0, 22)
+	start_button.name = "StartButton"
+	start_button.pressed.connect(_launch_game.bind("quick_match"))
+	right.add_child(start_button)
 
 	var room_row := HBoxContainer.new()
 	room_row.add_theme_constant_override("separation", 10)
-	var create := _button(_t("create_room"), false)
-	create.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	create.custom_minimum_size.y = 52
-	create.disabled = not initial_valid
-	create.pressed.connect(_launch_game.bind("create_room"))
-	room_row.add_child(create)
-	content.add_child(room_row)
+	right.add_child(room_row)
+	create_button = _button(_t("create_room"), false)
+	create_button.name = "CreateRoomButton"
+	create_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_button.custom_minimum_size.y = 52
+	create_button.pressed.connect(_launch_game.bind("create_room"))
+	room_row.add_child(create_button)
 
 	var join_row := HBoxContainer.new()
 	join_row.add_theme_constant_override("separation", 10)
+	right.add_child(join_row)
 	room_code_field = _field(_t("room_code"), "A1B2C3")
+	room_code_field.name = "RoomCodeField"
+	room_code_field.max_length = 6
+	room_code_field.text = room_code_text
 	room_code_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	room_code_field.text_changed.connect(_on_room_code_changed)
+	room_code_field.text_submitted.connect(func(_value: String): _launch_game("join_room"))
 	join_row.add_child(room_code_field)
-	var join := _button(_t("join_room"), false)
-	join.custom_minimum_size = Vector2(130, 44)
-	join.disabled = not initial_valid
-	join.pressed.connect(_launch_game.bind("join_room"))
-	join_row.add_child(join)
-	content.add_child(join_row)
-	server_host_field.text_changed.connect(func(value: String):
-		var valid := _is_server_address_valid(value)
-		start.disabled = not valid
-		create.disabled = not valid
-		join.disabled = not valid
-		lobby_notice_label.text = _t("server_ready") if valid else (_t("server_missing") if value.strip_edges().is_empty() else _t("server_invalid"))
-		lobby_notice_label.add_theme_color_override("font_color", ACCENT if valid else Color("#FFC36B"))
-	)
+	join_button = _button(_t("join_room"), false)
+	join_button.name = "JoinRoomButton"
+	join_button.custom_minimum_size = Vector2(140, 46)
+	join_button.pressed.connect(_launch_game.bind("join_room"))
+	join_row.add_child(join_button)
 
-	var logout := _button(_t("logout"), false)
-	logout.pressed.connect(_on_logout)
-	content.add_child(logout)
+func _on_mode_selected(mode_id: String) -> void:
+	selected_game_mode = mode_id
+	_refresh_selection_styles()
+
+func _on_map_selected(map_index: int) -> void:
+	selected_map_index = ARENA_LAYOUT.sanitize_map(map_index)
+	_refresh_selection_styles()
+
+func _refresh_selection_styles() -> void:
+	for mode_id in mode_buttons.keys():
+		var card: Button = mode_buttons[mode_id]
+		if is_instance_valid(card):
+			FPS_UI.style_card(card, MODE_COLORS.get(mode_id, ACCENT), str(mode_id) == selected_game_mode)
+	for map_index in map_buttons.keys():
+		var tile: Button = map_buttons[map_index]
+		if is_instance_valid(tile):
+			FPS_UI.style_card(tile, MAP_COLORS[int(map_index) % MAP_COLORS.size()], int(map_index) == selected_map_index)
+
+func _on_room_code_changed(value: String) -> void:
+	var upper := value.to_upper()
+	if is_instance_valid(room_code_field) and upper != value:
+		var caret := room_code_field.caret_column
+		room_code_field.text = upper
+		room_code_field.caret_column = caret
+	room_code_text = upper
+
+## Updates the status light, the helper text and the START label from the typed server address.
+func _refresh_server_state(value: String) -> void:
+	var address := value.strip_edges()
+	server_host = address
+	var valid := _is_server_address_valid(address)
+	var state_color: Color = ACCENT if valid else (FPS_UI.GOLD if address.is_empty() else FPS_UI.DANGER)
+	FPS_UI.set_status_dot(server_dot, state_color)
+	if is_instance_valid(server_status_label):
+		server_status_label.text = _t("server_status_ready") if valid else (_t("server_status_none") if address.is_empty() else _t("server_status_bad"))
+		server_status_label.add_theme_color_override("font_color", state_color)
+	if is_instance_valid(lobby_notice_label):
+		lobby_notice_label.text = _t("server_ready") if valid else (_t("server_missing") if address.is_empty() else _t("server_invalid"))
+		lobby_notice_label.add_theme_color_override("font_color", MUTED if valid else state_color)
+	if is_instance_valid(start_button):
+		start_button.text = _t("start_training") if address.is_empty() else _t("start_match")
 
 func _is_server_address_valid(value: String) -> bool:
 	var address := value.strip_edges()
@@ -470,22 +762,40 @@ func _is_valid_room_code(value: String) -> bool:
 			return false
 	return true
 
+func _focus_field(field: LineEdit) -> void:
+	if is_instance_valid(field):
+		field.grab_focus()
+
 func _launch_game(action: String) -> void:
 	var host := server_host_field.text.strip_edges() if is_instance_valid(server_host_field) else server_host
-	if not _is_server_address_valid(host):
-		if is_instance_valid(lobby_notice_label):
-			lobby_notice_label.text = _t("server_invalid") if not host.is_empty() else _t("server_missing")
+	var room_code := room_code_field.text.strip_edges().to_upper() if is_instance_valid(room_code_field) else room_code_text
+	var launch_action := action
+	if host.is_empty():
+		# Without a server only the offline training arena can run. Rooms need a server, so say so.
+		if action == "create_room":
+			_show_notice(_t("need_server_room"), "warn")
+			_focus_field(server_host_field)
+			return
+		if action == "join_room":
+			_show_notice(_t("need_server_join"), "warn")
+			_focus_field(server_host_field)
+			return
+		launch_action = "practice"
+	elif not _is_server_address_valid(host):
+		_show_notice(_t("server_invalid"), "error")
+		_focus_field(server_host_field)
 		return
-	var room_code := room_code_field.text.strip_edges().to_upper() if is_instance_valid(room_code_field) else ""
 	if action == "join_room" and not _is_valid_room_code(room_code):
-		if is_instance_valid(lobby_notice_label):
-			lobby_notice_label.text = _t("room_code_invalid")
+		_show_notice(_t("room_code_invalid"), "error")
+		_focus_field(room_code_field)
 		return
+	if not host.is_empty():
+		USER_SETTINGS.write_value("network", "server_host", host)
 	play_requested.emit({
 		"display_name": str(profile.get("display_name", profile.get("username", "Player"))),
 		"profile": profile,
 		"is_admin": is_admin,
-		"launch_action": action,
+		"launch_action": launch_action,
 		"game_mode": selected_game_mode,
 		"map_index": selected_map_index,
 		"room_code": room_code,
@@ -569,15 +879,13 @@ func _render_stats() -> void:
 		[_t("stat_total_damage"), "%.0f" % float(stats.get("total_damage_dealt", 0.0))],
 		[_t("stat_playtime"), "%dh %02dm" % [hours, minutes]]
 	]
+	var stat_grid := GridContainer.new()
+	stat_grid.columns = 3
+	stat_grid.add_theme_constant_override("h_separation", 10)
+	stat_grid.add_theme_constant_override("v_separation", 10)
+	content.add_child(stat_grid)
 	for index in range(cards.size()):
-		var row := HBoxContainer.new()
-		var key_label := _label(str(cards[index][0]))
-		key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(key_label)
-		var value_label := _label(str(cards[index][1]))
-		value_label.add_theme_color_override("font_color", ACCENT)
-		row.add_child(value_label)
-		content.add_child(row)
+		stat_grid.add_child(_stat_tile(str(cards[index][0]), str(cards[index][1])))
 
 const RANKS := [
 	{"id":"bronze", "minimum":0, "color":Color("#B87945")},
@@ -690,7 +998,9 @@ func _render_friends() -> void:
 			if my_render != _render_id or not is_instance_valid(content):
 				return
 			var other_name := str(other_profile.get("username", other_id.substr(0, 8)))
-			row.add_child(_label(("From " if incoming else "To ") + other_name))
+			var who := _label(("From " if incoming else "To ") + other_name)
+			who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(who)
 			if incoming:
 				var accept := _button(_t("accept"), true)
 				accept.pressed.connect(func():
@@ -734,7 +1044,7 @@ func _render_friends() -> void:
 				var last_seen_unix := Time.get_unix_time_from_datetime_string(last_seen)
 				online = int(Time.get_unix_time_from_system()) - last_seen_unix <= 90
 			var status_text := _t("online") if online else _t("offline")
-			content.add_child(_label(str(friend.get("username", "Player")) + "  •  " + status_text))
+			content.add_child(_presence_row(str(friend.get("username", "Player")), online, status_text))
 		if friends.get("data", []).is_empty():
 			content.add_child(_label(_t("no_results")))
 	else:
@@ -1021,9 +1331,59 @@ func _large_label(value: String) -> Label:
 	label.add_theme_color_override("font_color", ACCENT)
 	return label
 
+## Short text stays on one line. A wrapping label inside a row collapses to a sliver, so only long
+## text (notices, explanations) wraps, and rows of short labels do not.
 func _label(value: String) -> Label:
 	var label := Label.new()
 	label.text = value
-	label.add_theme_color_override("font_color", Color("#DCEBFA"))
+	label.add_theme_color_override("font_color", FPS_UI.TEXT)
+	if value.length() > 48:
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return label
+
+## Always wraps; use it directly inside a vertical container, never as a bare child of a row.
+func _paragraph(value: String) -> Label:
+	var label := Label.new()
+	label.text = value
+	label.add_theme_color_override("font_color", FPS_UI.TEXT)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return label
+
+func _stat_tile(key_text: String, value_text: String) -> PanelContainer:
+	var tile := PanelContainer.new()
+	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var style := FPS_UI.panel_style(0.9)
+	style.content_margin_top = 12
+	style.content_margin_bottom = 12
+	tile.add_theme_stylebox_override("panel", style)
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 2)
+	tile.add_child(stack)
+	var value_label := Label.new()
+	value_label.text = value_text
+	value_label.add_theme_font_size_override("font_size", 30)
+	value_label.add_theme_color_override("font_color", ACCENT)
+	stack.add_child(value_label)
+	var key_label := Label.new()
+	key_label.text = key_text
+	key_label.clip_text = true
+	key_label.add_theme_font_size_override("font_size", 13)
+	key_label.add_theme_color_override("font_color", MUTED)
+	stack.add_child(key_label)
+	return tile
+
+func _presence_row(name_text: String, online: bool, status_text: String) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	row.add_child(FPS_UI.status_dot(ACCENT if online else Color("#4B5C6D")))
+	var name_label := Label.new()
+	name_label.text = name_text
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.add_theme_color_override("font_color", FPS_UI.TEXT)
+	row.add_child(name_label)
+	var status_label := Label.new()
+	status_label.text = status_text
+	status_label.add_theme_font_size_override("font_size", 13)
+	status_label.add_theme_color_override("font_color", ACCENT if online else MUTED)
+	row.add_child(status_label)
+	return row
