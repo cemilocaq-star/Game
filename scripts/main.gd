@@ -904,7 +904,7 @@ func _is_pause_open() -> bool:
 func _toggle_pause_menu() -> void:
 	if not is_instance_valid(pause_menu) or not is_instance_valid(player) or _round_finished:
 		return
-	var opening := not pause_menu.visible
+	var opening: bool = not pause_menu.visible
 	pause_menu.visible = opening
 	player.ui_blocked = opening
 	if opening:
