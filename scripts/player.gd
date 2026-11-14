@@ -66,6 +66,8 @@ var score := 0
 var gyro_enabled := true
 var _dash_direction := Vector3.ZERO
 var _camera: Camera3D
+var _aim_held := false
+var _reverse_movement := false
 var _body_mesh: MeshInstance3D
 var _collider: CollisionShape3D
 var _capsule: CapsuleShape3D
@@ -88,11 +90,15 @@ var _blaster_audio: AudioStreamPlayer3D
 var _blaster_model: Node3D
 var _blaster_cooldown := 0.0
 var _blaster_recoil := 0.0
+const WEAPON_REST := Vector3(0.27, -0.24, -0.48)
+var _weapon_equip_tween: Tween
 var _weapon_inspect_tween: Tween
 var _weapon_fire_tween: Tween
 var _weapon_idle_clock := 0.0
 var selected_weapon_id := "aether"
 var arsenal_open := false
+## Set by the HUD while a full-screen overlay (results, pause) is open: no firing or looking.
+var ui_blocked := false
 var active_emote := ""
 var _emote_clock := 0.0
 var _emote_music: AudioStreamPlayer
@@ -241,6 +247,9 @@ func set_swimming(enabled: bool) -> void:
 		CharacterVisuals.set_clothing_visible(_character_detail_root, not enabled)
 
 func _process(delta: float) -> void:
+	if is_instance_valid(_camera):
+		var aiming := _aim_held and not arsenal_open and not ui_blocked and not is_dead and not _weapon_pose_locked()
+		_camera.fov = move_toward(_camera.fov, 68.0 if aiming else 86.0, delta * 110.0)
 	if Input.is_action_just_pressed("emote_griddy"):
 		play_emote("griddy")
 	elif Input.is_action_just_pressed("emote_goofy"):
@@ -262,14 +271,23 @@ func _process(delta: float) -> void:
 	_blaster_recoil = move_toward(_blaster_recoil, 0.0, delta * 1.35)
 	_weapon_idle_clock += delta
 	if is_instance_valid(_blaster_model):
-		_blaster_model.position.z = -0.48 + _blaster_recoil
-		if (_weapon_inspect_tween == null or not _weapon_inspect_tween.is_running()) and (_weapon_fire_tween == null or not _weapon_fire_tween.is_running()):
+		var pose_locked := _weapon_pose_locked()
+		if not pose_locked:
+			_blaster_model.position.z = WEAPON_REST.z + _blaster_recoil
+		if not pose_locked and (_weapon_fire_tween == null or not _weapon_fire_tween.is_running()):
 			_blaster_model.rotation.z = sin(_weapon_idle_clock * 1.35) * 0.012
 			_blaster_model.position.y = -0.24 + sin(_weapon_idle_clock * 1.7) * 0.006
 	if is_instance_valid(_blaster_model):
 		_animate_weapon_details()
-	if Input.is_action_pressed("fire") and _blaster_cooldown <= 0.0 and not arsenal_open:
+	# A raw mouse click on a HUD button must not fire: on desktop only shoot while the
+	# mouse is captured. Touch devices fire through the on-screen FIRE button instead.
+	var fire_input_allowed := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED or DisplayServer.is_touchscreen_available()
+	if Input.is_action_pressed("fire") and _blaster_cooldown <= 0.0 and not arsenal_open and not ui_blocked and fire_input_allowed:
 		_fire_blaster()
+
+
+func _weapon_pose_locked() -> bool:
+	return (_weapon_equip_tween != null and _weapon_equip_tween.is_running()) or (_weapon_inspect_tween != null and _weapon_inspect_tween.is_running())
 
 
 func _animate_weapon_details() -> void:
@@ -400,32 +418,54 @@ func set_arsenal_open(open: bool) -> void:
 	if open:
 		Input.action_release("fire")
 
+func set_combat_dead(dead: bool) -> void:
+	if dead == is_dead:
+		return
+	is_dead = dead
+	_aim_held = false
+	for tween: Tween in [_weapon_equip_tween, _weapon_inspect_tween, _weapon_fire_tween]:
+		if tween != null and tween.is_valid():
+			tween.kill()
+	_blaster_recoil = 0.0
+	if is_instance_valid(_blaster_model):
+		_blaster_model.visible = not dead
+		_blaster_model.position = WEAPON_REST
+		_blaster_model.rotation = Vector3.ZERO
+		_blaster_model.scale = Vector3.ONE
+	if not dead:
+		_blaster_cooldown = 0.0
+
+
 func set_selected_weapon(weapon_id: String) -> void:
 	if not ARCADE_WEAPON_LOCAL.has(weapon_id) or selected_weapon_id == weapon_id:
 		return
 	selected_weapon_id = weapon_id
-	_blaster_cooldown = 0.0
 	_setup_blaster()
 	_blaster_recoil = 0.035
 	if is_instance_valid(_blaster_model):
-		var target_position := Vector3(0.27, -0.24, -0.48)
+		var target_position := WEAPON_REST
 		_blaster_model.position = target_position + Vector3(0.0, -0.09, 0.08)
-		var equip_tween := create_tween()
-		equip_tween.set_parallel(true)
-		equip_tween.tween_property(_blaster_model, "position", target_position, 0.20).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		equip_tween.tween_property(_blaster_model, "rotation", Vector3.ZERO, 0.20).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_weapon_equip_tween = create_tween()
+		_weapon_equip_tween.set_parallel(true)
+		_weapon_equip_tween.tween_property(_blaster_model, "position", target_position, 0.20).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_weapon_equip_tween.tween_property(_blaster_model, "rotation", Vector3.ZERO, 0.20).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if is_instance_valid(_blaster_audio):
-		_blaster_audio.stream = _make_weapon_stream(weapon_id)
+		_blaster_audio.stream = make_weapon_stream(weapon_id)
 
 func _setup_blaster() -> void:
 	if not is_instance_valid(_camera):
 		return
+	for tween: Tween in [_weapon_equip_tween, _weapon_inspect_tween, _weapon_fire_tween]:
+		if tween != null and tween.is_valid():
+			tween.kill()
 	if is_instance_valid(_blaster_model):
+		_camera.remove_child(_blaster_model)
 		_blaster_model.queue_free()
 	var weapon_data: Dictionary = ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"])
 	var weapon_color: Color = weapon_data.get("color", Color("#8CEEFF"))
 	_blaster_model = ARCADE_WEAPON_VISUALS.build_weapon(selected_weapon_id, weapon_color)
 	_blaster_model.position = Vector3(0.27, -0.24, -0.48)
+	_blaster_model.visible = not is_dead
 	_camera.add_child(_blaster_model)
 	if not is_instance_valid(_blaster_audio):
 		_blaster_audio = AudioStreamPlayer3D.new()
@@ -433,7 +473,7 @@ func _setup_blaster() -> void:
 		_blaster_audio.volume_db = -7.0
 		_blaster_audio.max_distance = 42.0
 		_blaster_audio.unit_size = 9.0
-		_blaster_audio.stream = _make_weapon_stream(selected_weapon_id)
+		_blaster_audio.stream = make_weapon_stream(selected_weapon_id)
 		_camera.add_child(_blaster_audio)
 
 func _blaster_material(color: Color, metallic_value: float, emissive: bool = false) -> StandardMaterial3D:
@@ -447,7 +487,7 @@ func _blaster_material(color: Color, metallic_value: float, emissive: bool = fal
 		material.emission_energy_multiplier = 1.8
 	return material
 
-func _make_weapon_stream(weapon_id: String) -> AudioStreamWAV:
+static func make_weapon_stream(weapon_id: String) -> AudioStreamWAV:
 	# Original synthetic arcade tones; all samples are generated locally.
 	const sample_rate := 22050
 	const duration := 0.17
@@ -505,10 +545,10 @@ func _make_weapon_stream(weapon_id: String) -> AudioStreamWAV:
 	return stream
 
 func inspect_weapon() -> void:
-	if not is_instance_valid(_blaster_model) or arsenal_open or is_dead:
+	if not is_instance_valid(_blaster_model) or arsenal_open or is_dead or _weapon_pose_locked():
 		return
-	if _weapon_inspect_tween != null and _weapon_inspect_tween.is_running():
-		return
+	if _weapon_fire_tween != null and _weapon_fire_tween.is_running():
+		_weapon_fire_tween.kill()
 	_weapon_inspect_tween = create_tween()
 	_weapon_inspect_tween.set_trans(Tween.TRANS_SINE)
 	_weapon_inspect_tween.set_ease(Tween.EASE_IN_OUT)
@@ -571,7 +611,7 @@ func _animate_weapon_fire() -> void:
 
 
 func _fire_blaster() -> void:
-	if not is_instance_valid(_camera) or _blaster_cooldown > 0.0:
+	if is_dead or not is_instance_valid(_camera) or _blaster_cooldown > 0.0 or _weapon_pose_locked():
 		return
 	_blaster_cooldown = float(ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"]).get("cooldown", 0.24))
 	_blaster_recoil = 0.055
@@ -679,6 +719,8 @@ func _physics_process(delta: float) -> void:
 	var forward := -global_transform.basis.z
 	var right := global_transform.basis.x
 	var direction := (right * input_vector.x + forward * -input_vector.y).normalized()
+	if _reverse_movement:
+		direction = -direction
 
 	if dash_left > 0.0:
 		_set_sliding(false)
@@ -911,6 +953,11 @@ func active_event_ice() -> bool:
 	return event_speed_scale == 0.82
 
 func apply_event(event_id: String) -> void:
+	_reverse_movement = event_id == "REVERSE_PANIC"
+	if is_instance_valid(_character_detail_root):
+		var head := _character_detail_root.get_node_or_null("HeadPivot") as Node3D
+		if head:
+			head.scale = Vector3.ONE * (1.65 if event_id == "BIG_HEAD" else 1.0)
 	event_gravity_scale = 0.55 if event_id == "LOW_GRAVITY" else 1.0
 	match event_id:
 		"BONK_MODE":
@@ -927,16 +974,19 @@ func apply_event(event_id: String) -> void:
 			event_speed_scale = 1.0
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		_aim_held = event.pressed and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_apply_look(event.relative)
 	elif event is InputEventScreenDrag:
 		var viewport_size := get_viewport().get_visible_rect().size
 		if event.position.x > viewport_size.x * 0.38:
 			_apply_look(event.relative)
-	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED
+	# Esc is handled by the HUD (pause menu), which also frees/captures the mouse.
 
 func _apply_look(relative: Vector2) -> void:
+	if ui_blocked:
+		return
 	rotate_y(-relative.x * look_sensitivity)
 	pitch = clampf(pitch - relative.y * look_sensitivity, deg_to_rad(-82.0), deg_to_rad(82.0))
 	_camera.rotation.x = pitch

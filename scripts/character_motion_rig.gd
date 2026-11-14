@@ -2,6 +2,7 @@ extends RefCounted
 ## Shared rounded procedural character rig for local and replicated avatars.
 ## Movement and emotes are cosmetic only; they never change CharacterBody3D physics.
 
+const GHOST_RIG := preload("res://scripts/ghost_costume_rig.gd")
 const CHARACTER_VISUALS := preload("res://scripts/character_visuals.gd")
 
 ## Builds the articulated limb rig on the shared slim torso. When `outfit_id`
@@ -89,6 +90,11 @@ static func build(parent: Node3D, color: Color, outfit_id: String = "") -> Node3
 			_add_ellipsoid(knee, "RiotKneePad", 0.12, Vector3(1.05, 1.0, 0.65), Vector3(0, 0.0, -0.075), joint_material)
 		_add_foot(knee, foot_style, side < 0.0, boot_material, skin_material)
 
+	if outfit_id == "outfit_ghost_ops":
+		var skeleton := GHOST_RIG.new()
+		skeleton.name = "GhostCostumeSkeleton"
+		rig.add_child(skeleton)
+		skeleton.bind_to(rig)
 	return rig
 
 
@@ -116,7 +122,7 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 	var move_weight := clampf(speed / 6.6, 0.0, 1.0)
 	var cadence := lerpf(7.2, 12.4, move_weight)
 	var phase := clock * cadence
-	var active_emote := emote in ["griddy", "goofy", "robot", "wave"]
+	var active_emote := emote in ["griddy", "goofy", "robot", "wave", "defeat"]
 	var emote_phase := clock * TAU * _emote_rate(emote)
 	var bob_target := 0.0
 	var body_lean := 0.0
@@ -165,6 +171,8 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 				head_target.x = -0.12
 			elif not grounded:
 				head_target.x = 0.10
+			elif emote == "defeat":
+				head_target.x = -0.26
 			elif emote == "goofy":
 				head_target.z = sin(emote_phase) * 0.12
 			head.rotation.x = lerp_angle(head.rotation.x, head_target.x, clampf(delta * 6.0, 0.0, 1.0))
@@ -253,7 +261,14 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 		_move_rotation(arm, Vector3(arm_x, 0.0, arm_z), delta, 11.0)
 		_move_rotation(elbow, Vector3(elbow_x, 0.0, 0.0), delta, 13.0)
 		_move_rotation(leg, Vector3(leg_x, 0.0, leg_z), delta, 10.0)
-		_move_rotation(knee, Vector3(knee_x, 0.0, 0.0), delta, 12.0)
+		# The character faces -Z, where a positive X rotation swings a hanging limb forward.
+		# A knee only bends backward (shin toward +Z), so flexion is the negative angle.
+		_move_rotation(knee, Vector3(-knee_x, 0.0, 0.0), delta, 12.0)
+
+
+	var skeleton := rig.get_node_or_null("GhostCostumeSkeleton")
+	if skeleton:
+		skeleton.sync_pose()
 
 
 static func _emote_rate(emote: String) -> float:
@@ -289,6 +304,10 @@ static func _add_capsule(parent: Node3D, node_name: String, radius: float, heigh
 	var mesh := CapsuleMesh.new()
 	mesh.radius = radius
 	mesh.height = height
+	# Godot's defaults (64 radial x 8 rings) are far more than a limb needs and add up
+	# quickly with several avatars on a phone GPU.
+	mesh.radial_segments = 12
+	mesh.rings = 4
 	instance.mesh = mesh
 	instance.position = position
 	instance.rotation = rotation_value
@@ -302,6 +321,8 @@ static func _add_ellipsoid(parent: Node3D, node_name: String, radius: float, sca
 	var mesh := SphereMesh.new()
 	mesh.radius = radius
 	mesh.height = radius * 2.0
+	mesh.radial_segments = 16
+	mesh.rings = 8
 	instance.mesh = mesh
 	instance.scale = scale_value
 	instance.position = position

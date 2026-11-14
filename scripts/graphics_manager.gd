@@ -27,7 +27,9 @@ func set_quality(value: String) -> void:
 	if quality_setting not in ["AUTO", "LOW", "MEDIUM", "HIGH", "ULTRA"]:
 		quality_setting = "AUTO"
 	_resolve_quality()
+	# Load first so other sections (input sensitivity, audio volume) are preserved.
 	var config := ConfigFile.new()
+	config.load(SETTINGS_PATH)
 	config.set_value("graphics", "quality", quality_setting)
 	config.save(SETTINGS_PATH)
 	_apply_quality()

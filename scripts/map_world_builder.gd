@@ -3,7 +3,20 @@ extends RefCounted
 ## Original, lightweight exploration maps built from rounded low-poly meshes.
 ## These spaces are designed around discovery, traversal and collectibles.
 
-static func build(parent: Node3D, map_index: int) -> Node3D:
+const CANYON_PINNACLE = preload("res://assets/environment/Desert_Rock_1.glb")
+const CANYON_BOULDER = preload("res://assets/environment/Desert_Rock_3.glb")
+
+const LANDMARKS := {
+	0: ["Supply_Crate", "ServiceDeliveryCrates", Vector3(-14.8, 2.7, -0.5), 1.25, 0.4],
+	1: ["Electrical_Control_Box", "RooftopControlBank", Vector3(-8.0, 2.55, -5.1), 1.9, 0.0],
+	2: ["Desert_Rock_4", "FloatingRockOutcrop", Vector3(-11.0, 3.4, -21.0), 4.4, 1.0],
+	3: ["Safety_Bollard", "CandyBoundaryMarker", Vector3(-5.5, 3.6, -14.7), 1.8, 0.0],
+	4: ["Date_Palm_3", "OasisMarketPalm", Vector3(5.4, 0.0, -15.8), 2.0, -0.5],
+	5: ["Wooden_Watchtower", "JungleRidgeLookout", Vector3(-8.4, 6.1, -17.5), 1.6, 0.15],
+	6: ["Saguaro_2", "CanyonCactusCrest", Vector3(-10.7, 3.7, -23.4), 1.25, -0.3],
+}
+
+static func build(parent: Node3D, map_index: int, include_landmarks: bool = true) -> Node3D:
 	var root := Node3D.new()
 	root.name = "GeneratedWorld_%d" % map_index
 	parent.add_child(root)
@@ -13,7 +26,7 @@ static func build(parent: Node3D, map_index: int) -> Node3D:
 		5:
 			_build_jungle_temple(root)
 		6:
-			_build_redstone_canyon(root)
+			_build_redstone_canyon(root, include_landmarks)
 		1:
 			_build_neon_rooftops(root)
 		2:
@@ -23,6 +36,11 @@ static func build(parent: Node3D, map_index: int) -> Node3D:
 		_:
 			_build_lost_mall(root)
 	_build_objective_sites(root)
+	if include_landmarks and LANDMARKS.has(map_index):
+		var detail: Array = LANDMARKS[map_index]
+		var model := load("res://assets/environment/%s.glb" % str(detail[0])) as PackedScene
+		if model:
+			_add_canyon_landmark(root, model, str(detail[1]), detail[2], float(detail[3]), float(detail[4]))
 	return root
 
 
@@ -399,7 +417,7 @@ static func in_swim_zone(map_index: int, position: Vector3) -> bool:
 	return position.x >= -16.0 and position.x <= -8.0 and position.z >= -13.0 and position.z <= -5.0 and position.y <= 3.5
 
 
-static func _build_redstone_canyon(root: Node3D) -> void:
+static func _build_redstone_canyon(root: Node3D, include_landmarks: bool) -> void:
 	var red_rock := Color("#A75D42")
 	var light_rock := Color("#D18A5C")
 	var sandstone := Color("#C59A68")
@@ -421,6 +439,22 @@ static func _build_redstone_canyon(root: Node3D) -> void:
 	_stairs(root, "CanyonLookoutSteps", Vector3(0.0, 0.0, -1.5), 5, 0.85, 0.42, Vector3(4.8, 0.0, 0.9), red_rock)
 	_box(root, "CanyonLookoutDeck", Vector3(5.2, 0.5, 3.2), Vector3(0.0, 2.0, -3.5), sandstone)
 	_label(root, "REDSTONE CANYON", Vector3(0.0, 4.1, -13.6), Color("#FFE4CF"))
+	# A background ridge gives the canyon a recognizable skyline without
+	# changing the playfield, cover geometry or dedicated-server collisions.
+	if not include_landmarks:
+		return
+	_add_canyon_landmark(root, CANYON_PINNACLE, "CanyonFarWestPinnacle", Vector3(-12.8, 0.0, -24.0), 2.15, 0.48)
+	_add_canyon_landmark(root, CANYON_PINNACLE, "CanyonFarEastPinnacle", Vector3(11.4, 0.0, -25.0), 2.70, -0.75)
+	_add_canyon_landmark(root, CANYON_BOULDER, "CanyonFarEastBoulder", Vector3(14.3, 0.0, -23.0), 1.85, 0.51)
+
+
+static func _add_canyon_landmark(root: Node3D, model_scene: PackedScene, node_name: String, origin: Vector3, size: float, heading: float) -> void:
+	var model := model_scene.instantiate() as Node3D
+	model.name = node_name
+	model.position = origin
+	model.scale = Vector3.ONE * size
+	model.rotation.y = heading
+	root.add_child(model)
 
 
 static func _build_lost_mall(root: Node3D) -> void:

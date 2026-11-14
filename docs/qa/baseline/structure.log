@@ -1,0 +1,7 @@
+VALIDATION FAILED
+- missing: assets/audio/event-start.ogg
+- missing: assets/audio/event-freeze.ogg
+- missing: assets/audio/event-reward.ogg
+- missing: assets/audio/event-bonk.ogg
+- missing: assets/audio/event-end.ogg
+- missing: assets/audio/event-music-loop.ogg

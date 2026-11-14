@@ -98,5 +98,5 @@ static func build_collision(parent: Node, map_index: int) -> Node3D:
 		shape_node.shape = shape
 		body.add_child(shape_node)
 		holder.add_child(body)
-	MAP_WORLD_SCRIPT.build(holder, map_index)
+	MAP_WORLD_SCRIPT.build(holder, map_index, false)
 	return holder

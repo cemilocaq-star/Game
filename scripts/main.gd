@@ -1,16 +1,32 @@
 extends Node3D
 
+const COMPETITIVE_THEME := preload("res://scripts/competitive_theme.gd")
+
 const GRENADE_PHYSICS := preload("res://scripts/grenade_physics.gd")
+const ARSENAL_PREVIEW := preload("res://scripts/arsenal_preview.gd")
 const PLAYER_SCRIPT = preload("res://scripts/player.gd")
 const BACKEND_SCRIPT = preload("res://scripts/oxenwar_supabase.gd")
 const MENU_SCRIPT = preload("res://scripts/oxenwar_menu.gd")
 const NETWORK_SCRIPT = preload("res://scripts/oxenwar_network.gd")
+const SUNSHINE_FX := preload("res://scripts/sunshine_fx.gd")
+var _sunshine_fx: Node3D
+var _sunshine_hit := false
 const EVENT_FX_SCRIPT = preload("res://scripts/oxenwar_event_fx.gd")
 const COMBAT_FX_SCRIPT = preload("res://scripts/combat_fx.gd")
+const CROSSHAIR_SCRIPT = preload("res://scripts/crosshair_overlay.gd")
+const PAUSE_MENU_SCRIPT = preload("res://scripts/pause_menu.gd")
+const USER_SETTINGS = preload("res://scripts/user_settings.gd")
 const MAP_WORLD_SCRIPT = preload("res://scripts/map_world_builder.gd")
 const ARENA_LAYOUT := preload("res://scripts/arena_layout.gd")
 const MAP_NAMES := ARENA_LAYOUT.MAP_NAMES
 const REMOTE_PLAYER_SCRIPT = preload("res://scripts/oxenwar_remote_player.gd")
+const MAP_SKY_PALETTES := [
+	[Color("#263346"), Color("#5B7081")], [Color("#10143B"), Color("#512E6A")],
+	[Color("#07112F"), Color("#273D71")], [Color("#251A4B"), Color("#AD5983")],
+	[Color("#35668C"), Color("#BA8063")], [Color("#203F53"), Color("#607F65")],
+	[Color("#4D5874"), Color("#AD6951")]
+]
+var _arena_sky: ProceduralSkyMaterial
 var local_player_name := "Player"
 var local_admin_authorized := false
 var pending_launch_action := "quick_match"
@@ -156,7 +172,20 @@ var killstreak_label: Label
 var weapon_mastery_label: Label
 var equipped_weapon_label: Label
 var arsenal_panel: PanelContainer
+var _arsenal_preview: SubViewportContainer
+var _arsenal_weapon_label: Label
+var _arsenal_choice := ""
+var _arsenal_equip: Button
 var emote_wheel: Control
+var toast_stack: VBoxContainer
+# Script-defined overlays (crosshair_overlay.gd / pause_menu.gd); left untyped so their
+# own methods and signals resolve at runtime without a class_name.
+var crosshair
+var pause_menu
+# -1 = no authoritative state seen yet (avoids a false hit marker on the first snapshot).
+var _prev_local_hits := -1
+var _prev_local_kills := -1
+var _prev_local_health := -1.0
 var emote_wheel_button: Button
 const WEAPON_ORDER := ["aether", "minicore", "hand_cannon", "pulse_carbine", "star_piercer", "duck_launcher", "banana_boomerang", "confetti_cannon", "prism_scepter", "vortex_orbiter", "comet_bow", "bubble_burst", "glitch_ray", "meteor_mallet", "frost_wand", "solar_lance", "slime_slinger", "pixel_storm", "thunder_drum", "moon_disc", "jellyfish_staff", "portal_popper", "rubber_chicken", "ranger_rifle", "heavy_sidearm", "longshot", "rotary_arc"]
 const WEAPON_DISPLAY := {"aether":"AETHER BLASTER", "minicore":"MINICORE", "hand_cannon":"NOVA HAND CANNON", "pulse_carbine":"PULSE CARBINE", "star_piercer":"STAR PIERCER", "duck_launcher":"DUCK LAUNCHER", "banana_boomerang":"BANANA BOOMERANG", "confetti_cannon":"CONFETTI CANNON", "prism_scepter":"PRISM SCEPTER", "vortex_orbiter":"VORTEX ORBITER", "comet_bow":"COMET BOW", "bubble_burst":"BUBBLE BURST", "glitch_ray":"GLITCH RAY", "meteor_mallet":"METEOR MALLET", "frost_wand":"FROST WAND", "solar_lance":"SOLAR LANCE", "slime_slinger":"SLIME SLINGER", "pixel_storm":"PIXEL STORM", "thunder_drum":"THUNDER DRUM", "moon_disc":"MOON DISC", "jellyfish_staff":"JELLYFISH STAFF", "portal_popper":"PORTAL POPPER", "rubber_chicken":"RUBBER CHICKEN", "ranger_rifle":"RANGER RIFLE", "heavy_sidearm":"HEAVY SIDEARM", "longshot":"LONGSHOT", "rotary_arc":"ROTARY ARC"}
@@ -172,6 +201,9 @@ const RANK_THRESHOLDS := [
 ]
 
 const EVENT_NAMES := {
+	"SUNSHINE": "LEBRON JAMES: YOU ARE MY SUNSHINE",
+	"BIG_HEAD": "THE BIG HEAD INCIDENT",
+	"REVERSE_PANIC": "REVERSE CONTROLS PANIC",
 	"DUCK_PARADE": "DUCK PARADE!",
 	"PINK_SKY": "PINK SKY!",
 	"GOLDEN_ORB_RUSH": "GOLDEN ORB RUSH — 2X POINTS!",
@@ -200,6 +232,7 @@ func _ready() -> void:
 	graphics = GraphicsManager.new()
 	graphics.load_settings()
 	graphics.quality_changed.connect(_refresh_graphics_materials)
+	USER_SETTINGS.apply_master_volume(USER_SETTINGS.master_volume())
 	_setup_input()
 	_build_environment()
 	_build_arena()
@@ -207,6 +240,7 @@ func _ready() -> void:
 	event_fx.name = "OxenWarEventFX"
 	add_child(event_fx)
 	_spawn_player()
+	player.look_sensitivity = USER_SETTINGS.look_sensitivity()
 	_start_multiplayer_client()
 	_build_hud()
 	_build_collectibles()
@@ -345,9 +379,10 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 		weapon_mastery_label.text = "WEAPON MASTERY  •  BLASTER %s  •  GRENADE %s" % [_weapon_mastery_rank(blaster_xp), _weapon_mastery_rank(grenade_xp)]
 	match_killboard[local_player_name] = int(state.get("kills", 0))
 	_update_player_match_stats(local_player_name, state)
+	_update_combat_feedback(state)
 	player.stamina = float(state.get("stamina", player.stamina))
 	player.health = float(state.get("health", player.health))
-	player.is_dead = bool(state.get("dead", false))
+	player.set_combat_dead(bool(state.get("dead", false)))
 	player.respawn_left = float(state.get("respawn_left", 0.0))
 	player.set_swimming(bool(state.get("is_swimming", false)))
 	player.apply_server_slide(bool(state.get("sliding", false)))
@@ -375,6 +410,7 @@ func _on_network_room_state(state: Dictionary) -> void:
 				player.swim_map_index = active_map_index
 			_show_meme_toast("MAP: %s" % _map_name())
 	_update_objective_core(state)
+	_sync_sunshine(state.get("meme", {}))
 	if state.has("event_id"):
 		var next_event := str(state.get("event_id", ""))
 		if next_event != active_event:
@@ -472,11 +508,37 @@ func _update_objective_core(state: Dictionary) -> void:
 	var rotate_ring := create_tween().set_loops()
 	rotate_ring.tween_property(ring, "rotation:y", TAU, 2.0)
 
+func _sync_sunshine(state: Dictionary) -> void:
+	if state.is_empty():
+		if is_instance_valid(_sunshine_fx):
+			_sunshine_fx.queue_free()
+			_sunshine_fx = null
+		_sunshine_hit = false
+		return
+	if not is_instance_valid(_sunshine_fx):
+		_sunshine_fx = SUNSHINE_FX.new()
+		add_child(_sunshine_fx)
+	_sunshine_fx.sync_state(state)
+	if bool(state.impact) and not _sunshine_hit:
+		_sunshine_hit = true
+		if int(state.target) == multiplayer.get_unique_id():
+			_show_meme_toast("YOU GOT HAMMERED BY LEBRON JAMES")
+			if is_instance_valid(crosshair):
+				crosshair.flash_damage(100.0)
+
+
 func _on_server_event_changed(event_id: String) -> void:
 	if is_instance_valid(event_fx):
 		event_fx.set_event(event_id)
 	if is_instance_valid(player):
 		player.apply_event(event_id)
+	for remote in remote_players.values():
+		if is_instance_valid(remote):
+			remote.set_big_head(event_id == "BIG_HEAD")
+	if event_id == "REVERSE_PANIC":
+		_show_meme_toast("REVERSE CONTROLS PANIC • MOVEMENT REVERSED")
+	elif event_id == "SUNSHINE":
+		_show_meme_toast("LEBRON JAMES: YOU ARE MY SUNSHINE")
 	if event_id.is_empty():
 		RenderingServer.set_default_clear_color(Color(0.015, 0.025, 0.055))
 		return
@@ -561,33 +623,30 @@ func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
 		remote.name = "RemotePlayer_%d" % peer_id
 		add_child(remote)
 		remote_players[peer_id] = remote
-		remote.set_player_identity(str(state.get("display_name", "Player")), Color.from_string(str(state.get("color", "#27D7E7")), Color("#27D7E7")), str(state.get("outfit_id", "outfit_default")) )
+	remote.set_player_identity(
+		remote_name,
+		Color.from_string(str(state.get("color", "#27D7E7")), Color("#27D7E7")),
+		str(state.get("outfit_id", "outfit_default")),
+		state.get("accessory_id")
+	)
+	remote.set_big_head(active_event == "BIG_HEAD")
+	remote.sync_weapon(str(state.get("equipped_weapon_id", "aether")), bool(state.get("grounded", true)))
 	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)), bool(state.get("sliding", false)), float(state.get("health", 100.0)), bool(state.get("dead", false)), str(state.get("team_id", "")), str(state.get("emote_id", "")), bool(state.get("is_swimming", false)))
+	remote.set_result_pose(str(state.get("match_outcome", "")) if _round_finished else "")
 
-func _make_remote_blaster_stream() -> AudioStreamWAV:
-	const sample_rate := 22050
-	const duration := 0.19
-	var count := int(sample_rate * duration)
-	var bytes := PackedByteArray()
-	bytes.resize(count * 2)
-	for i in range(count):
-		var t := float(i) / float(sample_rate)
-		var envelope := pow(maxf(0.0, 1.0 - float(i) / float(count)), 2.0)
-		var sweep := sin(TAU * (260.0 - 105.0 * t / duration) * t)
-		var overtone := sin(TAU * 520.0 * t) * 0.22
-		var sample := clampf((sweep * 0.58 + overtone) * envelope * 0.72, -1.0, 1.0)
-		bytes.encode_s16(i * 2, int(sample * 32767.0))
-	var stream := AudioStreamWAV.new()
-	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = sample_rate
-	stream.stereo = false
-	stream.data = bytes
-	return stream
+
+var _remote_weapon_audio: Dictionary = {}
+
 
 func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Vector3, weapon_id: String) -> void:
+	var remote = remote_players.get(shooter_peer_id)
+	if is_instance_valid(remote):
+		remote.play_weapon_fire(weapon_id)
+	if not _remote_weapon_audio.has(weapon_id):
+		_remote_weapon_audio[weapon_id] = PLAYER_SCRIPT.make_weapon_stream(weapon_id)
 	var remote_audio := AudioStreamPlayer3D.new()
 	remote_audio.name = "RemoteAetherPulseAudio"
-	remote_audio.stream = _make_remote_blaster_stream()
+	remote_audio.stream = _remote_weapon_audio[weapon_id]
 	remote_audio.volume_db = -7.0
 	remote_audio.max_distance = 42.0
 	remote_audio.unit_size = 9.0
@@ -602,7 +661,7 @@ func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Ve
 	beam.mesh = mesh
 	var material := StandardMaterial3D.new()
 	var beam_colors := {"aether":Color("#35EFFF"), "minicore":Color("#FF9B54"), "hand_cannon":Color("#F2D36D"), "pulse_carbine":Color("#76E6C5"), "star_piercer":Color("#C6A0FF"), "duck_launcher":Color("#FFE56B"), "banana_boomerang":Color("#E7F26C"), "confetti_cannon":Color("#FF83C8"), "prism_scepter":Color("#E98BFF"), "vortex_orbiter":Color("#7A9DFF"), "comet_bow":Color("#F7A8FF"), "bubble_burst":Color("#8EEAFF"), "glitch_ray":Color("#B6FF63"), "meteor_mallet":Color("#FF815D"), "frost_wand":Color("#8FCFFF"), "solar_lance":Color("#FFD46A"), "slime_slinger":Color("#B9F56E"), "pixel_storm":Color("#80F6DB"), "thunder_drum":Color("#7DC8FF"), "moon_disc":Color("#BCC7FF"), "jellyfish_staff":Color("#D39BFF"), "portal_popper":Color("#9C72FF"), "rubber_chicken":Color("#FFB56C")}
-	var beam_color: Color = beam_colors.get(weapon_id, Color("#35EFFF"))
+	var beam_color: Color = beam_colors.get(weapon_id, PLAYER_SCRIPT.ARCADE_WEAPON_LOCAL.get(weapon_id, {}).get("color", Color("#35EFFF")))
 	material.albedo_color = beam_color
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.emission_enabled = true
@@ -677,12 +736,15 @@ func _update_player_match_stats(player_name: String, state: Dictionary) -> void:
 		"damage_received": float(state.get("damage_received", 0.0)),
 		"match_xp": maxi(0, int(state.get("match_xp", 0)))
 	}
-	_refresh_scoreboard()
+	# Every network packet lands here; skip the label rebuild while the panel is hidden.
+	if is_instance_valid(scoreboard_panel) and scoreboard_panel.visible:
+		_refresh_scoreboard()
 
 func _refresh_scoreboard() -> void:
 	if not is_instance_valid(scoreboard_rows):
 		return
 	for child in scoreboard_rows.get_children():
+		scoreboard_rows.remove_child(child)
 		child.queue_free()
 	var entries: Array[Dictionary] = []
 	for player_name in match_stats.keys():
@@ -718,9 +780,14 @@ func _on_kill_feed_received(killer_name: String, victim_name: String, weapon_nam
 	entry.add_theme_font_size_override("font_size", 15)
 	entry.add_theme_color_override("font_color", Color("#E9F8FF"))
 	kill_feed_container.add_child(entry)
+	# queue_free() keeps the child in the tree until the end of the frame, so the
+	# loop must detach it first or the child count never drops and it never ends.
 	while kill_feed_container.get_child_count() > 5:
-		kill_feed_container.get_child(0).queue_free()
-	var fade := create_tween()
+		var oldest: Node = kill_feed_container.get_child(0)
+		kill_feed_container.remove_child(oldest)
+		oldest.queue_free()
+	# Bind the tween to the entry so it is cancelled if the entry is freed early.
+	var fade := entry.create_tween()
 	fade.tween_interval(5.0)
 	fade.tween_property(entry, "modulate:a", 0.0, 0.45)
 	fade.tween_callback(entry.queue_free)
@@ -785,8 +852,22 @@ func _process(delta: float) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		_release_all_touch_actions()
+	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		# Android back button: open/close the pause menu instead of quitting the game.
+		_toggle_pause_menu()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		if is_instance_valid(arsenal_panel) and arsenal_panel.visible:
+			_toggle_arsenal()
+		else:
+			_toggle_pause_menu()
+		get_viewport().set_input_as_handled()
+		return
+	if _is_pause_open():
+		# Swallow gameplay keys while the pause menu is open.
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("weapon_next"):
 		_cycle_weapon(1)
 		get_viewport().set_input_as_handled()
@@ -848,6 +929,47 @@ func _select_weapon(weapon_id: String) -> void:
 		if not OS.has_feature("mobile") and not DisplayServer.is_touchscreen_available():
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
+func _update_combat_feedback(state: Dictionary) -> void:
+	var hits := int(state.get("shots_hit", 0))
+	var kills := int(state.get("kills", 0))
+	var health_now := float(state.get("health", 100.0))
+	if is_instance_valid(crosshair):
+		if _prev_local_hits >= 0 and hits > _prev_local_hits:
+			crosshair.flash_hit(kills > _prev_local_kills)
+		if _prev_local_health >= 0.0 and health_now < _prev_local_health - 0.5 and not bool(state.get("dead", false)):
+			crosshair.flash_damage(_prev_local_health - health_now)
+	_prev_local_hits = hits
+	_prev_local_kills = kills
+	_prev_local_health = health_now
+
+func _is_pause_open() -> bool:
+	return is_instance_valid(pause_menu) and pause_menu.visible
+
+func _toggle_pause_menu() -> void:
+	if not is_instance_valid(pause_menu) or not is_instance_valid(player) or _round_finished:
+		return
+	var opening: bool = not pause_menu.visible
+	pause_menu.visible = opening
+	player.ui_blocked = opening
+	if opening:
+		_release_all_touch_actions()
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	elif not OS.has_feature("mobile") and not DisplayServer.is_touchscreen_available():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _on_leave_match_requested() -> void:
+	if is_instance_valid(network):
+		network.request_leave_room()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_release_all_touch_actions()
+	# Reloading the scene closes the network peer (see OxenWarNetwork._exit_tree) and
+	# returns to the main menu.
+	get_tree().reload_current_scene()
+
+func _on_sensitivity_changed(value: float) -> void:
+	if is_instance_valid(player):
+		player.look_sensitivity = value
+
 func _toggle_admin_panel() -> void:
 	if not admin_available or not is_instance_valid(admin_panel):
 		return
@@ -894,6 +1016,7 @@ func _build_environment() -> void:
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var sky_material := ProceduralSkyMaterial.new()
+	_arena_sky = sky_material
 	sky_material.sky_top_color = Color(0.015, 0.025, 0.08)
 	sky_material.sky_horizon_color = Color(0.18, 0.10, 0.25)
 	sky_material.ground_bottom_color = Color("#111827")
@@ -919,6 +1042,10 @@ func _build_environment() -> void:
 	graphics.configure(env, sun)
 
 func _build_arena() -> void:
+	if is_instance_valid(_arena_sky):
+		var sky_palette: Array = MAP_SKY_PALETTES[ARENA_LAYOUT.sanitize_map(active_map_index)]
+		_arena_sky.sky_top_color = sky_palette[0]
+		_arena_sky.sky_horizon_color = sky_palette[1]
 	var desert_palette := active_map_index in [4, 6]
 	var jungle_palette := active_map_index == 5
 	var role_colors := {
@@ -1186,7 +1313,10 @@ func _build_hud() -> void:
 	hud_layer = CanvasLayer.new()
 	add_child(hud_layer)
 	var root := Control.new()
+	root.theme = COMPETITIVE_THEME.create()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# The full-screen root must not swallow mouse/touch input meant for look and fire.
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud_layer.add_child(root)
 	_add_hud_panel(root, "CombatStatusPanel", Vector2(12, 8), Vector2(472, 112), Color(0.025, 0.055, 0.09, 0.84), Color("#27D7E7"))
 	_add_hud_panel(root, "VitalsPanel", Vector2(12, 112), Vector2(252, 122), Color(0.025, 0.055, 0.09, 0.88), Color("#3D8FA8"))
@@ -1266,7 +1396,7 @@ func _build_hud() -> void:
 	killstreak_label.add_theme_color_override("font_color", Color("#FFB84D"))
 	weapon_mastery_label = _make_label(root, "WEAPON MASTERY  •  BLASTER LEVEL 0  •  GRENADE LEVEL 0", Vector2(500, 84), 15)
 	weapon_mastery_label.add_theme_color_override("font_color", Color("#83D6FF"))
-	equipped_weapon_label = _make_label(root, "EQUIPPED  •  AETHER BLASTER   [1–8 / E / R]", Vector2(500, 112), 15)
+	equipped_weapon_label = _make_label(root, "EQUIPPED  •  AETHER BLASTER   [V / E / R]", Vector2(500, 112), 15)
 	equipped_weapon_label.add_theme_color_override("font_color", Color("#FFE6A1"))
 	var team_label := _make_label(root, "TEAM FREE", Vector2(22, 148), 14)
 	team_label.name = "TeamLabel"
@@ -1385,7 +1515,7 @@ func _build_hud() -> void:
 	_refresh_scoreboard()
 	_build_arsenal_panel(root)
 	var arsenal_button := Button.new()
-	arsenal_button.text = "ARSENAL  •  23"
+	arsenal_button.text = "ARSENAL  •  %d" % WEAPON_ORDER.size()
 	arsenal_button.anchor_left = 0.78
 	arsenal_button.anchor_right = 0.98
 	arsenal_button.anchor_top = 0.23
@@ -1394,6 +1524,26 @@ func _build_hud() -> void:
 	arsenal_button.pressed.connect(_toggle_arsenal)
 	root.add_child(arsenal_button)
 
+	crosshair = CROSSHAIR_SCRIPT.new()
+	crosshair.name = "Crosshair"
+	root.add_child(crosshair)
+	var menu_button := Button.new()
+	menu_button.name = "PauseMenuButton"
+	menu_button.text = "MENU"
+	menu_button.anchor_left = 0.64
+	menu_button.anchor_right = 0.77
+	menu_button.anchor_top = 0.09
+	menu_button.anchor_bottom = 0.09
+	menu_button.offset_top = 0
+	menu_button.offset_bottom = 38
+	menu_button.focus_mode = Control.FOCUS_NONE
+	menu_button.pressed.connect(_toggle_pause_menu)
+	root.add_child(menu_button)
+	pause_menu = PAUSE_MENU_SCRIPT.new()
+	pause_menu.resume_requested.connect(_toggle_pause_menu)
+	pause_menu.leave_requested.connect(_on_leave_match_requested)
+	pause_menu.sensitivity_changed.connect(_on_sensitivity_changed)
+	hud_layer.add_child(pause_menu)
 	if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available():
 		_build_touch_controls(root)
 		var score_button := Button.new()
@@ -1450,37 +1600,63 @@ func _build_arsenal_panel(root: Control) -> void:
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 	var inspect_button := Button.new()
-	inspect_button.text = "INSPECT  [H]"
-	inspect_button.pressed.connect(_inspect_current_weapon)
+	inspect_button.text = "ROTATE PREVIEW"
+	inspect_button.custom_minimum_size.y = 44
+	inspect_button.pressed.connect(func():
+		if is_instance_valid(_arsenal_preview):
+			_arsenal_preview.rotate_model()
+	)
 	header.add_child(inspect_button)
 	var close_button := Button.new()
-	close_button.text = "CLOSE  [V]"
+	close_button.text = "CLOSE"
+	close_button.custom_minimum_size.y = 44
 	close_button.pressed.connect(_toggle_arsenal)
 	header.add_child(close_button)
-	var note := Label.new()
-	note.text = "23 FICTIONAL WEAPON ARCHETYPES  •  E / R TO CYCLE  •  SELECT A CARD TO EQUIP"
-	note.add_theme_font_size_override("font_size", 12)
-	note.add_theme_color_override("font_color", Color("#A9C3D5"))
-	column.add_child(note)
+	var body := HBoxContainer.new()
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 16)
+	column.add_child(body)
 	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	column.add_child(scroll)
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 8)
-	scroll.add_child(grid)
-	for index in range(WEAPON_ORDER.size()):
-		var weapon_id: String = WEAPON_ORDER[index]
+	body.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(list)
+	for weapon_id: String in WEAPON_ORDER:
 		var weapon_button := Button.new()
-		weapon_button.custom_minimum_size = Vector2(174, 60)
-		weapon_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		weapon_button.text = "%02d  %s\n%s" % [index + 1, str(WEAPON_DISPLAY[weapon_id]), str(WEAPON_ROLE.get(weapon_id, "Arcade energy"))]
-		weapon_button.add_theme_font_size_override("font_size", 12)
-		weapon_button.add_theme_color_override("font_color", Color("#EAF8FF"))
-		weapon_button.pressed.connect(_select_weapon.bind(weapon_id))
-		grid.add_child(weapon_button)
+		weapon_button.custom_minimum_size.y = 44
+		weapon_button.text = str(WEAPON_DISPLAY[weapon_id])
+		weapon_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		weapon_button.pressed.connect(_preview_arsenal_weapon.bind(weapon_id))
+		list.add_child(weapon_button)
+	var detail := VBoxContainer.new()
+	detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	detail.size_flags_stretch_ratio = 1.65
+	body.add_child(detail)
+	_arsenal_weapon_label = Label.new()
+	_arsenal_weapon_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	detail.add_child(_arsenal_weapon_label)
+	_arsenal_preview = ARSENAL_PREVIEW.new()
+	_arsenal_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_arsenal_preview.custom_minimum_size.y = 100
+	detail.add_child(_arsenal_preview)
+	_arsenal_equip = Button.new()
+	_arsenal_equip.custom_minimum_size.y = 48
+	_arsenal_equip.pressed.connect(func(): _select_weapon(_arsenal_choice))
+	detail.add_child(_arsenal_equip)
+
+
+func _preview_arsenal_weapon(weapon_id: String) -> void:
+	_arsenal_choice = weapon_id
+	var stats: Dictionary = PLAYER_SCRIPT.ARCADE_WEAPON_LOCAL[weapon_id]
+	var current: bool = is_instance_valid(player) and player.selected_weapon_id == weapon_id
+	_arsenal_weapon_label.text = "%s\n%s   •   %.0f m   •   %.2f s cycle" % [
+		WEAPON_DISPLAY[weapon_id], WEAPON_ROLE[weapon_id], stats.get("range", 65.0), stats.get("cooldown", 0.24)
+	]
+	_arsenal_equip.text = "EQUIPPED" if current else "EQUIP"
+	_arsenal_equip.disabled = current
+	_arsenal_preview.show_weapon(weapon_id, stats.get("color", Color.WHITE))
 
 func _inspect_current_weapon() -> void:
 	if is_instance_valid(player):
@@ -1493,6 +1669,7 @@ func _toggle_arsenal() -> void:
 	if is_instance_valid(player):
 		player.set_arsenal_open(arsenal_panel.visible)
 	if arsenal_panel.visible:
+		_preview_arsenal_weapon(player.selected_weapon_id if is_instance_valid(player) else WEAPON_ORDER[0])
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif not OS.has_feature("mobile") and not DisplayServer.is_touchscreen_available():
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -1825,7 +2002,8 @@ func _build_touch_controls(root: Control) -> void:
 
 func _release_all_touch_actions() -> void:
 	for action in ["move_left", "move_right", "move_forward", "move_back", "jump", "dash", "sprint", "slide", "fire", "throw_grenade", "objective_interact"]:
-		Input.action_release(action)
+		if InputMap.has_action(action):
+			Input.action_release(action)
 
 func _set_mobile_move_input(value: Vector2) -> void:
 	var x := clampf(value.x, -1.0, 1.0)
@@ -2026,14 +2204,29 @@ func _finish_round() -> void:
 			team_winner = "BLUE TEAM WINS  •  %d - %d" % [int(team_totals.blue), int(team_totals.red)]
 		else:
 			team_winner = "TEAM DRAW  •  %d - %d" % [int(team_totals.red), int(team_totals.blue)]
+	# Results are a modal screen: free the cursor, drop held touch buttons and hide
+	# panels that would otherwise stay clickable behind the overlay.
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_release_all_touch_actions()
+	if is_instance_valid(player):
+		player.ui_blocked = true
+	for panel_node in [scoreboard_panel, arsenal_panel, emote_wheel]:
+		if is_instance_valid(panel_node):
+			panel_node.visible = false
 	var overlay := Control.new()
 	overlay.name = "MatchResultsOverlay"
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	hud_layer.add_child(overlay)
+	overlay.theme = COMPETITIVE_THEME.create()
+	var scroll := ScrollContainer.new()
+	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	overlay.add_child(scroll)
 	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(center)
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.add_child(center)
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(580, 440)
 	var panel_style := StyleBoxFlat.new()
@@ -2063,6 +2256,9 @@ func _finish_round() -> void:
 	winner.add_theme_font_size_override("font_size", 20)
 	winner.add_theme_color_override("font_color", Color(0.94, 0.98, 1.0))
 	column.add_child(winner)
+	var result_reveal := create_tween()
+	column.modulate.a = 0.0
+	result_reveal.tween_property(column, "modulate:a", 1.0, 0.24)
 	var mvp := Label.new()
 	mvp.text = "MVP  •  %s" % mvp_name
 	mvp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -2108,7 +2304,7 @@ func _finish_round() -> void:
 		teams.add_theme_color_override("font_color", Color("#F0B8C0"))
 		column.add_child(teams)
 	var restart := Button.new()
-	restart.text = "PLAY AGAIN"
+	restart.text = "BACK TO MENU"
 	restart.custom_minimum_size = Vector2(180, 42)
 	restart.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	restart.pressed.connect(func(): get_tree().reload_current_scene())
@@ -2199,26 +2395,45 @@ func _add_match_xp_card(parent: VBoxContainer, earned_xp: int, total_xp: int, pr
 		tween.tween_property(card, "modulate:a", 1.0, 0.25)
 
 func _on_level_up(new_level: int, reward: String) -> void:
-	_show_meme_toast("LEVEL UP!  LEVEL %d  •  UNLOCKED: %s" % [new_level, reward])
+	if reward.is_empty() or reward == "NEW LEVEL":
+		_show_meme_toast("LEVEL UP!  LEVEL %d" % new_level)
+	else:
+		_show_meme_toast("LEVEL UP!  LEVEL %d  •  UNLOCKED: %s" % [new_level, reward])
 	_update_hud()
 
 func _show_meme_toast(message: String) -> void:
 	if not is_instance_valid(hud_layer):
 		return
+	# Toasts stack in one column so simultaneous messages (server verified + map name,
+	# kill streak + level up) no longer draw on top of each other.
+	if not is_instance_valid(toast_stack):
+		toast_stack = VBoxContainer.new()
+		toast_stack.name = "ToastStack"
+		toast_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		toast_stack.anchor_left = 0.12
+		toast_stack.anchor_right = 0.88
+		toast_stack.anchor_top = 0.30
+		toast_stack.anchor_bottom = 0.30
+		toast_stack.alignment = BoxContainer.ALIGNMENT_BEGIN
+		toast_stack.add_theme_constant_override("separation", 4)
+		hud_layer.add_child(toast_stack)
+	while toast_stack.get_child_count() >= 3:
+		var oldest: Node = toast_stack.get_child(0)
+		toast_stack.remove_child(oldest)
+		oldest.queue_free()
 	var toast := Label.new()
 	toast.text = message
+	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	toast.anchor_left = 0.12
-	toast.anchor_right = 0.88
-	toast.anchor_top = 0.34
-	toast.anchor_bottom = 0.34
+	toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	toast.modulate.a = 0.0
 	toast.add_theme_font_size_override("font_size", 23)
 	toast.add_theme_color_override("font_color", Color(1.0, 0.82, 0.25))
 	toast.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.95))
 	toast.add_theme_constant_override("shadow_offset_x", 2)
 	toast.add_theme_constant_override("shadow_offset_y", 2)
-	hud_layer.add_child(toast)
-	var tween := create_tween()
+	toast_stack.add_child(toast)
+	var tween := toast.create_tween()
 	tween.tween_property(toast, "modulate:a", 1.0, 0.12)
 	tween.tween_interval(2.0)
 	tween.tween_property(toast, "modulate:a", 0.0, 0.55)

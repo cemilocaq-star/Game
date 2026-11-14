@@ -22,6 +22,7 @@ const ROOM_CAPACITY := 8
 const SNAPSHOT_INTERVAL := 0.05
 const ROOM_GRACE_SECONDS := 30.0
 const ROUND_SECONDS := 300.0
+const MEME_EVENTS := preload("res://scripts/meme_events.gd")
 const EVENT_INTERVAL := 30.0
 const EVENT_DURATION := 12.0
 const SUPABASE_URL := "https://lznnfwhlsquiitkhjzlc.supabase.co"
@@ -660,7 +661,7 @@ func _server_submit_input(move: Vector2, yaw: float, jump: bool, sprint: bool, s
 	var player = _server_players[peer_id]
 	if player.is_dead:
 		return
-	player.input_vector = move.limit_length(1.0)
+	player.input_vector = move.limit_length(1.0) * (-1.0 if str(room_code) != "" and str(_rooms[room_code].event_id) == "REVERSE_PANIC" else 1.0)
 	player.look_yaw = wrapf(yaw, -PI, PI)
 	player.jump_requested = player.jump_requested or jump
 	player.sprinting = sprint
@@ -678,6 +679,10 @@ func _server_select_weapon(weapon_id: String) -> void:
 	if player.is_dead:
 		return
 	player.equipped_weapon_id = weapon_id
+
+static func view_forward(yaw: float) -> Vector3:
+	# Matches the player's -Z camera axis after the authoritative yaw rotation.
+	return Basis(Vector3.UP, yaw) * Vector3.FORWARD
 
 @rpc("any_peer", "call_remote", "unreliable")
 func _server_blaster_fire(weapon_id: String, direction: Vector3) -> void:
@@ -702,14 +707,15 @@ func _server_blaster_fire(weapon_id: String, direction: Vector3) -> void:
 	var safe_direction := direction.normalized()
 	if absf(safe_direction.y) > 0.94:
 		return
-	var facing := Vector3(sin(shooter.look_yaw), 0.0, -cos(shooter.look_yaw))
+	var facing := view_forward(shooter.look_yaw)
 	if safe_direction.dot(facing) < 0.12:
 		return
 	_last_blaster_ms[peer_id] = now
 	shooter.shots_fired += 1
 	if weapon_id == "aether":
 		_award_weapon_mastery(shooter, "blaster", 1)
-	var origin: Vector3 = shooter.global_position + Vector3.UP * 1.45
+	var eye_height := 0.90 if shooter.sliding_active else 1.45
+	var origin: Vector3 = shooter.global_position + Vector3.UP * eye_height
 	var endpoint := origin + safe_direction * float(weapon.range)
 	var query := PhysicsRayQueryParameters3D.create(origin, endpoint)
 	query.exclude = [shooter.get_rid()]
@@ -1209,26 +1215,11 @@ func _server_process_rooms(delta: float) -> void:
 			continue
 		room = _server_step_grenades(str(code), room, delta)
 		room = _server_step_objective(str(code), room, delta)
-		room.event_clock = float(room.event_clock) - delta
-		room.event_left = maxf(0.0, float(room.event_left) - delta)
 		room.round_left = maxf(0.0, float(room.round_left) - delta)
 		if str(room.get("mode", "")) == "demolition" and not bool(room.get("bomb_planted", false)) and float(room.round_left) <= 0.0 and str(room.get("objective_winner_team", "")).is_empty():
 			room.objective_winner_team = "blue"
 			room.objective_result = "DEFENDERS SURVIVED"
-		if float(room.event_left) <= 0.0 and not str(room.event_id).is_empty():
-			room.event_id = ""
-			for uid in room.members.keys():
-				var pid := int(room.members[uid])
-				if pid > 0 and _server_players.has(pid):
-					_server_players[pid].apply_event("")
-		if float(room.event_clock) <= 0.0:
-			room.event_id = EVENTS[_rng.randi_range(0, EVENTS.size() - 1)]
-			room.event_left = EVENT_DURATION
-			room.event_clock = EVENT_INTERVAL
-			for uid in room.members.keys():
-				var pid := int(room.members[uid])
-				if pid > 0 and _server_players.has(pid):
-					_server_players[pid].apply_event(str(room.event_id))
+		_server_step_meme_event(str(code), room, delta)
 		for uid in room.members.keys():
 			var respawn_peer := int(room.members[uid])
 			if respawn_peer <= 0 or not _server_players.has(respawn_peer):
@@ -1325,8 +1316,8 @@ func _server_process_rooms(delta: float) -> void:
 						outcome = "win" if _server_players.has(member_peer) and str(_server_players[member_peer].team_id) == "red" else "loss"
 					elif blue_kills > red_kills:
 						outcome = "win" if _server_players.has(member_peer) and str(_server_players[member_peer].team_id) == "blue" else "loss"
-				elif member_peer != ffa_winner_peer:
-					outcome = "loss"
+				elif ffa_winner_peer > 0:
+					outcome = "win" if member_peer == ffa_winner_peer else "loss"
 				if _server_players.has(member_peer):
 					_server_players[member_peer].match_outcome = outcome
 			for uid in room.members.keys():
@@ -1342,6 +1333,58 @@ func _server_process_rooms(delta: float) -> void:
 		_snapshot_accumulator = 0.0
 		for code in _rooms.keys():
 			_broadcast_snapshot(str(code))
+
+func _server_step_meme_event(code: String, room: Dictionary, delta: float) -> void:
+	var alive: Array[int] = []
+	for member in room.members.values():
+		var peer := int(member)
+		if _server_players.has(peer) and not _server_players[peer].is_dead:
+			alive.append(peer)
+	var changed := MEME_EVENTS.step(room, delta, _rng, alive)
+	if room.round_left <= 0.0 and not str(room.event_id).is_empty():
+		MEME_EVENTS.cancel(room)
+		changed = true
+	if changed:
+		for member in room.members.values():
+			if _server_players.has(int(member)):
+				_server_players[int(member)].apply_event(str(room.event_id))
+	if str(room.event_id) != MEME_EVENTS.SUNSHINE or bool(room.event_impact):
+		return
+	var peer := int(room.event_target)
+	if not alive.has(peer):
+		MEME_EVENTS.cancel(room)
+		return
+	var target = _server_players[peer]
+	var aim: Vector3 = target.global_position + Vector3.UP * 1.0
+	if not bool(room.event_actor_ready):
+		room.event_actor = Vector3(0, 14, 0)
+		room.event_actor_ready = true
+		return
+	var chase_delta := MEME_EVENTS.count_down(room, delta)
+	if chase_delta <= 0.0:
+		return
+	var start: Vector3 = room.event_actor
+	var next := MEME_EVENTS.track(start, aim, chase_delta)
+	var space := _room_space(code)
+	if space == null:
+		return
+	if start.is_equal_approx(next) and start.distance_to(aim) > 0.18:
+		return
+	var query := PhysicsRayQueryParameters3D.create(start, next, 1, [target.get_rid()])
+	if not space.intersect_ray(query).is_empty():
+		# Fly across cover at roof height before attempting a new approach.
+		var overhead := Vector3(aim.x, 14.0, aim.z) if start.y >= 13.9 else Vector3(start.x, 14.0, start.z)
+		next = MEME_EVENTS.track(start, overhead, chase_delta)
+		query.to = next
+		if not space.intersect_ray(query).is_empty():
+			return
+	room.event_actor = next
+	if next.distance_to(aim) <= 0.18 and target.apply_damage(target.health):
+		target.deaths += 1
+		target.kill_streak = 0
+		room.event_impact = true
+		room.event_left = minf(float(room.event_left), 3.0)
+
 
 func _collection_list(player) -> Array[String]:
 	return _collection_list_from_counts(player.collection_counts)
@@ -1427,6 +1470,13 @@ func _persist_result_values(user_id: String, session_token: String, score: int, 
 		return false
 	return true
 
+func _meme_snapshot(room: Dictionary) -> Dictionary:
+	if room.get("event_id") != MEME_EVENTS.SUNSHINE:
+		return {}
+	return {"serial": int(room.event_serial), "target": int(room.event_target),
+		"actor": room.event_actor, "warning": float(room.event_warning), "impact": bool(room.event_impact)}
+
+
 func _broadcast_snapshot(code: String) -> void:
 	if not _rooms.has(code):
 		return
@@ -1438,10 +1488,11 @@ func _broadcast_snapshot(code: String) -> void:
 			continue
 		var player = _server_players[peer_id]
 		states[peer_id] = {
-			"position": player.global_position, "yaw": player.rotation.y,
+			"position": player.global_position, "yaw": player.rotation.y, "grounded": player.is_on_floor(), "match_outcome": player.match_outcome,
 			"display_name": str(_profiles.get(user_id, {}).get("display_name", "Player")),
 			"color": _color_for_profile(_profiles.get(user_id, {})),
 			"outfit_id": str(_profiles.get(user_id, {}).get("outfit_id", "outfit_default")),
+			"accessory_id": _profiles.get(user_id, {}).get("accessory_id"),
 			"team_id": str(player.team_id), "emote_id": str(player.emote_id), "is_swimming": bool(player.is_swimming),
 			"score": player.score, "kills": player.kills, "deaths": player.deaths, "kill_streak": player.kill_streak, "best_kill_streak": player.best_kill_streak, "equipped_weapon_id": player.equipped_weapon_id, "blaster_mastery_xp": player.blaster_mastery_xp, "grenade_mastery_xp": player.grenade_mastery_xp, "shots_fired": player.shots_fired, "shots_hit": player.shots_hit, "damage_dealt": player.damage_dealt, "damage_received": player.damage_received, "xp": player.xp, "match_xp": player.match_xp, "stamina": player.stamina, "sliding": player.sliding_active,
 			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left,
@@ -1451,7 +1502,7 @@ func _broadcast_snapshot(code: String) -> void:
 		var peer_id := int(room.members[user_id])
 		if peer_id > 0:
 			rpc_id(peer_id, "_client_receive_snapshot", states, str(room.event_id),
-				float(room.event_left), float(room.round_left), room.orb_available, str(room.code), str(room.mode), float(room.hill_control), float(room.hill_points_red), float(room.hill_points_blue), bool(room.get("bomb_planted", false)), str(room.get("bomb_site", "")), float(room.get("bomb_fuse", 0.0)), float(room.get("objective_progress", 0.0)), str(room.get("objective_action", "")), str(room.get("objective_result", "PLANT THE ENERGY CORE")))
+				float(room.event_left), float(room.round_left), room.orb_available, str(room.code), str(room.mode), float(room.hill_control), float(room.hill_points_red), float(room.hill_points_blue), bool(room.get("bomb_planted", false)), str(room.get("bomb_site", "")), float(room.get("bomb_fuse", 0.0)), float(room.get("objective_progress", 0.0)), str(room.get("objective_action", "")), str(room.get("objective_result", "PLANT THE ENERGY CORE")), _meme_snapshot(room))
 
 func _broadcast_room_state(code: String) -> void:
 	if not _rooms.has(code):
@@ -1509,7 +1560,7 @@ func _client_room_invite(owner_name: String, room_code: String) -> void:
 		invite_received.emit(owner_name, room_code)
 
 @rpc("authority", "call_remote", "unreliable_ordered")
-func _client_receive_snapshot(states: Dictionary, event_id: String, event_left: float, round_left: float, orb_available: Dictionary, room_code: String, mode: String, hill_control: float, hill_points_red: float, hill_points_blue: float, bomb_planted: bool, bomb_site: String, bomb_fuse: float, objective_progress: float, objective_action: String, objective_result: String) -> void:
+func _client_receive_snapshot(states: Dictionary, event_id: String, event_left: float, round_left: float, orb_available: Dictionary, room_code: String, mode: String, hill_control: float, hill_points_red: float, hill_points_blue: float, bomb_planted: bool, bomb_site: String, bomb_fuse: float, objective_progress: float, objective_action: String, objective_result: String, meme: Dictionary = {}) -> void:
 	if multiplayer.is_server():
 		return
 	for key in states.keys():
@@ -1528,7 +1579,7 @@ func _client_receive_snapshot(states: Dictionary, event_id: String, event_left: 
 			player_disconnected.emit(int(peer_id))
 			_client_peer_ids.erase(peer_id)
 	room_state_changed.emit({
-		"code": room_code, "event_id": event_id, "event_left": event_left,
+		"code": room_code, "meme": meme, "event_id": event_id, "event_left": event_left,
 		"round_left": round_left, "orb_available": orb_available, "mode": mode,
 		"hill_control": hill_control, "hill_points_red": hill_points_red, "hill_points_blue": hill_points_blue,
 		"bomb_planted": bomb_planted, "bomb_site": bomb_site, "bomb_fuse": bomb_fuse,

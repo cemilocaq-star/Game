@@ -2,14 +2,27 @@ extends Node3D
 ## Lightweight visual proxy for another connected player.
 
 const CharacterVisuals = preload("res://scripts/character_visuals.gd")
+const WEAPON_VISUALS := preload("res://scripts/arcade_weapon_visuals.gd")
+const PLAYER := preload("res://scripts/player.gd")
 const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
 
 var target_position := Vector3.ZERO
 var target_yaw := 0.0
 var _sliding := false
+var _dead := false
+var _grounded := true
+var _result_pose := ""
+var _weapon_id := ""
+var _weapon_mount: Node3D
+var _weapon_kick := 0.0
+var _fall_elapsed := 0.0
+const FALL_DURATION := 0.38
 var display_name := "Player"
 var _base_color := Color("#27D7E7")
 var _outfit_id := "outfit_default"
+var _avatar_color := Color("#27D7E7")
+var _accessory_id := "accessory_cap"
+var _accessory_root: Node3D
 var _visual: MeshInstance3D
 var _name_tag: Label3D
 var _emote_id := ""
@@ -30,9 +43,11 @@ func _ready() -> void:
 	_visual.mesh = capsule
 	_visual.position.y = 0.9
 	add_child(_visual)
+	_visual.material_override = _remote_material(_base_color)
 	_build_remote_swimwear()
 	_rebuild_remote_detail()
 	_name_tag = Label3D.new()
+	_name_tag.text = display_name
 	_name_tag.position = Vector3(0, 2.15, 0)
 	_name_tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_name_tag.font_size = 32
@@ -40,17 +55,19 @@ func _ready() -> void:
 	_name_tag.pixel_size = 0.006
 	add_child(_name_tag)
 
-func set_player_identity(player_name: String, color: Color, outfit_id: String = "outfit_default") -> void:
+func set_player_identity(player_name: String, color: Color, outfit_id: String = "outfit_default", accessory_value: Variant = null) -> void:
+	var accessory_id := "accessory_cap" if accessory_value == null or str(accessory_value).is_empty() else str(accessory_value)
 	display_name = player_name.substr(0, 24)
-	_outfit_id = outfit_id
-	if is_instance_valid(_name_tag):
+	if is_instance_valid(_name_tag) and _name_tag.text != display_name:
 		_name_tag.text = display_name
+	if is_instance_valid(_visual) and _visual.material_override != null and color == _avatar_color and outfit_id == _outfit_id and accessory_id == _accessory_id:
+		return
+	_outfit_id = outfit_id
+	_avatar_color = color
+	_accessory_id = accessory_id
+	_base_color = Color("#A92332") if outfit_id == "outfit_iron_vanguard" else (Color("#B52D3D") if outfit_id == "outfit_web_sentinel" else CharacterVisuals.suit_color_for(outfit_id, color))
 	if is_instance_valid(_visual):
-		_base_color = Color("#A92332") if outfit_id == "outfit_iron_vanguard" else (Color("#B52D3D") if outfit_id == "outfit_web_sentinel" else CharacterVisuals.suit_color_for(outfit_id, color))
-		var material := StandardMaterial3D.new()
-		material.albedo_color = _base_color
-		material.roughness = 0.65
-		_visual.material_override = material
+		_visual.material_override = _remote_material(_base_color)
 		_rebuild_remote_detail()
 
 func _build_remote_swimwear() -> void:
@@ -92,6 +109,11 @@ func _build_remote_swimwear() -> void:
 		glasses.add_child(lens)
 
 func _rebuild_remote_detail() -> void:
+	if is_instance_valid(_accessory_root):
+		_visual.remove_child(_accessory_root)
+		_accessory_root.queue_free()
+	if is_instance_valid(_visual):
+		_accessory_root = CharacterVisuals.add_accessory(_visual, _accessory_id, _avatar_color)
 	if is_instance_valid(_character_detail_root):
 		_character_detail_root.queue_free()
 	if is_instance_valid(_hero_root):
@@ -106,6 +128,46 @@ func _rebuild_remote_detail() -> void:
 		_motion_rig.queue_free()
 	if is_instance_valid(_visual):
 		_motion_rig = CharacterMotionRig.build(_visual, _base_color, _outfit_id)
+		_weapon_mount = null
+		_attach_weapon()
+
+
+func sync_weapon(weapon_id: String, grounded: bool) -> void:
+	_grounded = grounded
+	if weapon_id == _weapon_id or not PLAYER.ARCADE_WEAPON_LOCAL.has(weapon_id):
+		return
+	_weapon_id = weapon_id
+	_weapon_kick = 0.0
+	_attach_weapon()
+
+
+func _attach_weapon() -> void:
+	if is_instance_valid(_weapon_mount):
+		_weapon_mount.free()
+	if _weapon_id.is_empty() or not is_instance_valid(_motion_rig):
+		return
+	var hand := _motion_rig.get_node("ArmPivot_R/ElbowPivot") as Node3D
+	var data: Dictionary = PLAYER.ARCADE_WEAPON_LOCAL[_weapon_id]
+	_weapon_mount = WEAPON_VISUALS.build_weapon(_weapon_id, data.color)
+	_weapon_mount.position = Vector3(0.0, -0.35, -0.08)
+	_weapon_mount.scale = Vector3.ONE * 0.58
+	hand.add_child(_weapon_mount)
+
+
+func set_big_head(enabled: bool) -> void:
+	if is_instance_valid(_character_detail_root):
+		var head := _character_detail_root.get_node_or_null("HeadPivot") as Node3D
+		if head:
+			head.scale = Vector3.ONE * (1.65 if enabled else 1.0)
+
+
+func set_result_pose(outcome: String) -> void:
+	_result_pose = outcome if outcome in ["win", "loss"] else ""
+
+
+func play_weapon_fire(weapon_id: String) -> void:
+	if not _dead and weapon_id == _weapon_id:
+		_weapon_kick = 1.0
 
 func _remote_material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -129,7 +191,13 @@ func apply_network_state(position_value: Vector3, yaw_value: float, sliding: boo
 		if is_instance_valid(material):
 			var team_color := Color("#F05A66") if team_id == "red" else (Color("#4C91FF") if team_id == "blue" else _base_color)
 			material.albedo_color = team_color.darkened(0.65) if dead else team_color
-		_visual.visible = not dead
+		if dead != _dead:
+			_dead = dead
+			_fall_elapsed = 0.0
+			_weapon_kick = 0.0
+			_visual.visible = true
+			if not dead:
+				_visual.rotation = Vector3.ZERO
 	if _sliding != sliding:
 		_sliding = sliding
 		_visual.scale.y = 0.56 if sliding else 1.0
@@ -140,7 +208,13 @@ func apply_network_state(position_value: Vector3, yaw_value: float, sliding: boo
 		rotation.y = target_yaw
 
 func _process(delta: float) -> void:
-	if _emote_id != "":
+	if _dead:
+		_fall_elapsed = minf(FALL_DURATION, _fall_elapsed + delta)
+		var progress := _fall_elapsed / FALL_DURATION
+		_visual.rotation = Vector3(-1.45 * smoothstep(0.0, 1.0, progress), 0.0, 0.0)
+		_visual.position.y = lerpf(0.9, 0.29, progress)
+		_visual.visible = _fall_elapsed < FALL_DURATION
+	elif _emote_id != "":
 		_emote_clock += delta
 		var rate := 1.55
 		var bounce := 0.12
@@ -186,6 +260,13 @@ func _process(delta: float) -> void:
 	else:
 		_has_previous_position = true
 	_previous_position = global_position
-	if not _sliding and _emote_id == "":
+	if not _dead and not _sliding and _emote_id == "":
 		_visual.position.y = 0.9 + (absf(sin(_motion_clock * 10.0)) * 0.035 if estimated_speed > 0.5 else sin(_motion_clock * 1.8) * 0.012)
-	CharacterMotionRig.animate(_motion_rig, _motion_clock, estimated_speed, true, _sliding, _emote_id, delta)
+	var pose := _emote_id if _result_pose.is_empty() else ("wave" if _result_pose == "win" else "defeat")
+	CharacterMotionRig.animate(_motion_rig, _motion_clock, estimated_speed, _grounded or not _result_pose.is_empty(), _sliding and _result_pose.is_empty(), pose, delta)
+	_weapon_kick = move_toward(_weapon_kick, 0.0, delta * 7.0)
+	if is_instance_valid(_weapon_mount):
+		_weapon_mount.visible = not _dead and pose.is_empty()
+		_weapon_mount.position.z = -0.08 + _weapon_kick * 0.055
+		var elbow := _weapon_mount.get_parent() as Node3D
+		_weapon_mount.rotation.x = -elbow.rotation.x - _weapon_kick * 0.16

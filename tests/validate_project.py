@@ -73,7 +73,7 @@ checks = [
     ("REDSTONE CANYON", read("scripts/arena_layout.gd"), "second desert exploration map selection"),
     ("func _build_sunken_oasis(root: Node3D)", map_builder, "oasis environment geometry"),
     ("func _build_jungle_temple(root: Node3D)", map_builder, "jungle temple environment geometry"),
-    ("func _build_redstone_canyon(root: Node3D)", map_builder, "canyon environment geometry"),
+    ("func _build_redstone_canyon(root: Node3D, include_landmarks: bool)", map_builder, "canyon environment geometry"),
     ("HeadPivot", character_visuals, "oversized animated troll head"),
     ("EyeWhite_", character_visuals, "expressive troll face geometry"),
     ("FriendlyBadge", character_visuals, "non-combat character costume details"),
@@ -256,7 +256,7 @@ checks = [
     ("UpperPowerRail", read("scripts/arcade_weapon_visuals.gd"), "Aether Blaster top equipment rail"),
     ("MuzzleRing", read("scripts/arcade_weapon_visuals.gd"), "Aether Blaster muzzle detail"),
     ("_blaster_recoil", player, "short visual blaster recoil animation"),
-    ("_make_weapon_stream(weapon_id: String)", player, "original weapon-specific synthesized audio"),
+    ("make_weapon_stream(weapon_id: String)", player, "original weapon-specific synthesized audio"),
     ("_fire_blaster", player, "local blaster firing"),
     ("MOUSE_BUTTON_LEFT", main, "desktop blaster input"),
     ('"FIRE"', main, "mobile primary-action control"),
@@ -268,7 +268,7 @@ checks = [
     ('"health": player.health', read("scripts/oxenwar_network.gd"), "authoritative health snapshots"),
     ("health_bar", main, "health HUD bar"),
     ("K.O.", main, "local death and respawn notice"),
-    ("_make_remote_blaster_stream", main, "remote positional blaster audio"),
+    ("_remote_weapon_audio", main, "remote positional blaster audio"),
     ("RemoteAetherPulseAudio", main, "3D remote blaster sound source"),
     ("OxenWar.exe", presets, "OxenWar Windows export name"),
     ("OxenWar.apk", presets, "OxenWar Android export name"),
@@ -447,12 +447,12 @@ checks.extend([
 
 checks.extend([
     ("func inspect_weapon() -> void:", player, "weapon inspect animation action"),
-    ("_make_weapon_stream(weapon_id: String)", player, "weapon-specific synthetic audio generator"),
+    ("make_weapon_stream(weapon_id: String)", player, "weapon-specific synthetic audio generator"),
     ('"aether":[260.0, 105.0, 520.0, 0.22]', player, "Aether Blaster synthesized pulse audio profile"),
     ('"rubber_chicken":[390.0, 720.0, 1170.0, 0.42]', player, "Rubber Chicken distinct audio profile"),
     ('"star_piercer":[780.0, 620.0, 1560.0, 0.08]', player, "Star Piercer distinct audio profile"),
     ("KEY_H", main, "keyboard weapon inspect shortcut"),
-    ("INSPECT  [H]", main, "arsenal weapon inspect control"),
+    ("ROTATE PREVIEW", main, "arsenal weapon inspect control"),
     ("_inspect_current_weapon", main, "inspect UI action routing"),
     ("func _animate_weapon_fire() -> void:", player, "weapon-family firing animation"),
     ("func _animate_weapon_details() -> void:", player, "idle weapon energy-detail animation"),
@@ -473,8 +473,8 @@ for weapon_id in new_weapon_ids:
     checks.append((f'"{weapon_id}"', read("scripts/oxenwar_network.gd"), f"server weapon registry: {weapon_id}"))
     checks.append((f'"{weapon_id}"', player, f"local weapon profile: {weapon_id}"))
     checks.append((f'"{weapon_id}"', read("scripts/arcade_weapon_visuals.gd"), f"procedural weapon silhouette: {weapon_id}"))
-if "ARSENAL  •  23" not in main or "_build_arsenal_panel" not in main:
-    errors.append("23-slot arcade arsenal selection screen is missing")
+if 'ARSENAL  •  %d" % WEAPON_ORDER.size()' not in main or "_build_arsenal_panel" not in main:
+    errors.append("arcade arsenal selection screen (weapon-count button) is missing")
 if "set_selected_weapon" not in player or "ARCADE_WEAPON_VISUALS.build_weapon" not in player:
     errors.append("weapon equip flow does not rebuild the selected first-person model")
 

@@ -25,6 +25,9 @@ const TROLL_SHOULDER_X := 0.34
 const TROLL_SHOULDER_Y := 0.17
 const TROLL_HIP_Y := -0.057
 
+const PILOT_SCARF_MESH := preload("res://assets/characters/Golden_Pilot_Troll_Gear.glb")
+const RIOT_SHIELD_MESH := preload("res://assets/characters/Neon_Cyan_Riot_Troll_Gear.glb")
+
 
 static func has_character_profile(outfit_id: String) -> bool:
 	return outfit_id in PROFILE_OUTFITS
@@ -325,9 +328,10 @@ static func _add_pilot_gear(root: Node3D, head: Node3D) -> void:
 
 	_add_torus(root, "PilotFleeceCollar", 0.13, 0.31, Vector3(0.0, 0.34, 0.0), fleece)
 	_add_torus(root, "PilotScarf", 0.11, 0.25, Vector3(0.0, 0.40, 0.0), scarf)
-	for index in range(2):
-		var tail := _add_ellipsoid(root, "ScarfTail_%d" % index, 0.075, Vector3(0.75, 2.6, 0.16), Vector3(0.08 + float(index) * 0.10, 0.22 - float(index) * 0.05, 0.31), scarf)
-		tail.rotation = Vector3(0.30 + float(index) * 0.12, 0.0, 0.10 - float(index) * 0.22)
+	var scarf_tail := PILOT_SCARF_MESH.instantiate() as Node3D
+	scarf_tail.name = "PilotScarfTailMesh"
+	scarf_tail.position = Vector3(0.13, 0.35, 0.17)
+	root.add_child(scarf_tail)
 	_add_torus(root, "PilotBelt", 0.26, 0.35, Vector3(0.0, -0.12, 0.0), leather)
 	_add_ellipsoid(root, "PilotBuckle", 0.045, Vector3(1.1, 0.9, 0.4), Vector3(0.0, -0.12, -0.32), brass)
 	_add_cylinder(root, "PilotShorts", 0.30, 0.22, Vector3(0.0, -0.26, 0.0), olive)
@@ -394,7 +398,6 @@ static func _add_riot_gear(root: Node3D, head: Node3D) -> void:
 	var black := _material(Color("#14171A"), 0.20, 0.55)
 	var glow := _glow_material(Color("#35F4FF"), 1.7)
 	var visor := _glass_material(Color("#3CC8E8"), 0.34)
-	var shield_glass := _glass_material(Color("#3CC8E8"), 0.45)
 	var ivory := _material(Color("#F4EBD0"), 0.0, 0.45)
 
 	_add_ellipsoid(root, "RiotChestPlate", 0.21, Vector3(1.05, 0.85, 0.34), Vector3(0.0, 0.10, -0.255), armor)
@@ -409,11 +412,11 @@ static func _add_riot_gear(root: Node3D, head: Node3D) -> void:
 	_add_cylinder(root, "RiotHipGuard", 0.30, 0.22, Vector3(0.0, -0.26, 0.0), armor)
 
 	# Riot shield on the character's left side; cosmetic only, no collision.
-	_add_ellipsoid(root, "RiotShield", 0.40, Vector3(0.62, 1.0, 0.12), Vector3(-0.62, -0.02, -0.20), armor)
-	var rim := _add_torus(root, "RiotShieldRim", 0.37, 0.41, Vector3(-0.62, -0.02, -0.225), glow, Vector3(deg_to_rad(90.0), 0.0, 0.0))
-	rim.scale = Vector3(0.62, 1.0, 1.0)
-	_add_ellipsoid(root, "RiotShieldWindow", 0.14, Vector3(1.2, 0.9, 0.2), Vector3(-0.62, 0.16, -0.24), shield_glass)
-	_add_ellipsoid(root, "RiotShieldEmblem", 0.07, Vector3(1.0, 1.0, 0.25), Vector3(-0.62, -0.22, -0.24), glow)
+	var shield := RIOT_SHIELD_MESH.instantiate() as Node3D
+	shield.name = "RiotShield"
+	shield.position = Vector3(-0.58, 0.01, -0.26)
+	shield.rotation.y = deg_to_rad(168.0)
+	root.add_child(shield)
 
 	# Riot helmet: dome with cheek guards and a translucent visor over the eyes.
 	_add_ellipsoid(head, "RiotHelmet", 0.33, Vector3(1.04, 0.70, 1.02), Vector3(0.0, 0.24, 0.04), armor)
