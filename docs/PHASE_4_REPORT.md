@@ -70,12 +70,12 @@ Reason: the START and CREATE ROOM buttons did nothing, and the menu did not feel
 ### VERIFIED
 
 - `python3 tests/validate_project.py` passes (56 required files, plus new checks that the lobby buttons are never disabled again).
-- Static lint of the edited scripts (indentation, bracket balance, duplicate functions, undefined helper calls) found no issues. This is not a Godot parse.
+- GitHub Actions run 43649089076 on branch `Phase4` (commit d0c58cb, Godot 4.4.1): project import with no GDScript parse errors, the new `tests/test_menu_ui.gd` (button behaviour, offline fallback, server hints, tab persistence, translations), `tests/test_ui_overlays.gd` (pause menu), `tests/test_mobile_joystick.gd`, the other existing suites, the Windows x86-64 export and the Android arm64 debug APK export all passed.
 
 ### NOT VERIFIED
 
-- Godot was not available in the build container, so none of the GDScript was parsed or run, and nothing was rendered. `tests/test_menu_ui.gd` covers button behaviour, the offline fallback, tab persistence and translations; it will run in GitHub Actions.
-- The angled button shape (`StyleBoxFlat.skew`), the 3D hero stage, the layout on a real phone and the backdrop animation need a visual check on a device.
+- Nothing was looked at on screen. The angled button shape (`StyleBoxFlat.skew`), the 3D hero stage, the layout on a real phone and the backdrop animation need a visual check on a device.
+- Online matches against a real server were not exercised.
 
 ### BLOCKED
 
