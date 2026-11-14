@@ -183,6 +183,9 @@ jobs:
       - name: Test matchmaking room state and reconnect modes
         run: timeout 45s godot --headless --path . --script tests/test_matchmaking_logic.gd
 
+      - name: Test HUD overlays, pause menu and settings
+        run: timeout 60s godot --headless --path . --script tests/test_ui_overlays.gd
+
       - name: Test Bomb Rush plant and defuse state machine
         run: timeout 45s godot --headless --path . --script tests/test_bomb_rush_objective.gd
 

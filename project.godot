@@ -4,6 +4,7 @@ config_version=5
 
 [application]
 config/name="OxenWar"
+config/quit_on_go_back=false
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 config/description="OxenWar: free-to-play cross-platform parkour arena with accounts, friends and free character cosmetics."

@@ -17,6 +17,9 @@ var display_input: LineEdit
 var username_input: LineEdit
 var message_label: Label
 var content: VBoxContainer
+var content_scroll: ScrollContainer
+# Bumped on every tab render so slow network awaits from an older render can bail out.
+var _render_id := 0
 var cosmetics: Dictionary = {}
 var registration_notice := ""
 var preview_spin: Node3D
@@ -121,10 +124,16 @@ func _build() -> void:
 	account.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	account.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	nav.add_child(account)
+	# Tabs can be taller than a phone-landscape viewport, so they scroll vertically.
+	content_scroll = ScrollContainer.new()
+	content_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer.add_child(content_scroll)
 	content = VBoxContainer.new()
-	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 12)
-	outer.add_child(content)
+	content_scroll.add_child(content)
 	var heartbeat := Timer.new()
 	heartbeat.name = "MenuPresenceHeartbeat"
 	heartbeat.wait_time = 30.0
@@ -137,6 +146,8 @@ func _build() -> void:
 		content.add_child(_label(registration_notice))
 
 func _build_auth(parent: VBoxContainer) -> void:
+	# The form is rebuilt on logout/language change with the display-name field hidden.
+	registration_mode = false
 	var center := CenterContainer.new()
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	parent.add_child(center)
@@ -156,6 +167,9 @@ func _build_auth(parent: VBoxContainer) -> void:
 	display_input = _field(_t("display_name"), "Player")
 	display_input.visible = false
 	form.add_child(display_input)
+	# Pressing Enter/Go on the keyboard submits the form (login, or register once the name field is shown).
+	password_input.text_submitted.connect(_on_auth_submitted)
+	display_input.text_submitted.connect(_on_auth_submitted)
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 10)
 	form.add_child(actions)
@@ -221,13 +235,30 @@ func _input_style(focused: bool = false) -> StyleBoxFlat:
 	style.content_margin_right = 10
 	return style
 
+func _on_auth_submitted(_text: String) -> void:
+	if registration_mode:
+		_on_register()
+	else:
+		_on_login()
+
 func _on_language_selected(index: int) -> void:
-	var option := get_node_or_null("..")
 	var codes := ["az","en","tr","ru"]
 	locale = codes[clampi(index, 0, 3)]
+	# Rebuilding the menu recreates the login form; keep what the player already typed.
+	var typed_username := username_input.text if is_instance_valid(username_input) else ""
+	var typed_password := password_input.text if is_instance_valid(password_input) else ""
+	var typed_display := display_input.text if is_instance_valid(display_input) else ""
+	var was_registering := registration_mode
 	if authenticated:
 		await backend.update_profile({"locale": locale})
 	_build()
+	if not authenticated and is_instance_valid(username_input):
+		username_input.text = typed_username
+		password_input.text = typed_password
+		display_input.text = typed_display
+		if was_registering:
+			registration_mode = true
+			display_input.show()
 
 func _on_login() -> void:
 	registration_mode = false
@@ -293,8 +324,12 @@ func _render_tab() -> void:
 		return
 	preview_spin = null
 	preview_model = null
+	_render_id += 1
 	for child in content.get_children():
+		content.remove_child(child)
 		child.queue_free()
+	if is_instance_valid(content_scroll):
+		content_scroll.scroll_vertical = 0
 	match active_tab:
 		"play":
 			_render_play_tab()
@@ -324,6 +359,10 @@ func _render_play_tab() -> void:
 	mode_select.set_item_metadata(2, "king_of_the_hill")
 	mode_select.add_item("BOMB RUSH • PLANT / DEFUSE")
 	mode_select.set_item_metadata(3, "demolition")
+	# Restore the visible choice when the Play tab is re-rendered.
+	for mode_index in range(mode_select.item_count):
+		if str(mode_select.get_item_metadata(mode_index)) == selected_game_mode:
+			mode_select.select(mode_index)
 	mode_select.item_selected.connect(func(index: int): selected_game_mode = str(mode_select.get_item_metadata(index)))
 	mode_row.add_child(mode_select)
 
@@ -480,6 +519,7 @@ func _render_weapon_mastery() -> void:
 	content.add_child(_label("Mastery XP is saved to your account after each match. Weapon skins are not yet connected to this progression."))
 
 func _render_stats() -> void:
+	var my_render := _render_id
 	content.add_child(_large_label(_t("career_title")))
 	var loading := _label(_t("stats_loading"))
 	content.add_child(loading)
@@ -494,6 +534,8 @@ func _render_stats() -> void:
 	var total_xp := maxi(0, int(stats.get("total_xp", 0)))
 	_render_rank_progress(total_xp)
 	await _render_weapon_mastery()
+	if my_render != _render_id or not is_instance_valid(content):
+		return
 	if stats.is_empty():
 		content.add_child(_label(_t("stats_empty")))
 		return
@@ -614,37 +656,46 @@ func _format_number(value: int) -> String:
 	return formatted
 
 func _render_friends() -> void:
+	var my_render := _render_id
 	content.add_child(_large_label(_t("friends")))
 	var search_row := HBoxContainer.new()
 	var search_field := _field(_t("search"), "Cemil_123")
 	search_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	search_row.add_child(search_field)
 	var search_button := _button(_t("search"), true)
-	search_button.pressed.connect(func(): await _search_players(search_field.text))
+	var search_results := VBoxContainer.new()
+	search_button.pressed.connect(func(): await _search_players(search_field.text, search_results))
 	search_row.add_child(search_button)
 	content.add_child(search_row)
+	content.add_child(search_results)
 	var requests_title := _label(_t("requests"))
 	content.add_child(requests_title)
 	var requests: Dictionary = await backend.get_friend_requests()
+	if my_render != _render_id or not is_instance_valid(content):
+		return
 	if requests.get("ok", false):
 		for request in requests.get("data", []):
 			var incoming := str(request.get("receiver_id")) == str(backend.user_id)
 			var row := HBoxContainer.new()
 			var other_id := str(request.get("sender_id", "") if incoming else request.get("receiver_id", ""))
 			var other_profile: Dictionary = await backend.get_profile_by_id(other_id)
+			if my_render != _render_id or not is_instance_valid(content):
+				return
 			var other_name := str(other_profile.get("username", other_id.substr(0, 8)))
 			row.add_child(_label(("From " if incoming else "To ") + other_name))
 			if incoming:
 				var accept := _button(_t("accept"), true)
 				accept.pressed.connect(func():
 					await backend.respond_friend_request(str(request.get("id")), true)
-					await _render_friends()
+					if active_tab == "friends":
+						_render_tab()
 				)
 				row.add_child(accept)
 				var reject := _button(_t("reject"), false)
 				reject.pressed.connect(func():
 					await backend.respond_friend_request(str(request.get("id")), false)
-					await _render_friends()
+					if active_tab == "friends":
+						_render_tab()
 				)
 				row.add_child(reject)
 			else:
@@ -653,12 +704,16 @@ func _render_friends() -> void:
 	var friends_title := _label(_t("friends"))
 	content.add_child(friends_title)
 	var friends: Dictionary = await backend.get_friends()
+	if my_render != _render_id or not is_instance_valid(content):
+		return
 	if friends.get("ok", false):
 		var friend_rows: Array = friends.get("data", [])
 		var friend_ids := PackedStringArray()
 		for friend in friend_rows:
 			friend_ids.append(str(friend.get("id", "")))
 		var presence_result: Dictionary = await backend.get_friend_presence(friend_ids)
+		if my_render != _render_id or not is_instance_valid(content):
+			return
 		var presence_by_id := {}
 		if presence_result.get("ok", false):
 			for presence in presence_result.get("data", []):
@@ -677,14 +732,20 @@ func _render_friends() -> void:
 	else:
 		content.add_child(_label(str(friends.get("message", ""))))
 
-func _search_players(query: String) -> void:
+func _search_players(query: String, target: VBoxContainer) -> void:
 	var result: Dictionary = await backend.search_players(query)
+	if not is_instance_valid(target):
+		return
+	# Replace the previous search results instead of piling new rows below them.
+	for old_row in target.get_children():
+		target.remove_child(old_row)
+		old_row.queue_free()
 	if not result.get("ok", false):
-		content.add_child(_label(str(result.get("message", ""))))
+		target.add_child(_label(str(result.get("message", ""))))
 		return
 	var rows: Array = result.get("data", [])
 	if rows.is_empty():
-		content.add_child(_label(_t("no_results")))
+		target.add_child(_label(_t("no_results")))
 		return
 	for player_row in rows:
 		var row := HBoxContainer.new()
@@ -696,7 +757,7 @@ func _search_players(query: String) -> void:
 			add.text = _t("pending") if sent.get("ok", false) else _t("error")
 		)
 		row.add_child(add)
-		content.add_child(row)
+		target.add_child(row)
 
 func _render_character() -> void:
 	content.add_child(_large_label(_t("character") + "  •  3D PREVIEW"))
@@ -812,14 +873,14 @@ func _render_character() -> void:
 	)
 
 	if color_items.is_empty() or outfit_items.is_empty() or accessory_items.is_empty():
+		# Keep the Save button: an empty slot simply keeps the value already on the profile.
 		controls.add_child(_label("Some cosmetic slots are locked or not available yet. The 3D preview still shows your current/default character."))
-		return
 	var save := _button(_t("save"), true)
 	save.pressed.connect(func():
 		var saved: Dictionary = await backend.update_profile({
-			"avatar_color_id": _selected_cosmetic_id(color_option, "color_cyan"),
-			"outfit_id": _selected_cosmetic_id(outfit_option, "outfit_default"),
-			"accessory_id": _selected_cosmetic_id(accessory_option, "accessory_cap")
+			"avatar_color_id": _selected_cosmetic_id(color_option, str(profile.get("avatar_color_id", "color_cyan"))),
+			"outfit_id": _selected_cosmetic_id(outfit_option, str(profile.get("outfit_id", "outfit_default"))),
+			"accessory_id": _selected_cosmetic_id(accessory_option, str(profile.get("accessory_id", "accessory_cap")))
 		})
 		if saved.get("ok", false):
 			profile = await backend.get_profile()

@@ -61,7 +61,7 @@ For a private room, share its six-character code with an existing OxenWar friend
 - Left mouse button / mobile PULSE: fire the selected arcade weapon
 - Number keys 1–8: select a weapon; E / R: cycle forward/backward (mobile has WEAPON + / WEAPON -)
 - G: throw a server-simulated grenade
-- Escape: release/capture mouse
+- Escape / Android Back / MENU button: pause menu (look sensitivity, master volume, controls help, leave match); it also frees the mouse
 
 Online clients send input only. The server runs CharacterBody3D movement and collision against its own arena, and sends authoritative snapshots back to clients.
 
@@ -160,6 +160,18 @@ The roster has 27 server-registered weapon archetypes plus the separate grenade 
 - Confirmed beam endpoints now receive a weapon-aware impact burst. Pixel/glitch, bubble/slime, heavy spark, disc/orbit and playful confetti families use different particle silhouettes and inherit the weapon palette.
 - These are client-side cosmetic effects only. They do not change server hit validation, cooldowns, range, damage, or match statistics.
 
+
+## HUD overlays and menu fixes
+- Crosshair with a hit marker (white for a confirmed hit, red when the same snapshot also contains a kill) and a red edge flash when health drops. These are client-only and derived from the authoritative snapshot (`shots_hit`, `kills`, `health`).
+- Pause menu (`scripts/pause_menu.gd`): resume, look-sensitivity and master-volume sliders saved to `user://game_settings.cfg` through `scripts/user_settings.gd`, controls help and **LEAVE MATCH**. The mouse is released while it is open and firing/looking are blocked (`ArcadePlayer.ui_blocked`). Android Back opens it instead of quitting (`application/config/quit_on_go_back=false`).
+- The match results overlay is modal: it frees the cursor, releases touch buttons, hides the scoreboard/arsenal/emote wheel, and its button is now labelled **BACK TO MENU** because it reloads the scene.
+- Clicking a HUD button no longer fires the weapon on desktop (firing requires a captured mouse); the HUD root no longer swallows mouse input.
+- Fixed: the kill feed froze the game when a sixth entry arrived (a freed child stays in the tree until the end of the frame); toasts now stack instead of overlapping and fade in; the scoreboard rebuilds only while visible.
+- Menu: tabs scroll on small screens, slow stats/friends requests can no longer append rows to a different tab, accepting/rejecting a request no longer duplicates the list, friend search results are replaced instead of piled up, the selected mode stays visible, Enter submits the login form, the language switch keeps typed credentials, and the character Save button no longer disappears when one cosmetic slot is empty.
+- In-game HUD text is still English-only; only the menu is localized.
+
+### Model fixes in this pass
+`DuckBeacon_Mascot.glb`, `GoldenOrb_Collectible.glb` and `CosmicHalo_Cosmetic.glb` were exported Z-up without normals or materials, so the duck lay on its side and shaded flat. They now have a Y-up root rotation, smooth vertex normals and a PBR material (vertex colours are kept). Knees now flex backwards in the run/slide/jump/emote animations, and the limb/torso primitives of the shared character rig use far lower sphere/capsule tessellation (Godot's 64-segment defaults were costly with several avatars on a phone). Characters, weapons and maps are still procedural primitive meshes, not imported production assets.
 
 ## Android phone testing
 
