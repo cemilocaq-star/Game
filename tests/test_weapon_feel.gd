@@ -29,15 +29,15 @@ func _run() -> void:
 	_check(WEAPON_FEEL.movement_multiplier(0.0, true, false, true) < 1.0, "aiming tightens the spread")
 
 	var tracker = WEAPON_FEEL.Tracker.new()
-	var first: float = tracker.spread_deg(fast, 0.0, true, false, false)
+	var first: float = tracker.spread_deg(fast, 1.0)
 	for shot in range(12):
 		tracker.fire(fast, false)
-	var sustained: float = tracker.spread_deg(fast, 0.0, true, false, false)
+	var sustained: float = tracker.spread_deg(fast, 1.0)
 	_check(sustained > first, "sustained fire blooms the spread")
 	_check(sustained <= WEAPON_FEEL.MAX_SPREAD_DEG, "spread is capped")
 	for frame in range(60):
 		tracker.step(1.0 / 60.0)
-	_check(tracker.spread_deg(fast, 0.0, true, false, false) <= first + 0.001, "bloom recovers when you stop firing")
+	_check(tracker.spread_deg(fast, 1.0) <= first + 0.001, "bloom recovers when you stop firing")
 
 	# Recoil: kick goes up, then part of it is pulled back down after a short pause.
 	tracker.reset()

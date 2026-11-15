@@ -67,9 +67,10 @@ class Tracker extends RefCounted:
 		recoverable_pitch = 0.0
 		idle_time = 0.0
 
-	func spread_deg(weapon_profile: Dictionary, horizontal_speed: float, grounded: bool, sliding: bool, aiming: bool) -> float:
+	## `accuracy_multiplier` comes from WeaponFeel.movement_multiplier (inner classes cannot call the outer statics).
+	func spread_deg(weapon_profile: Dictionary, accuracy_multiplier: float) -> float:
 		var base: float = float(weapon_profile.get("base_spread_deg", 0.2)) + bloom_deg
-		return minf(MAX_SPREAD_DEG, base * movement_multiplier(horizontal_speed, grounded, sliding, aiming))
+		return minf(MAX_SPREAD_DEG, base * accuracy_multiplier)
 
 	## Registers a shot; returns the camera kick {"pitch": rad up, "yaw": rad (random side)}.
 	func fire(weapon_profile: Dictionary, aiming: bool, recoil_scale: float = 1.0, rng: RandomNumberGenerator = null) -> Dictionary:

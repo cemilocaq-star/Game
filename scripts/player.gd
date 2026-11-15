@@ -629,7 +629,7 @@ func _fire_blaster() -> void:
 	# Weapon feel: spread depends on movement and sustained fire, then the camera kicks up a little.
 	var feel_profile: Dictionary = WEAPON_FEEL.profile(float(weapon_data.get("cooldown", 0.24)), float(weapon_data.get("range", 65.0)))
 	var aiming_now := _aim_held and not arsenal_open and not ui_blocked
-	var spread_now: float = _feel.spread_deg(feel_profile, Vector2(velocity.x, velocity.z).length(), is_on_floor(), _is_sliding, aiming_now)
+	var spread_now: float = _feel.spread_deg(feel_profile, WEAPON_FEEL.movement_multiplier(Vector2(velocity.x, velocity.z).length(), is_on_floor(), _is_sliding, aiming_now))
 	direction = WEAPON_FEEL.apply_spread(direction, spread_now)
 	var endpoint := origin + direction * float(weapon_data.get("range", 65.0))
 	var query := PhysicsRayQueryParameters3D.create(origin, endpoint)
