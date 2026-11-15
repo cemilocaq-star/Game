@@ -44,18 +44,17 @@ func _low_ratio(samples: PackedFloat32Array, cutoff_hz: float) -> float:
 	return low / maxf(total, 0.000001)
 
 
-## Share of the energy above roughly 3 kHz (signal minus a low-passed copy).
-func _high_ratio(samples: PackedFloat32Array) -> float:
+## Absolute energy above roughly 3 kHz in the first 15 ms (where the crack layer lives).
+func _early_crack_energy(samples: PackedFloat32Array) -> float:
 	var alpha := 1.0 - exp(-TAU * 3000.0 / float(WEAPON_AUDIO.SAMPLE_RATE))
 	var state := 0.0
 	var high := 0.0
-	var total := 0.0
-	for value in samples:
-		state += alpha * (value - state)
-		var residue := value - state
+	var limit := mini(samples.size(), int(0.015 * float(WEAPON_AUDIO.SAMPLE_RATE)))
+	for index in range(limit):
+		state += alpha * (samples[index] - state)
+		var residue := samples[index] - state
 		high += residue * residue
-		total += value * value
-	return high / maxf(total, 0.000001)
+	return high
 
 
 func _run() -> void:
@@ -90,7 +89,7 @@ func _run() -> void:
 	_check(_low_ratio(heavy, 150.0) > _low_ratio(light, 150.0), "a heavy weapon has more sub energy than a light one")
 	var own_mid := _floats(WEAPON_AUDIO.stream("aether", "own", 0))
 	var far_mid := _floats(WEAPON_AUDIO.stream("aether", "far", 0))
-	_check(_high_ratio(own_mid) > _high_ratio(far_mid), "own fire has more crack than distant fire")
+	_check(_early_crack_energy(own_mid) > _early_crack_energy(far_mid) * 3.0, "own fire has a crack transient that distant fire lacks")
 
 	# Occlusion profile: more walls, darker and quieter.
 	var open: Dictionary = OCCLUSION.profile(0)
