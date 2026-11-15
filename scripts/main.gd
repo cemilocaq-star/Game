@@ -5,6 +5,7 @@ const COMPETITIVE_THEME := preload("res://scripts/competitive_theme.gd")
 const GRENADE_PHYSICS := preload("res://scripts/grenade_physics.gd")
 const ARSENAL_PREVIEW := preload("res://scripts/arsenal_preview.gd")
 const PLAYER_SCRIPT = preload("res://scripts/player.gd")
+const SFX_DIRECTOR = preload("res://scripts/sfx_director.gd")
 const BACKEND_SCRIPT = preload("res://scripts/oxenwar_supabase.gd")
 const MENU_SCRIPT = preload("res://scripts/oxenwar_menu.gd")
 const NETWORK_SCRIPT = preload("res://scripts/oxenwar_network.gd")
@@ -110,6 +111,7 @@ const EVENT_INTERVAL := 30.0
 const EVENT_DURATION := 12.0
 
 var player: ArcadePlayer
+var sfx
 var score_label: Label
 var event_label: Label
 var collectibles_label: Label
@@ -470,6 +472,8 @@ func _on_network_room_state(state: Dictionary) -> void:
 			_on_server_event_changed(active_event)
 		event_left = float(state.get("event_left", 0.0))
 		round_left = float(state.get("round_left", ROUND_SECONDS))
+		if is_instance_valid(sfx):
+			sfx.set_round_left(round_left)
 		active_room_mode = str(state.get("mode", active_room_mode))
 		hill_control = float(state.get("hill_control", hill_control))
 		hill_points_red = float(state.get("hill_points_red", hill_points_red))
@@ -481,6 +485,8 @@ func _on_network_room_state(state: Dictionary) -> void:
 				var action := str(state.get("objective_action", ""))
 				var progress := float(state.get("objective_progress", 0.0))
 				var result := str(state.get("objective_result", "RED: PLANT A/B  •  BLUE: DEFUSE"))
+				if is_instance_valid(sfx):
+					sfx.set_bomb_fuse(float(state.get("bomb_fuse", 0.0)) if planted else -1.0)
 				if result != _last_objective_result and result == "CORE DETONATED":
 					var blast_site := str(state.get("bomb_site", "A"))
 					COMBAT_FX_SCRIPT.grenade_explosion(self, Vector3(-9.0, 0.5, -8.0) if blast_site == "A" else Vector3(9.0, 0.5, 8.0))
@@ -988,8 +994,14 @@ func _update_combat_feedback(state: Dictionary) -> void:
 	if is_instance_valid(crosshair):
 		if _prev_local_hits >= 0 and hits > _prev_local_hits:
 			crosshair.flash_hit(kills > _prev_local_kills)
+			if is_instance_valid(sfx):
+				sfx.play("kill" if kills > _prev_local_kills else "hit")
 		if _prev_local_health >= 0.0 and health_now < _prev_local_health - 0.5 and not bool(state.get("dead", false)):
 			crosshair.flash_damage(_prev_local_health - health_now)
+			if is_instance_valid(sfx):
+				sfx.play("damage")
+	if is_instance_valid(sfx):
+		sfx.set_low_health(health_now, not bool(state.get("dead", false)))
 	_prev_local_hits = hits
 	_prev_local_kills = kills
 	_prev_local_health = health_now
@@ -1222,6 +1234,10 @@ func _make_box(node_name: String, size: Vector3, position: Vector3, color: Color
 	arena_bodies.append(body)
 
 func _spawn_player() -> void:
+	if not is_instance_valid(sfx):
+		sfx = SFX_DIRECTOR.new()
+		sfx.name = "SfxDirector"
+		add_child(sfx)
 	player = PLAYER_SCRIPT.new()
 	player.name = "LocalPlayer"
 	player.player_name = local_player_name

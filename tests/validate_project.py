@@ -6,7 +6,7 @@ errors = []
 
 required = [
     "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/arcade_weapon_visuals.gd", "scripts/character_visuals.gd", "scripts/character_motion_rig.gd", "scripts/map_world_builder.gd", "scripts/combat_fx.gd",
-    "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd", "supabase/migrations/20261115120000_oxenwar_server_directory.sql", "scripts/fps_ui.gd", "tests/test_menu_ui.gd", "scripts/net_sync.gd", "scripts/weapon_feel.gd", "tests/test_net_sync.gd", "tests/test_event_scheduling.gd", "tests/test_third_person_view.gd", "tests/test_weapon_feel.gd",
+    "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd", "supabase/migrations/20261115120000_oxenwar_server_directory.sql", "scripts/fps_ui.gd", "tests/test_menu_ui.gd", "scripts/net_sync.gd", "scripts/weapon_feel.gd", "tests/test_net_sync.gd", "tests/test_event_scheduling.gd", "tests/test_third_person_view.gd", "scripts/sfx_bank.gd", "scripts/sfx_director.gd", "tests/test_sfx_bank.gd", "tests/test_weapon_feel.gd",
     "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "scripts/oxenwar_server_player.gd", "server/README.md", "Dockerfile", "fly.toml", "render.yaml",
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
     "supabase/migrations/20261109114619_oxenwar_social_foundation.sql",
@@ -491,6 +491,8 @@ for label, source, function_name in [
 
 net_source = read("scripts/oxenwar_network.gd")
 checks.extend([
+    ("SFX_DIRECTOR", read("scripts/main.gd"), "match feedback audio director"),
+    ("attach_sounds", read("scripts/fps_ui.gd"), "menu hover and click sounds"),
     ("_update_camera_view", read("scripts/player.gd"), "character intro and third-person camera"),
     ("toggle_view", read("scripts/main.gd"), "view toggle key and touch button"),
     ("choose_for_room", read("scripts/meme_events.gd"), "eligibility-based event picker"),

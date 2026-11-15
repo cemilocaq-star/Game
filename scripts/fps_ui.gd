@@ -79,6 +79,18 @@ class MenuBackdrop extends Control:
 		)
 
 
+const SFX_BANK := preload("res://scripts/sfx_bank.gd")
+
+
+## Soft hover tick and click on a menu control (once per control).
+static func attach_sounds(control: BaseButton) -> void:
+	if control.has_meta("sfx_attached"):
+		return
+	control.set_meta("sfx_attached", true)
+	control.mouse_entered.connect(func(): if not control.disabled: SFX_BANK.play_ui(control, "ui_hover"))
+	control.pressed.connect(func(): SFX_BANK.play_ui(control, "ui_click"))
+
+
 static func flat_box(bg: Color, border: Color = Color.TRANSPARENT, border_width: int = 0, skew: Vector2 = Vector2.ZERO) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.bg_color = bg
@@ -149,6 +161,7 @@ static func button(text: String, kind: String = "secondary", height: float = 48.
 			b.add_theme_color_override("font_hover_color", Color.WHITE)
 			b.add_theme_color_override("font_pressed_color", Color.WHITE)
 	b.add_theme_color_override("font_disabled_color", Color("#5E7284"))
+	attach_sounds(b)
 	return b
 
 
@@ -174,11 +187,13 @@ static func nav_button(text: String, active: bool) -> Button:
 	b.add_theme_color_override("font_color", font)
 	b.add_theme_color_override("font_hover_color", Color.WHITE)
 	b.add_theme_color_override("font_pressed_color", Color.WHITE)
+	attach_sounds(b)
 	return b
 
 
 ## Re-styles a selectable card (game mode or map). Selected cards get a bright left bar and tint.
 static func style_card(b: Button, accent: Color, selected: bool) -> void:
+	attach_sounds(b)
 	var normal := flat_box(Color(accent.r, accent.g, accent.b, 0.20) if selected else Color(PANEL.r, PANEL.g, PANEL.b, 0.92), accent if selected else EDGE, 2 if selected else 1)
 	normal.border_width_left = 7
 	var hover := flat_box(Color(accent.r, accent.g, accent.b, 0.28), accent, 2)
