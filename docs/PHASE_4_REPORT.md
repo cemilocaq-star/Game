@@ -128,7 +128,7 @@ Request: study how ten FPS games run their servers (and their weapons, animation
 ### VERIFIED
 
 - Structural validation (`tests/validate_project.py`) passes locally.
-- GitHub Actions result for the two new tests and the existing suite: see the run on this commit (recorded in the final message).
+- GitHub Actions (run 43709279602 on Phase4, commit 9e46f0d): project import with no script errors, the new net-sync and weapon-feel tests, and the full existing test suite all passed; Windows EXE and Android APK exports built. Two earlier runs failed on a parse error and a wrong test number; both were fixed.
 
 ### NOT VERIFIED
 
