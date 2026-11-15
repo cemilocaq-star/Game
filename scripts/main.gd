@@ -1033,6 +1033,7 @@ func _setup_input() -> void:
 	_add_key_action("objective_interact", KEY_F)
 	_add_key_action("weapon_next", KEY_E)
 	_add_key_action("weapon_prev", KEY_R)
+	_add_key_action("toggle_view", KEY_C)
 	_add_key_action("emote_griddy", KEY_B)
 	_add_key_action("emote_goofy", KEY_N)
 	_add_key_action("emote_robot", KEY_M)
@@ -2050,6 +2051,7 @@ func _build_touch_controls(root: Control) -> void:
 	_add_touch_button(root, "PLANT / DEFUSE", "objective_interact", Vector2(-98, -390), Vector2(112, 48), false)
 	_add_touch_button(root, "WEAPON +", "weapon_next", Vector2(-190, -330), Vector2(82, 48), false)
 	_add_touch_button(root, "WEAPON -", "weapon_prev", Vector2(-98, -316), Vector2(76, 48), false)
+	_add_touch_button(root, "VIEW", "toggle_view", Vector2(-190, -388), Vector2(82, 44), false)
 	_build_emote_wheel(root)
 
 func _release_all_touch_actions() -> void:
@@ -2201,6 +2203,8 @@ func _add_touch_button(root: Control, text_value: String, action: String, offset
 		button.pressed.connect(_cycle_weapon.bind(-1))
 	elif action == "throw_grenade":
 		button.pressed.connect(_throw_grenade_from_touch)
+	elif action == "toggle_view":
+		button.pressed.connect(func(): if is_instance_valid(player): player.toggle_third_person())
 	else:
 		button.button_down.connect(func(): Input.action_press(action))
 		button.button_up.connect(func(): Input.action_release(action))

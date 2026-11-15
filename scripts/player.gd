@@ -93,6 +93,13 @@ var _blaster_model: Node3D
 var _blaster_cooldown := 0.0
 var _blaster_recoil := 0.0
 var _feel = WEAPON_FEEL.Tracker.new()
+## The local character is hidden from the first-person camera, so players never saw their own model.
+## A short orbit intro when the match starts, and a C / VIEW toggle for a third-person camera, show it.
+const INTRO_SECONDS := 2.6
+const THIRD_PERSON_OFFSET := Vector3(0.55, 0.2, 3.1)
+var third_person := false
+var _intro_left := INTRO_SECONDS
+var _view_was_external := false
 const WEAPON_REST := Vector3(0.27, -0.24, -0.48)
 var _weapon_equip_tween: Tween
 var _weapon_inspect_tween: Tween
@@ -291,6 +298,73 @@ func _process(delta: float) -> void:
 	var fire_input_allowed := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED or DisplayServer.is_touchscreen_available()
 	if Input.is_action_pressed("fire") and _blaster_cooldown <= 0.0 and not arsenal_open and not ui_blocked and fire_input_allowed:
 		_fire_blaster()
+	_update_camera_view(delta)
+
+
+func toggle_third_person() -> void:
+	set_third_person(not third_person)
+
+
+func set_third_person(enabled: bool) -> void:
+	third_person = enabled
+	_intro_left = 0.0 # choosing a view always ends the intro
+
+
+func is_external_view() -> bool:
+	return third_person or _intro_left > 0.0
+
+
+## Third-person / intro camera. The camera orbits the head and is pulled in by a ray so it never
+## ends up inside a wall. The first-person viewmodel is hidden while the body is visible.
+func _update_camera_view(delta: float) -> void:
+	if not is_instance_valid(_camera):
+		return
+	var intro := _intro_left > 0.0
+	if intro:
+		_intro_left = maxf(0.0, _intro_left - delta)
+	var external := third_person or intro
+	if not external:
+		if _view_was_external:
+			_view_was_external = false
+			_camera.cull_mask = 1
+			_camera.position = Vector3(0.0, 1.05 if _is_sliding else 1.55, -0.34)
+			_camera.rotation = Vector3(pitch, 0.0, 0.0)
+			if is_instance_valid(_blaster_model):
+				_blaster_model.visible = not is_dead
+		return
+	_view_was_external = true
+	_camera.cull_mask = 3
+	if is_instance_valid(_blaster_model):
+		_blaster_model.visible = false
+	var yaw_offset := 0.0
+	var shoulder := THIRD_PERSON_OFFSET.x
+	var distance := THIRD_PERSON_OFFSET.z
+	if intro:
+		# Start in front of the character, then swing round behind it (smoothstep).
+		var progress := 1.0 - _intro_left / INTRO_SECONDS
+		var eased := progress * progress * (3.0 - 2.0 * progress)
+		yaw_offset = lerpf(PI * 0.88, 0.0, eased)
+		shoulder = lerpf(0.0, THIRD_PERSON_OFFSET.x, eased)
+		distance = lerpf(THIRD_PERSON_OFFSET.z * 0.85, THIRD_PERSON_OFFSET.z, eased)
+	var pivot := Vector3(0.0, 1.0 if _is_sliding else 1.5, 0.0)
+	var arm := Basis(Vector3.UP, yaw_offset) * (Basis(Vector3.RIGHT, pitch) * Vector3(shoulder, THIRD_PERSON_OFFSET.y, distance))
+	var desired := pivot + arm
+	if is_inside_tree():
+		var pivot_global := to_global(pivot)
+		var desired_global := to_global(desired)
+		var query := PhysicsRayQueryParameters3D.create(pivot_global, desired_global)
+		query.exclude = [get_rid()]
+		query.collision_mask = 1
+		query.collide_with_areas = false
+		var hit := get_world_3d().direct_space_state.intersect_ray(query)
+		if not hit.is_empty():
+			var back := (pivot_global - desired_global).normalized()
+			var clear: Vector3 = hit.position + back * 0.25
+			if pivot_global.distance_to(clear) < 0.35:
+				clear = pivot_global + (desired_global - pivot_global).normalized() * 0.35
+			desired = to_local(clear)
+	_camera.position = desired
+	_camera.rotation = Vector3(pitch, yaw_offset, 0.0)
 
 
 func _weapon_pose_locked() -> bool:
@@ -618,7 +692,7 @@ func _animate_weapon_fire() -> void:
 
 
 func _fire_blaster() -> void:
-	if is_dead or not is_instance_valid(_camera) or _blaster_cooldown > 0.0 or _weapon_pose_locked():
+	if is_dead or not is_instance_valid(_camera) or _blaster_cooldown > 0.0 or _weapon_pose_locked() or _intro_left > 0.0:
 		return
 	_blaster_cooldown = float(ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"]).get("cooldown", 0.24))
 	_blaster_recoil = 0.055
@@ -626,6 +700,16 @@ func _fire_blaster() -> void:
 	var origin := _camera.global_position
 	var direction := -_camera.global_basis.z.normalized()
 	var weapon_data: Dictionary = ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"])
+	if third_person:
+		# Shoot from the head toward the point under the crosshair, not from the camera behind the body.
+		var aim_end := origin + direction * float(weapon_data.get("range", 65.0))
+		var aim_query := PhysicsRayQueryParameters3D.create(origin, aim_end)
+		aim_query.exclude = [get_rid()]
+		aim_query.collide_with_areas = false
+		var aim_hit := get_world_3d().direct_space_state.intersect_ray(aim_query)
+		var aim_point: Vector3 = aim_end if aim_hit.is_empty() else aim_hit.position
+		origin = global_position + Vector3.UP * (0.9 if _is_sliding else 1.45)
+		direction = (aim_point - origin).normalized()
 	# Weapon feel: spread depends on movement and sustained fire, then the camera kicks up a little.
 	var feel_profile: Dictionary = WEAPON_FEEL.profile(float(weapon_data.get("cooldown", 0.24)), float(weapon_data.get("range", 65.0)))
 	var aiming_now := _aim_held and not arsenal_open and not ui_blocked
@@ -991,6 +1075,8 @@ func apply_event(event_id: String) -> void:
 			event_speed_scale = 1.0
 
 func _unhandled_input(event: InputEvent) -> void:
+	if InputMap.has_action("toggle_view") and event.is_action_pressed("toggle_view"):
+		toggle_third_person()
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		_aim_held = event.pressed and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:

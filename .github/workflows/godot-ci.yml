@@ -210,6 +210,9 @@ jobs:
       - name: Test imported canyon landmarks
         run: timeout 45s godot --headless --path . --script tests/test_canyon_landmarks.gd
 
+      - name: Test character intro and third-person camera
+        run: timeout 60s godot --headless --path . --script tests/test_third_person_view.gd
+
       - name: Test randomized event scheduling
         run: timeout 90s godot --headless --path . --script tests/test_event_scheduling.gd
 

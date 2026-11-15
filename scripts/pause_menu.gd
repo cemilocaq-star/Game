@@ -18,6 +18,7 @@ const CONTROLS_TEXT := """WASD / left stick: move      Space: jump      Shift: s
 Ctrl: slide      Q: dash      Mouse / right-side drag: look
 Left click / FIRE: shoot      G: grenade      E / R: next / previous weapon
 V: arsenal      H: inspect weapon      Tab: scoreboard      F: plant / defuse
+C / VIEW: first / third person camera
 B N M J: emotes      Esc / Back: this menu"""
 
 func _ready() -> void:
