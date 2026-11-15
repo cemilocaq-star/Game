@@ -48,6 +48,11 @@ var server_status_label: Label
 var start_button: Button
 var create_button: Button
 var join_button: Button
+var advanced_button: Button
+## "unknown" / "checking" / "online" / "none": result of the automatic server lookup (Supabase directory).
+var auto_server_state := "unknown"
+var auto_server_players := 0
+var auto_server_capacity := 0
 
 const BG := FPS_UI.BG
 const PANEL := FPS_UI.PANEL
@@ -542,6 +547,7 @@ func _render_play_tab() -> void:
 	_build_play_controls(right)
 	_refresh_selection_styles()
 	_refresh_server_state(server_host)
+	_check_auto_server()
 
 func _build_mode_card(mode_id: String) -> Button:
 	var card := Button.new()
@@ -651,11 +657,18 @@ func _build_play_controls(right: VBoxContainer) -> void:
 	server_dot = FPS_UI.status_dot(MUTED)
 	status_row.add_child(server_dot)
 	server_status_label = Label.new()
+	server_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	server_status_label.add_theme_font_size_override("font_size", 14)
 	status_row.add_child(server_status_label)
+	# The server is found automatically. A custom address (own server, LAN test) is an advanced option.
+	advanced_button = FPS_UI.button(_t("custom_server"), "ghost", 32.0, 12)
+	advanced_button.name = "CustomServerToggle"
+	advanced_button.pressed.connect(_on_custom_server_toggled)
+	status_row.add_child(advanced_button)
 	server_host_field = _field(_t("server_address"), _t("server_hint"))
 	server_host_field.name = "ServerAddressField"
 	server_host_field.text = server_host
+	server_host_field.visible = not server_host.is_empty()
 	server_host_field.text_changed.connect(_refresh_server_state)
 	server_stack.add_child(server_host_field)
 	lobby_notice_label = _paragraph("")
@@ -721,21 +734,70 @@ func _on_room_code_changed(value: String) -> void:
 		room_code_field.caret_column = caret
 	room_code_text = upper
 
-## Updates the status light, the helper text and the START label from the typed server address.
+func _on_custom_server_toggled() -> void:
+	if not is_instance_valid(server_host_field):
+		return
+	server_host_field.visible = not server_host_field.visible
+	if server_host_field.visible:
+		server_host_field.grab_focus()
+
+## Asks the Supabase directory whether any dedicated server is online. Runs every time the play tab is shown.
+func _check_auto_server() -> void:
+	if backend == null or not backend.has_method("find_server"):
+		return
+	var render_token := _render_id
+	if auto_server_state == "unknown":
+		auto_server_state = "checking"
+		_refresh_server_state(server_host)
+	var found: Dictionary = await backend.find_server()
+	if render_token != _render_id or not is_instance_valid(server_dot):
+		return
+	if found.get("ok", false):
+		auto_server_state = "online"
+		auto_server_players = int(found.get("player_count", 0))
+		auto_server_capacity = int(found.get("max_players", 0))
+	else:
+		auto_server_state = "none"
+	_refresh_server_state(server_host)
+
+## Updates the status light, helper text and START label from the custom address or the automatic lookup.
 func _refresh_server_state(value: String) -> void:
 	var address := value.strip_edges()
 	server_host = address
-	var valid := _is_server_address_valid(address)
-	var state_color: Color = ACCENT if valid else (FPS_UI.GOLD if address.is_empty() else FPS_UI.DANGER)
+	var state_color: Color = MUTED
+	var status_text := ""
+	var hint_text := ""
+	if not address.is_empty():
+		if _is_server_address_valid(address):
+			state_color = ACCENT
+			status_text = _t("server_custom")
+			hint_text = _t("server_ready")
+		else:
+			state_color = FPS_UI.DANGER
+			status_text = _t("server_status_bad")
+			hint_text = _t("server_invalid")
+	elif auto_server_state == "online":
+		state_color = ACCENT
+		status_text = _t("server_auto_online")
+		if auto_server_capacity > 0:
+			status_text += "  •  %d/%d" % [auto_server_players, auto_server_capacity]
+		hint_text = _t("auto_hint")
+	elif auto_server_state == "none":
+		state_color = FPS_UI.GOLD
+		status_text = _t("server_auto_none")
+		hint_text = _t("auto_none_hint")
+	else:
+		status_text = _t("server_auto_checking")
+		hint_text = _t("auto_hint")
 	FPS_UI.set_status_dot(server_dot, state_color)
 	if is_instance_valid(server_status_label):
-		server_status_label.text = _t("server_status_ready") if valid else (_t("server_status_none") if address.is_empty() else _t("server_status_bad"))
+		server_status_label.text = status_text
 		server_status_label.add_theme_color_override("font_color", state_color)
 	if is_instance_valid(lobby_notice_label):
-		lobby_notice_label.text = _t("server_ready") if valid else (_t("server_missing") if address.is_empty() else _t("server_invalid"))
-		lobby_notice_label.add_theme_color_override("font_color", MUTED if valid else state_color)
+		lobby_notice_label.text = hint_text
+		lobby_notice_label.add_theme_color_override("font_color", MUTED if state_color != FPS_UI.DANGER else state_color)
 	if is_instance_valid(start_button):
-		start_button.text = _t("start_training") if address.is_empty() else _t("start_match")
+		start_button.text = _t("start_training") if (address.is_empty() and auto_server_state == "none") else _t("start_match")
 
 func _is_server_address_valid(value: String) -> bool:
 	var address := value.strip_edges()
@@ -769,33 +831,27 @@ func _focus_field(field: LineEdit) -> void:
 func _launch_game(action: String) -> void:
 	var host := server_host_field.text.strip_edges() if is_instance_valid(server_host_field) else server_host
 	var room_code := room_code_field.text.strip_edges().to_upper() if is_instance_valid(room_code_field) else room_code_text
-	var launch_action := action
-	if host.is_empty():
-		# Without a server only the offline training arena can run. Rooms need a server, so say so.
-		if action == "create_room":
-			_show_notice(_t("need_server_room"), "warn")
-			_focus_field(server_host_field)
-			return
-		if action == "join_room":
-			_show_notice(_t("need_server_join"), "warn")
-			_focus_field(server_host_field)
-			return
-		launch_action = "practice"
-	elif not _is_server_address_valid(host):
+	if not host.is_empty() and not _is_server_address_valid(host):
 		_show_notice(_t("server_invalid"), "error")
+		server_host_field.show()
 		_focus_field(server_host_field)
 		return
+	# With no custom address the game finds the server itself. When the lookup already found nothing,
+	# rooms cannot work; START still opens the offline training arena.
 	if action == "join_room" and not _is_valid_room_code(room_code):
 		_show_notice(_t("room_code_invalid"), "error")
 		_focus_field(room_code_field)
 		return
-	if not host.is_empty():
-		USER_SETTINGS.write_value("network", "server_host", host)
+	if host.is_empty() and auto_server_state == "none" and action != "quick_match":
+		_show_notice(_t("need_server_room") if action == "create_room" else _t("need_server_join"), "warn")
+		return
+	# An empty value clears an old custom address so the automatic lookup is used again.
+	USER_SETTINGS.write_value("network", "server_host", host)
 	play_requested.emit({
 		"display_name": str(profile.get("display_name", profile.get("username", "Player"))),
 		"profile": profile,
 		"is_admin": is_admin,
-		"launch_action": launch_action,
+		"launch_action": action,
 		"game_mode": selected_game_mode,
 		"map_index": selected_map_index,
 		"room_code": room_code,

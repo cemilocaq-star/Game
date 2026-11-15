@@ -81,6 +81,28 @@ Reason: the START and CREATE ROOM buttons did nothing, and the menu did not feel
 
 - A default public server address. The Render service name suggests `oxenwar-game-server`, but the deployed URL is not confirmed, so none is hard-coded. Set `oxenwar/server_host` in `project.godot` or the `OXENWAR_SERVER_HOST` environment variable to ship one.
 
+## Automatic server discovery and join by room code
+
+Request: no server address to type; joining a friend needs only the room code.
+
+### IMPLEMENTED
+
+- Supabase migration `20261115120000_oxenwar_server_directory.sql`: tables `oxenwar_servers` and `oxenwar_room_directory` (no direct client access) and two read functions, `oxenwar_find_server()` and `oxenwar_find_room_server(code)`, callable by signed-in players only.
+- Edge Function action `sync_directory`: a dedicated server announces its address, player count and room codes (protected by `OXENWAR_SERVER_SECRET`, input validated).
+- Dedicated server: registers itself every 25 seconds and within about 2 seconds of a room change. Public address from `OXENWAR_PUBLIC_HOST`, or detected on Render / Fly.io.
+- Client: START and CREATE ROOM connect to the best online server; JOIN looks up the server that hosts the room code. A sleeping free-tier server is woken with one `/health` request. Nothing online leaves the player in the offline training arena with a clear toast.
+- Menu: the server box moved behind **CUSTOM SERVER**; a status light shows `SERVER ONLINE • players` or `NO ONLINE SERVER`; CREATE ROOM and JOIN explain when no server is online.
+- `tests/test_menu_ui.gd` updated for the new flow (fake backend with and without an online server).
+
+### Limits (by design)
+
+- A game server still has to run somewhere. The code finds a running server; it cannot create hosting. No public server is deployed yet.
+- Rooms live in server memory, so a code stops working when the server restarts. Private rooms still require friendship with the room owner.
+
+### BLOCKED until applied
+
+- The migration and the Edge Function change are in the repository but **not applied** to the live Supabase project, and no dedicated server is deployed. Until both are done, the lobby shows `NO ONLINE SERVER`.
+
 ## Exports and checks
 
 The ZIP contains Windows x86-64 EXE/PCK and a signed ARM64 Android debug APK, plus build logs and APK signature/package checks. See `docs/qa/phase4`. To repeat the new regression after importing the project, run `godot --headless --path . --script tests/test_meme_events.gd`.

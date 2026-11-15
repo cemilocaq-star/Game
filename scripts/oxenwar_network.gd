@@ -94,6 +94,13 @@ var _reconnect_attempts := 0
 var _last_room_code := ""
 var _last_host := ""
 var _server_secret := ""
+# Server directory: the dedicated server announces its public address and room codes to Supabase so
+# clients can find it automatically (START) or find the server of a room code (JOIN).
+var _directory_host := ""
+var _directory_timer := 0.0
+var _directory_signature := ""
+var _directory_busy := false
+var _directory_warned := false
 
 func start_server() -> bool:
 	is_dedicated_server = true
@@ -135,6 +142,11 @@ func start_server() -> bool:
 	multiplayer.multiplayer_peer = peer
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+	_directory_host = _detect_public_host()
+	if _directory_host.is_empty():
+		push_warning("OXENWAR_PUBLIC_HOST is not set and no hosting platform was detected: this server will not appear in the automatic server list.")
+	else:
+		print("OxenWar server directory address: %s" % _directory_host)
 	return true
 
 func connect_to_server(host: String, access_token: String) -> void:
@@ -384,6 +396,7 @@ func request_blaster_fire(weapon_id: String, direction: Vector3) -> void:
 func _process(delta: float) -> void:
 	if is_dedicated_server:
 		_server_process_rooms(delta)
+		_server_process_directory(delta)
 		return
 	if not is_authenticated or local_player == null or multiplayer.multiplayer_peer == null:
 		return
@@ -1180,6 +1193,65 @@ func _server_remove_from_room(user_id: String) -> void:
 	if room.members.is_empty():
 		_rooms.erase(old_code)
 		_free_room_world(old_code)
+
+## Public address clients use to reach this server. OXENWAR_PUBLIC_HOST wins; Render and Fly.io are detected.
+func _detect_public_host() -> String:
+	var explicit := OS.get_environment("OXENWAR_PUBLIC_HOST").strip_edges()
+	if not explicit.is_empty():
+		return explicit.rstrip("/")
+	var render_url := OS.get_environment("RENDER_EXTERNAL_URL").strip_edges()
+	if render_url.begins_with("https://"):
+		return "wss://" + render_url.trim_prefix("https://").rstrip("/")
+	var fly_app := OS.get_environment("FLY_APP_NAME").strip_edges()
+	if not fly_app.is_empty():
+		return fly_app + ".fly.dev"
+	return ""
+
+func _server_process_directory(delta: float) -> void:
+	if _directory_host.is_empty() or _directory_busy:
+		return
+	_directory_timer += delta
+	var codes := PackedStringArray()
+	for code in _rooms.keys():
+		codes.append(str(code))
+	codes.sort()
+	var signature := "%d|%s" % [_server_players.size(), ",".join(codes)]
+	var changed := signature != _directory_signature
+	# New rooms are announced within ~2 seconds; otherwise a heartbeat every 25 seconds keeps the entry fresh.
+	if (changed and _directory_timer >= 2.0) or _directory_timer >= 25.0 or _directory_signature.is_empty():
+		_sync_directory(signature)
+
+func _sync_directory(signature: String) -> void:
+	_directory_busy = true
+	_directory_timer = 0.0
+	var rooms: Array = []
+	for code in _rooms.keys():
+		if rooms.size() >= 200:
+			break
+		var room: Dictionary = _rooms[code]
+		rooms.append({
+			"code": str(code),
+			"mode": _sanitize_mode(str(room.get("mode", "ffa"))),
+			"map_index": ARENA_LAYOUT.sanitize_map(int(room.get("map_index", 4)))
+		})
+	var headers := PackedStringArray([
+		"apikey: " + SUPABASE_KEY,
+		"Content-Type: application/json",
+		"x-oxenwar-server-secret: " + _server_secret
+	])
+	var result := await _http_json(HTTPClient.METHOD_POST, SUPABASE_URL + "/functions/v1/oxenwar-server-sync", headers, {
+		"action": "sync_directory",
+		"host": _directory_host,
+		"player_count": _server_players.size(),
+		"max_players": MAX_CLIENTS,
+		"rooms": rooms
+	})
+	if result.get("ok", false):
+		_directory_signature = signature
+	elif not _directory_warned:
+		_directory_warned = true
+		push_warning("OxenWar server directory sync failed with HTTP status %d" % int(result.get("status", 0)))
+	_directory_busy = false
 
 func _generate_room_code() -> String:
 	var alphabet := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"

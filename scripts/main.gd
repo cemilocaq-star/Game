@@ -253,9 +253,6 @@ func _ready() -> void:
 	heartbeat.timeout.connect(_send_presence_heartbeat)
 	add_child(heartbeat)
 	_send_presence_heartbeat()
-	if pending_launch_action == "practice":
-		# The menu was started without a server address: this is the offline training arena.
-		_show_meme_toast("OFFLINE TRAINING • type a server in the MULTIPLAYER box to play online")
 
 func _request_player_identity() -> void:
 	backend = BACKEND_SCRIPT.new()
@@ -323,13 +320,59 @@ func _start_multiplayer_client() -> void:
 	network.room_state_changed.connect(_on_network_room_state)
 	network.invite_received.connect(_on_room_invite_received)
 	network.set_local_player(player, local_player_name, player.cosmetic_color)
-	var host := _configured_server_host()
-	if host.is_empty():
-		_on_network_status_changed("Dedicated server not configured")
-	elif is_instance_valid(backend) and not str(backend.access_token).is_empty():
-		network.connect_to_server(host, str(backend.access_token))
-	else:
+	var host := await _resolve_server_host()
+	if not host.is_empty():
+		if is_instance_valid(network_host_input):
+			network_host_input.text = host
+		if is_instance_valid(backend) and not str(backend.access_token).is_empty():
+			network.connect_to_server(host, str(backend.access_token))
+		else:
+			_on_network_status_changed("Sign in required for multiplayer")
+	elif not is_instance_valid(backend) or str(backend.access_token).is_empty():
 		_on_network_status_changed("Sign in required for multiplayer")
+
+## A manual address (advanced menu box, OXENWAR_SERVER_HOST, project setting) wins. Otherwise the server
+## is found in the Supabase directory: the server that hosts the room code when joining, else the best
+## online server. With nothing online the player stays in the offline training arena.
+func _resolve_server_host() -> String:
+	var manual := _configured_server_host()
+	if not manual.is_empty():
+		return manual
+	if not is_instance_valid(backend) or str(backend.access_token).is_empty():
+		return ""
+	if pending_launch_action == "join_room":
+		var code := pending_launch_room_code.strip_edges().to_upper()
+		_on_network_status_changed("Looking for room %s..." % code)
+		var room_lookup: Dictionary = await backend.find_room_server(code)
+		if room_lookup.get("ok", false):
+			return str(room_lookup.get("host", ""))
+		_show_meme_toast("ROOM %s NOT FOUND • check the code; the room may have closed" % code)
+		_on_network_status_changed("Room %s not found" % code)
+		pending_launch_action = "practice"
+		return ""
+	_on_network_status_changed("Finding a server...")
+	var found: Dictionary = await backend.find_server()
+	if found.get("ok", false):
+		var found_host := str(found.get("host", ""))
+		if bool(found.get("stale", false)):
+			await _wake_server(found_host)
+		return found_host
+	_show_meme_toast("NO ONLINE SERVER • offline training arena")
+	_on_network_status_changed("No online server found")
+	pending_launch_action = "practice"
+	return ""
+
+## Free hosting plans put idle servers to sleep; one HTTP request wakes them (this can take a minute).
+func _wake_server(host: String) -> void:
+	if not host.begins_with("wss://"):
+		return
+	_on_network_status_changed("Waking the server (up to a minute)...")
+	var request := HTTPRequest.new()
+	request.timeout = 75.0
+	add_child(request)
+	if request.request("https://" + host.trim_prefix("wss://") + "/health") == OK:
+		await request.request_completed
+	request.queue_free()
 
 func _on_network_status_changed(message: String) -> void:
 	if is_instance_valid(network_status_label):
@@ -1337,7 +1380,7 @@ func _build_hud() -> void:
 	collectibles_label.add_theme_color_override("font_color", Color("#F5D27A"))
 	status_label = _make_label(root, "WASD move • Space jump • Shift sprint • Ctrl slide • Q dash • Esc mouse", Vector2(22, 84), 14)
 	var configured_server_host := _configured_server_host()
-	network_status_label = _make_label(root, "MULTIPLAYER • Connecting..." if not configured_server_host.is_empty() else "MULTIPLAYER • Server not configured", Vector2(22, 245), 14)
+	network_status_label = _make_label(root, "MULTIPLAYER • Connecting..." if not configured_server_host.is_empty() else "MULTIPLAYER • Finding a server...", Vector2(22, 245), 14)
 	network_host_input = LineEdit.new()
 	network_host_input.position = Vector2(22, 273)
 	network_host_input.size = Vector2(240, 36)

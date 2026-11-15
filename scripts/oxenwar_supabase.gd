@@ -259,3 +259,28 @@ func get_friend_presence(friend_ids: PackedStringArray) -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET,
 		"/rest/v1/online_presence?select=user_id,last_seen_at&user_id=in.(%s)" % ",".join(friend_ids),
 		null, true)
+
+## Finds a server automatically. Returns {ok, host, stale, player_count, max_players}; ok is false when
+## no server has registered (none=true) or the lookup failed (message).
+func find_server() -> Dictionary:
+	var result := await _request(HTTPClient.METHOD_POST, "/rest/v1/rpc/oxenwar_find_server", {}, true)
+	return _directory_result(result, "No online server was found.")
+
+## Finds the server that hosts a room code.
+func find_room_server(code: String) -> Dictionary:
+	var result := await _request(HTTPClient.METHOD_POST, "/rest/v1/rpc/oxenwar_find_room_server", {"p_code": code.strip_edges().to_upper()}, true)
+	return _directory_result(result, "That room code was not found.")
+
+func _directory_result(result: Dictionary, none_message: String) -> Dictionary:
+	if not result.get("ok", false):
+		return {"ok": false, "message": str(result.get("message", "Server lookup failed."))}
+	var data: Variant = result.get("data", null)
+	if data is Dictionary and not str(data.get("host", "")).strip_edges().is_empty():
+		return {
+			"ok": true,
+			"host": str(data.get("host", "")).strip_edges(),
+			"stale": bool(data.get("stale", false)),
+			"player_count": int(data.get("player_count", 0)),
+			"max_players": int(data.get("max_players", 0))
+		}
+	return {"ok": false, "none": true, "message": none_message}

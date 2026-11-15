@@ -6,7 +6,7 @@ errors = []
 
 required = [
     "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/arcade_weapon_visuals.gd", "scripts/character_visuals.gd", "scripts/character_motion_rig.gd", "scripts/map_world_builder.gd", "scripts/combat_fx.gd",
-    "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd", "scripts/fps_ui.gd", "tests/test_menu_ui.gd",
+    "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd", "supabase/migrations/20261115120000_oxenwar_server_directory.sql", "scripts/fps_ui.gd", "tests/test_menu_ui.gd",
     "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "scripts/oxenwar_server_player.gd", "server/README.md", "Dockerfile", "fly.toml", "render.yaml",
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
     "supabase/migrations/20261109114619_oxenwar_social_foundation.sql",
@@ -85,7 +85,7 @@ checks = [
     ("ERROR: Failed to load script", workflow, "CI import fails on unloaded GDScript resources"),
     ("func _configured_server_host() -> String:", main, "server host configuration resolver"),
     ('ProjectSettings.get_setting("oxenwar/server_host", "")', main, "no implicit localhost multiplayer fallback"),
-    ("MULTIPLAYER • Server not configured", main, "explicit multiplayer deployment status"),
+    ("MULTIPLAYER • Finding a server...", main, "explicit server discovery status"),
     ("_on_remote_player_state", main, "remote player rendering"),
     ('@rpc("any_peer", "call_remote", "unreliable_ordered")', read("scripts/oxenwar_network.gd"), "server movement RPC"),
     ("MAX_CLIENTS := 32", read("scripts/oxenwar_network.gd"), "dedicated server capacity"),
@@ -300,10 +300,10 @@ checks.extend([
     ('_launch_game.bind("quick_match")', menu, "start action launches public quick matchmaking"),
     ('_launch_game.bind("create_room")', menu, "create room reaches the room creation flow"),
     ('_launch_game.bind("join_room")', menu, "join room reaches the room joining flow"),
-    ('_t("server_missing")', menu, "menu explicitly reports missing public server configuration"),
+    ('_t("auto_none_hint")', menu, "menu explains when no online server is found"),
 
     ('_t("mode_ffa")', menu, "localized matchmaking game mode"),
-    ('_t("server_missing")', menu, "localized missing-server state"),
+    ('_t("server_auto_none")', menu, "localized no-online-server state"),
 
 
 
@@ -495,6 +495,10 @@ for needle, source, label in checks:
 
 if 'ProjectSettings.get_setting("oxenwar/server_host", "127.0.0.1")' in main or 'else "127.0.0.1"' in main:
     errors.append("multiplayer client must not default to localhost when no dedicated server is configured")
+if "find_room_server" not in main or "find_server" not in main:
+    errors.append("main.gd must resolve the server automatically (room code lookup and best-server lookup)")
+if "sync_directory" not in network or "sync_directory" not in read("supabase/functions/oxenwar-server-sync/index.ts"):
+    errors.append("dedicated server must register itself in the server directory")
 if "email_input" in menu:
     errors.append("email field remains in the account UI")
 # The lobby action buttons must never be silently disabled; they explain what is missing instead.
@@ -502,7 +506,7 @@ for disabled_button in ("start.disabled", "create.disabled", "join.disabled", "s
     if disabled_button in menu:
         errors.append(f"lobby button is disabled again: {disabled_button}")
 for needle, label in (
-    ('"practice"', "offline training fallback when no server address is set"),
+    ("auto_server_state", "automatic server lookup in the lobby"),
     ("_show_notice(_t(\"need_server_room\")", "visible hint when creating a room without a server"),
     ("FPS_UI.MenuBackdrop", "FPS-style animated menu backdrop"),
     ("_build_hero", "3D hero character in the play lobby"),

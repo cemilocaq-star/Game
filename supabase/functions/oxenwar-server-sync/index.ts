@@ -200,6 +200,48 @@ Deno.serve(async (request: Request) => {
     return json(403, { error: "server_authentication_failed" });
   }
 
+  if (action === "sync_directory") {
+    // A dedicated server announces itself and its rooms so clients can find it without an address.
+    const host = String(body.host ?? "").trim();
+    const playerCount = body.player_count;
+    const maxPlayers = body.max_players;
+    const rooms = body.rooms;
+    if (!/^(wss?:\/\/)?[A-Za-z0-9.-]{3,190}(:\d{2,5})?$/.test(host) ||
+        typeof playerCount !== "number" || !Number.isInteger(playerCount) || playerCount < 0 || playerCount > 1000 ||
+        typeof maxPlayers !== "number" || !Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 1000 ||
+        !Array.isArray(rooms) || rooms.length > 200 ||
+        !rooms.every((room) => room && typeof room === "object" && /^[A-Z2-9]{6}$/.test(String(room.code)) &&
+          /^[a-z_]{2,24}$/.test(String(room.mode)) && Number.isInteger(room.map_index) && room.map_index >= 0 && room.map_index <= 20)) {
+      return json(400, { error: "invalid_directory_payload" });
+    }
+    const now = new Date().toISOString();
+    const { error: serverError } = await admin.from("oxenwar_servers").upsert({
+      host,
+      player_count: playerCount,
+      max_players: maxPlayers,
+      updated_at: now,
+    });
+    if (serverError) return json(500, { error: "server_directory_failed" });
+    const codes = rooms.map((room) => String(room.code));
+    let cleanup = admin.from("oxenwar_room_directory").delete().eq("server_host", host);
+    if (codes.length > 0) cleanup = cleanup.not("code", "in", "(" + codes.join(",") + ")");
+    const { error: cleanupError } = await cleanup;
+    if (cleanupError) return json(500, { error: "room_directory_cleanup_failed" });
+    if (codes.length > 0) {
+      const { error: roomError } = await admin.from("oxenwar_room_directory").upsert(
+        rooms.map((room) => ({
+          code: String(room.code),
+          server_host: host,
+          mode: String(room.mode),
+          map_index: room.map_index,
+          updated_at: now,
+        })),
+      );
+      if (roomError) return json(500, { error: "room_directory_failed" });
+    }
+    return json(200, { ok: true });
+  }
+
   const session = await loadSession(admin, String(body.session_token ?? ""), serverSecret);
   if (!session) return json(401, { error: "invalid_server_session" });
 

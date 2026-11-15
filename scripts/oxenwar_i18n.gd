@@ -58,12 +58,19 @@ const EXTRA := {
 		"mode_desc_bomb":"Bombanı qur və ya zərərsizləşdir. Raund sistemi.",
 		"server_status_ready":"SERVER HAZIRDIR", "server_status_none":"SERVER YOXDUR", "server_status_bad":"ÜNVAN YANLIŞDIR",
 		"start_training":"BAŞLA • TƏLİM ARENASI", "training_notice":"Server ünvanı yoxdur. Oflayn təlim arenası açılır.",
-		"need_server_room":"Otaq yaratmaq üçün əvvəlcə server ünvanını daxil et.",
-		"need_server_join":"Otağa qoşulmaq üçün əvvəlcə server ünvanını daxil et.",
 		"server_field_hint":"wss://… və ya host/IP", "your_server":"SERVER",
 		"footer_hint":"[WASD] hərəkət   [SHIFT] qaç   [CTRL] sürüş   [Q] dash   [V] arsenal   [ESC] fasilə",
 		"private_room":"ÖZƏL OTAQ", "quick_match_label":"SÜRƏTLİ MATÇ", "level":"RANK",
-		"login_title":"HESABINA DAXİL OL"
+		"login_title":"HESABINA DAXİL OL",
+		"need_server_room":"Hazırda onlayn server yoxdur, otaq yaratmaq mümkün deyil.",
+		"need_server_join":"Hazırda onlayn server yoxdur, otağa qoşulmaq mümkün deyil.",
+		"server_custom":"ÖZ SERVERİN",
+		"server_auto_online":"SERVER ONLAYN",
+		"server_auto_none":"ONLAYN SERVER YOXDUR",
+		"server_auto_checking":"SERVER AXTARILIR...",
+		"auto_hint":"Server avtomatik tapılır. Dostun otağına qoşulmaq üçün yalnız otaq kodunu yaz.",
+		"auto_none_hint":"Hazırda onlayn server tapılmadı. BAŞLA oflayn təlim arenasını açır, otaqlar server qalxanda işləyəcək.",
+		"custom_server":"ÖZ SERVERİM"
 	},
 	"en": {
 		"map":"MAP", "mode_bomb":"BOMB RUSH • PLANT / DEFUSE",
@@ -73,12 +80,19 @@ const EXTRA := {
 		"mode_desc_bomb":"Plant or defuse the bomb. Round-based.",
 		"server_status_ready":"SERVER READY", "server_status_none":"NO SERVER", "server_status_bad":"CHECK ADDRESS",
 		"start_training":"START • TRAINING ARENA", "training_notice":"No server address set. Opening the offline training arena.",
-		"need_server_room":"Enter a server address first to create a room.",
-		"need_server_join":"Enter a server address first to join a room.",
 		"server_field_hint":"wss://… or host/IP", "your_server":"SERVER",
 		"footer_hint":"[WASD] move   [SHIFT] sprint   [CTRL] slide   [Q] dash   [V] arsenal   [ESC] pause",
 		"private_room":"PRIVATE ROOM", "quick_match_label":"QUICK MATCH", "level":"RANK",
-		"login_title":"SIGN IN TO YOUR ACCOUNT"
+		"login_title":"SIGN IN TO YOUR ACCOUNT",
+		"need_server_room":"No online server right now, so a room cannot be created.",
+		"need_server_join":"No online server right now, so you cannot join a room.",
+		"server_custom":"CUSTOM SERVER",
+		"server_auto_online":"SERVER ONLINE",
+		"server_auto_none":"NO ONLINE SERVER",
+		"server_auto_checking":"SEARCHING FOR A SERVER...",
+		"auto_hint":"The server is found automatically. To join a friend, just enter the room code.",
+		"auto_none_hint":"No online server found. START opens the offline training arena; rooms work once a server is online.",
+		"custom_server":"CUSTOM SERVER"
 	},
 	"tr": {
 		"map":"HARİTA", "mode_bomb":"BOMBA HÜCUMU • KUR / ETKİSİZLEŞTİR",
@@ -88,12 +102,19 @@ const EXTRA := {
 		"mode_desc_bomb":"Bombayı kur veya etkisiz hale getir. Raund tabanlı.",
 		"server_status_ready":"SUNUCU HAZIR", "server_status_none":"SUNUCU YOK", "server_status_bad":"ADRESİ KONTROL ET",
 		"start_training":"BAŞLA • ANTRENMAN ARENASI", "training_notice":"Sunucu adresi yok. Çevrimdışı antrenman arenası açılıyor.",
-		"need_server_room":"Oda oluşturmak için önce sunucu adresi gir.",
-		"need_server_join":"Odaya katılmak için önce sunucu adresi gir.",
 		"server_field_hint":"wss://… veya host/IP", "your_server":"SUNUCU",
 		"footer_hint":"[WASD] hareket   [SHIFT] koş   [CTRL] kay   [Q] dash   [V] arsenal   [ESC] duraklat",
 		"private_room":"ÖZEL ODA", "quick_match_label":"HIZLI MAÇ", "level":"RÜTBE",
-		"login_title":"HESABINA GİRİŞ YAP"
+		"login_title":"HESABINA GİRİŞ YAP",
+		"need_server_room":"Şu anda çevrimiçi sunucu yok, oda oluşturulamıyor.",
+		"need_server_join":"Şu anda çevrimiçi sunucu yok, odaya katılınamıyor.",
+		"server_custom":"ÖZEL SUNUCU",
+		"server_auto_online":"SUNUCU ÇEVRİMİÇİ",
+		"server_auto_none":"ÇEVRİMİÇİ SUNUCU YOK",
+		"server_auto_checking":"SUNUCU ARANIYOR...",
+		"auto_hint":"Sunucu otomatik bulunur. Arkadaşının odasına katılmak için sadece oda kodunu yaz.",
+		"auto_none_hint":"Çevrimiçi sunucu bulunamadı. BAŞLA çevrimdışı antrenman arenasını açar, odalar sunucu açılınca çalışır.",
+		"custom_server":"ÖZEL SUNUCU"
 	},
 	"ru": {
 		"map":"КАРТА", "mode_bomb":"БОМБА • ЗАЛОЖИТЬ / ОБЕЗВРЕДИТЬ",
@@ -103,12 +124,19 @@ const EXTRA := {
 		"mode_desc_bomb":"Заложите или обезвредьте бомбу. Раундовый режим.",
 		"server_status_ready":"СЕРВЕР ГОТОВ", "server_status_none":"НЕТ СЕРВЕРА", "server_status_bad":"ПРОВЕРЬТЕ АДРЕС",
 		"start_training":"СТАРТ • ТРЕНИРОВКА", "training_notice":"Адрес сервера не указан. Открывается офлайн-арена для тренировки.",
-		"need_server_room":"Чтобы создать комнату, сначала введите адрес сервера.",
-		"need_server_join":"Чтобы войти в комнату, сначала введите адрес сервера.",
 		"server_field_hint":"wss://… или хост/IP", "your_server":"СЕРВЕР",
 		"footer_hint":"[WASD] движение   [SHIFT] бег   [CTRL] скольжение   [Q] рывок   [V] арсенал   [ESC] пауза",
 		"private_room":"ЧАСТНАЯ КОМНАТА", "quick_match_label":"БЫСТРЫЙ МАТЧ", "level":"РАНГ",
-		"login_title":"ВХОД В АККАУНТ"
+		"login_title":"ВХОД В АККАУНТ",
+		"need_server_room":"Сейчас нет онлайн-сервера, комнату создать нельзя.",
+		"need_server_join":"Сейчас нет онлайн-сервера, войти в комнату нельзя.",
+		"server_custom":"СВОЙ СЕРВЕР",
+		"server_auto_online":"СЕРВЕР ОНЛАЙН",
+		"server_auto_none":"НЕТ ОНЛАЙН-СЕРВЕРА",
+		"server_auto_checking":"ПОИСК СЕРВЕРА...",
+		"auto_hint":"Сервер находится автоматически. Чтобы зайти к другу, введите только код комнаты.",
+		"auto_none_hint":"Онлайн-сервер не найден. СТАРТ открывает офлайн-тренировку, комнаты заработают, когда сервер будет онлайн.",
+		"custom_server":"СВОЙ СЕРВЕР"
 	}
 }
 
