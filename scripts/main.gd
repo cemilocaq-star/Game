@@ -6,6 +6,8 @@ const GRENADE_PHYSICS := preload("res://scripts/grenade_physics.gd")
 const ARSENAL_PREVIEW := preload("res://scripts/arsenal_preview.gd")
 const PLAYER_SCRIPT = preload("res://scripts/player.gd")
 const SFX_DIRECTOR = preload("res://scripts/sfx_director.gd")
+const WEAPON_AUDIO = preload("res://scripts/weapon_audio.gd")
+const SOUND_OCCLUSION = preload("res://scripts/sound_occlusion.gd")
 const BACKEND_SCRIPT = preload("res://scripts/oxenwar_supabase.gd")
 const MENU_SCRIPT = preload("res://scripts/oxenwar_menu.gd")
 const NETWORK_SCRIPT = preload("res://scripts/oxenwar_network.gd")
@@ -188,6 +190,7 @@ var pause_menu
 # -1 = no authoritative state seen yet (avoids a false hit marker on the first snapshot).
 var _prev_local_hits := -1
 var _prev_local_kills := -1
+var _prev_local_dead := false
 var _prev_local_health := -1.0
 var emote_wheel_button: Button
 const WEAPON_ORDER := ["aether", "minicore", "hand_cannon", "pulse_carbine", "star_piercer", "duck_launcher", "banana_boomerang", "confetti_cannon", "prism_scepter", "vortex_orbiter", "comet_bow", "bubble_burst", "glitch_ray", "meteor_mallet", "frost_wand", "solar_lance", "slime_slinger", "pixel_storm", "thunder_drum", "moon_disc", "jellyfish_staff", "portal_popper", "rubber_chicken", "ranger_rifle", "heavy_sidearm", "longshot", "rotary_arc"]
@@ -700,16 +703,18 @@ func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Ve
 	var remote = remote_players.get(shooter_peer_id)
 	if is_instance_valid(remote):
 		remote.play_weapon_fire(weapon_id)
-	if not _remote_weapon_audio.has(weapon_id):
-		_remote_weapon_audio[weapon_id] = PLAYER_SCRIPT.make_weapon_stream(weapon_id)
 	var remote_audio := AudioStreamPlayer3D.new()
 	remote_audio.name = "RemoteAetherPulseAudio"
-	remote_audio.stream = _remote_weapon_audio[weapon_id]
+	# Other players are heard in the simplified "far" layering, a different variant each shot.
+	remote_audio.stream = WEAPON_AUDIO.stream(weapon_id, WEAPON_AUDIO.FAR, randi() % WEAPON_AUDIO.VARIANTS)
 	remote_audio.volume_db = -7.0
 	remote_audio.max_distance = 42.0
 	remote_audio.unit_size = 9.0
 	add_child(remote_audio)
 	remote_audio.global_position = origin
+	# Walls between the listener and the shooter muffle and soften the shot.
+	if is_instance_valid(player) and player.is_inside_tree():
+		SOUND_OCCLUSION.apply(remote_audio, player.global_position + Vector3.UP * 1.5, player.get_world_3d().direct_space_state, -7.0, [player.get_rid()])
 	remote_audio.play()
 	remote_audio.finished.connect(remote_audio.queue_free)
 	var beam := MeshInstance3D.new()
@@ -950,6 +955,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("throw_grenade") and is_instance_valid(network) and network.is_authenticated and is_instance_valid(player):
 		network.request_grenade_throw(-player.global_basis.z + Vector3.UP * 0.12)
+		if is_instance_valid(sfx):
+			sfx.play_recorded("throw", -8.0)
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("objective_interact") and is_instance_valid(network) and network.is_authenticated:
@@ -1002,6 +1009,10 @@ func _update_combat_feedback(state: Dictionary) -> void:
 				sfx.play("damage")
 	if is_instance_valid(sfx):
 		sfx.set_low_health(health_now, not bool(state.get("dead", false)))
+	var dead_now := bool(state.get("dead", false))
+	if _prev_local_dead and not dead_now and is_instance_valid(sfx):
+		sfx.play_recorded("respawn", -8.0)
+	_prev_local_dead = dead_now
 	_prev_local_hits = hits
 	_prev_local_kills = kills
 	_prev_local_health = health_now
@@ -2229,6 +2240,8 @@ func _add_touch_button(root: Control, text_value: String, action: String, offset
 func _throw_grenade_from_touch() -> void:
 	if is_instance_valid(network) and network.is_authenticated and is_instance_valid(player):
 		network.request_grenade_throw(-player.global_basis.z + Vector3.UP * 0.12)
+		if is_instance_valid(sfx):
+			sfx.play_recorded("throw", -8.0)
 
 
 func _finish_round() -> void:

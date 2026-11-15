@@ -210,6 +210,9 @@ jobs:
       - name: Test imported canyon landmarks
         run: timeout 45s godot --headless --path . --script tests/test_canyon_landmarks.gd
 
+      - name: Test layered weapon audio, occlusion and recorded sounds
+        run: timeout 120s godot --headless --path . --script tests/test_weapon_audio.gd
+
       - name: Test feedback sound bank and director
         run: timeout 60s godot --headless --path . --script tests/test_sfx_bank.gd
 

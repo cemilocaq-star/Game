@@ -8,7 +8,21 @@ extends RefCounted
 const SAMPLE_RATE := 22050
 const IDS := ["ui_hover", "ui_click", "hit", "kill", "damage", "heartbeat", "beep", "tick"]
 
+## Real recordings (Kenney, CC0 1.0 - see assets/audio/licenses). Used as a layer or as the sound
+## itself where one fits; the synthesized cue is the fallback if a file is not present.
+const RECORDED_DIR := "res://assets/audio/sfx/"
+
 static var _cache: Dictionary = {}
+static var _recorded_cache: Dictionary = {}
+static var _ui_turn := 0
+
+
+## The recorded CC0 sound called `name` (for example "hit-light"), or null if it is not shipped.
+static func recorded(sound_name: String) -> AudioStream:
+	if not _recorded_cache.has(sound_name):
+		var path := RECORDED_DIR + sound_name + ".ogg"
+		_recorded_cache[sound_name] = load(path) as AudioStream if ResourceLoader.exists(path) else null
+	return _recorded_cache[sound_name]
 
 
 static func stream(id: String) -> AudioStreamWAV:
@@ -105,15 +119,30 @@ static func _wav(samples: PackedFloat32Array) -> AudioStreamWAV:
 
 ## Plays an interface sound from anywhere in the tree (used by menu buttons).
 static func play_ui(from: Node, id: String, volume_db: float = -10.0) -> void:
-	if from == null or not from.is_inside_tree():
+	_play_on_ui_player(from, stream(id), volume_db)
+
+
+## Plays a recorded CC0 sound (or the synthesized cue with the same name if it is missing).
+static func play_recorded(from: Node, sound_name: String, volume_db: float = -8.0) -> void:
+	var sound := recorded(sound_name)
+	if sound == null:
+		return
+	_play_on_ui_player(from, sound, volume_db)
+
+
+static func _play_on_ui_player(from: Node, sound: AudioStream, volume_db: float) -> void:
+	if from == null or not from.is_inside_tree() or sound == null:
 		return
 	var host := from.get_tree().root
-	var player := host.get_node_or_null("UiSfx") as AudioStreamPlayer
+	# Two players take turns so a hover tick and a click can overlap.
+	_ui_turn = (_ui_turn + 1) % 2
+	var node_name := "UiSfx%d" % _ui_turn
+	var player := host.get_node_or_null(node_name) as AudioStreamPlayer
 	if player == null:
 		player = AudioStreamPlayer.new()
-		player.name = "UiSfx"
+		player.name = node_name
 		host.add_child(player)
-	player.stream = stream(id)
+	player.stream = sound
 	player.volume_db = volume_db
 	player.pitch_scale = randf_range(0.97, 1.03)
 	player.play()

@@ -17,6 +17,8 @@ var _bomb_age := 0.0
 var _last_whole := -1
 
 const VOLUME := {"hit": -7.0, "kill": -3.0, "damage": -4.0, "heartbeat": -8.0, "beep": -9.0, "tick": -10.0}
+## Recorded CC0 impact layered under the synthesized cue: [file, volume dB].
+const RECORDED_LAYER := {"hit": ["hit-light", -11.0], "damage": ["hit-medium", -9.0], "kill": ["hit-heavy", -9.0]}
 
 
 static func heartbeat_interval(health: float) -> float:
@@ -42,6 +44,25 @@ func play(id: String) -> void:
 	player.stream = SFX_BANK.stream(id)
 	player.volume_db = float(VOLUME.get(id, -8.0))
 	player.pitch_scale = randf_range(0.97, 1.03)
+	player.play()
+	if RECORDED_LAYER.has(id):
+		play_recorded(str(RECORDED_LAYER[id][0]), float(RECORDED_LAYER[id][1]), "layer_" + group)
+
+
+## Plays a recorded CC0 sound on its own channel (respawn, throw ...).
+func play_recorded(sound_name: String, volume_db: float = -8.0, channel: String = "recorded") -> void:
+	var sound := SFX_BANK.recorded(sound_name)
+	if sound == null:
+		return
+	var player: AudioStreamPlayer = _channels.get(channel)
+	if player == null:
+		player = AudioStreamPlayer.new()
+		player.name = "Sfx_" + channel
+		add_child(player)
+		_channels[channel] = player
+	player.stream = sound
+	player.volume_db = volume_db
+	player.pitch_scale = randf_range(0.98, 1.02)
 	player.play()
 
 

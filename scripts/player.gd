@@ -5,6 +5,8 @@ const CharacterVisuals = preload("res://scripts/character_visuals.gd")
 const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
 const ARCADE_WEAPON_VISUALS = preload("res://scripts/arcade_weapon_visuals.gd")
 const WEAPON_FEEL = preload("res://scripts/weapon_feel.gd")
+const WEAPON_AUDIO = preload("res://scripts/weapon_audio.gd")
+const SFX_BANK_PLAYER = preload("res://scripts/sfx_bank.gd")
 const FEEL_SETTINGS = preload("res://scripts/user_settings.gd")
 
 const ARCADE_WEAPON_LOCAL := {
@@ -100,6 +102,8 @@ const THIRD_PERSON_OFFSET := Vector3(0.55, 0.2, 3.1)
 var third_person := false
 var _intro_left := INTRO_SECONDS
 var _view_was_external := false
+var _prev_on_floor := true
+var _prev_fall_speed := 0.0
 const WEAPON_REST := Vector3(0.27, -0.24, -0.48)
 var _weapon_equip_tween: Tween
 var _weapon_inspect_tween: Tween
@@ -279,6 +283,11 @@ func _process(delta: float) -> void:
 	CharacterMotionRig.animate(_motion_rig, _motion_clock, Vector2(velocity.x, velocity.z).length(), is_on_floor(), _is_sliding, active_emote, delta)
 	_blaster_cooldown = maxf(0.0, _blaster_cooldown - delta)
 	_blaster_recoil = move_toward(_blaster_recoil, 0.0, delta * 1.35)
+	var on_floor_now := is_on_floor()
+	if on_floor_now and not _prev_on_floor and _prev_fall_speed < -5.5 and not is_dead:
+		SFX_BANK_PLAYER.play_recorded(self, "land", clampf(-14.0 + (-_prev_fall_speed - 5.5) * 0.8, -14.0, -5.0))
+	_prev_on_floor = on_floor_now
+	_prev_fall_speed = velocity.y
 	var recoil_recovery: float = _feel.step(delta)
 	if recoil_recovery > 0.0 and is_instance_valid(_camera) and not is_dead:
 		pitch = clampf(pitch - recoil_recovery, deg_to_rad(-82.0), deg_to_rad(82.0))
@@ -531,6 +540,7 @@ func set_selected_weapon(weapon_id: String) -> void:
 		_weapon_equip_tween.tween_property(_blaster_model, "position", target_position, 0.20).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		_weapon_equip_tween.tween_property(_blaster_model, "rotation", Vector3.ZERO, 0.20).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if is_instance_valid(_blaster_audio):
+		WEAPON_AUDIO.prewarm(weapon_id)
 		_blaster_audio.stream = make_weapon_stream(weapon_id)
 
 func _setup_blaster() -> void:
@@ -569,61 +579,8 @@ func _blaster_material(color: Color, metallic_value: float, emissive: bool = fal
 	return material
 
 static func make_weapon_stream(weapon_id: String) -> AudioStreamWAV:
-	# Original synthetic arcade tones; all samples are generated locally.
-	const sample_rate := 22050
-	const duration := 0.17
-	var profiles := {
-		"aether":[260.0, 105.0, 520.0, 0.22],
-		"minicore":[520.0, 190.0, 880.0, 0.14],
-		"hand_cannon":[145.0, 55.0, 290.0, 0.30],
-		"pulse_carbine":[340.0, 125.0, 680.0, 0.18],
-		"star_piercer":[780.0, 620.0, 1560.0, 0.08],
-		"duck_launcher":[210.0, 80.0, 430.0, 0.34],
-		"banana_boomerang":[430.0, 260.0, 860.0, 0.20],
-		"confetti_cannon":[690.0, 410.0, 1380.0, 0.12],
-		"prism_scepter":[610.0, 180.0, 1220.0, 0.24],
-		"vortex_orbiter":[190.0, 150.0, 570.0, 0.28],
-		"comet_bow":[390.0, 300.0, 1170.0, 0.10],
-		"bubble_burst":[310.0, 220.0, 930.0, 0.32],
-		"glitch_ray":[880.0, 510.0, 1760.0, 0.16],
-		"meteor_mallet":[115.0, 35.0, 230.0, 0.38],
-		"frost_wand":[560.0, 360.0, 1120.0, 0.12],
-		"solar_lance":[470.0, 90.0, 1410.0, 0.26],
-		"slime_slinger":[175.0, 95.0, 350.0, 0.36],
-		"pixel_storm":[960.0, 240.0, 1920.0, 0.10],
-		"thunder_drum":[95.0, 28.0, 190.0, 0.42],
-		"moon_disc":[270.0, 210.0, 810.0, 0.18],
-		"jellyfish_staff":[720.0, 440.0, 1440.0, 0.20],
-		"portal_popper":[225.0, 420.0, 900.0, 0.24],
-		"rubber_chicken":[390.0, 720.0, 1170.0, 0.42],
-		"ranger_rifle":[305.0, 95.0, 610.0, 0.18],
-		"heavy_sidearm":[155.0, 48.0, 310.0, 0.28],
-		"longshot":[820.0, 540.0, 1640.0, 0.09],
-		"rotary_arc":[175.0, 34.0, 525.0, 0.25]
-	}
-	var profile: Array = profiles.get(weapon_id, profiles["aether"])
-	var base_frequency := float(profile[0])
-	var sweep_amount := float(profile[1])
-	var overtone_frequency := float(profile[2])
-	var overtone_mix := float(profile[3])
-	var count := int(sample_rate * duration)
-	var bytes := PackedByteArray()
-	bytes.resize(count * 2)
-	for i in range(count):
-		var t := float(i) / float(sample_rate)
-		var progress := float(i) / float(count)
-		var envelope := pow(maxf(0.0, 1.0 - progress), 2.15)
-		var fundamental := sin(TAU * (base_frequency - sweep_amount * t / duration) * t)
-		var overtone := sin(TAU * overtone_frequency * t) * overtone_mix
-		var wobble := sin(TAU * (base_frequency * 0.5) * t) * 0.08
-		var sample := clampf((fundamental * (0.72 - overtone_mix * 0.35) + overtone + wobble) * envelope * 0.72, -1.0, 1.0)
-		bytes.encode_s16(i * 2, int(sample * 32767.0))
-	var stream := AudioStreamWAV.new()
-	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = sample_rate
-	stream.stereo = false
-	stream.data = bytes
-	return stream
+	# Layered original synthesis (crack, body, sub thump, mechanics, tail); see weapon_audio.gd.
+	return WEAPON_AUDIO.stream(weapon_id, "own", 0)
 
 func inspect_weapon() -> void:
 	if not is_instance_valid(_blaster_model) or arsenal_open or is_dead or _weapon_pose_locked():
@@ -734,6 +691,8 @@ func _fire_blaster() -> void:
 	else:
 		_show_blaster_beam(origin, endpoint)
 	if is_instance_valid(_blaster_audio):
+		# A different layered variant each shot, so repeated fire never sounds identical.
+		_blaster_audio.stream = WEAPON_AUDIO.stream(selected_weapon_id, WEAPON_AUDIO.OWN, randi() % WEAPON_AUDIO.VARIANTS)
 		_blaster_audio.pitch_scale = randf_range(0.985, 1.015)
 		_blaster_audio.play()
 	var flash := MeshInstance3D.new()

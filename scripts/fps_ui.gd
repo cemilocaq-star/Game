@@ -83,12 +83,14 @@ const SFX_BANK := preload("res://scripts/sfx_bank.gd")
 
 
 ## Soft hover tick and click on a menu control (once per control).
-static func attach_sounds(control: BaseButton) -> void:
+## `click_sound` names a recorded CC0 cue: menu-confirm (primary actions), menu-move (selection)
+## or menu-back (back / sign out). Hover stays a very short synthesized tick.
+static func attach_sounds(control: BaseButton, click_sound: String = "menu-move") -> void:
 	if control.has_meta("sfx_attached"):
 		return
 	control.set_meta("sfx_attached", true)
 	control.mouse_entered.connect(func(): if not control.disabled: SFX_BANK.play_ui(control, "ui_hover"))
-	control.pressed.connect(func(): SFX_BANK.play_ui(control, "ui_click"))
+	control.pressed.connect(func(): SFX_BANK.play_recorded(control, click_sound, -9.0))
 
 
 static func flat_box(bg: Color, border: Color = Color.TRANSPARENT, border_width: int = 0, skew: Vector2 = Vector2.ZERO) -> StyleBoxFlat:
@@ -161,7 +163,7 @@ static func button(text: String, kind: String = "secondary", height: float = 48.
 			b.add_theme_color_override("font_hover_color", Color.WHITE)
 			b.add_theme_color_override("font_pressed_color", Color.WHITE)
 	b.add_theme_color_override("font_disabled_color", Color("#5E7284"))
-	attach_sounds(b)
+	attach_sounds(b, "menu-confirm" if kind == "primary" or kind == "danger" else ("menu-back" if kind == "ghost" else "menu-move"))
 	return b
 
 

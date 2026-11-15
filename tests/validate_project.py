@@ -6,7 +6,7 @@ errors = []
 
 required = [
     "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/arcade_weapon_visuals.gd", "scripts/character_visuals.gd", "scripts/character_motion_rig.gd", "scripts/map_world_builder.gd", "scripts/combat_fx.gd",
-    "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd", "supabase/migrations/20261115120000_oxenwar_server_directory.sql", "scripts/fps_ui.gd", "tests/test_menu_ui.gd", "scripts/net_sync.gd", "scripts/weapon_feel.gd", "tests/test_net_sync.gd", "tests/test_event_scheduling.gd", "tests/test_third_person_view.gd", "scripts/sfx_bank.gd", "scripts/sfx_director.gd", "tests/test_sfx_bank.gd", "tests/test_weapon_feel.gd",
+    "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd", "supabase/migrations/20261115120000_oxenwar_server_directory.sql", "scripts/fps_ui.gd", "tests/test_menu_ui.gd", "scripts/net_sync.gd", "scripts/weapon_feel.gd", "tests/test_net_sync.gd", "tests/test_event_scheduling.gd", "tests/test_third_person_view.gd", "scripts/sfx_bank.gd", "scripts/sfx_director.gd", "tests/test_sfx_bank.gd", "scripts/weapon_audio.gd", "scripts/sound_occlusion.gd", "tests/test_weapon_audio.gd", "tests/test_weapon_feel.gd",
     "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "scripts/oxenwar_server_player.gd", "server/README.md", "Dockerfile", "fly.toml", "render.yaml",
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
     "supabase/migrations/20261109114619_oxenwar_social_foundation.sql",
@@ -25,7 +25,7 @@ required = [
     "assets/DuckBeacon_Mascot.glb", "assets/CosmicHalo_Cosmetic.glb",
     "assets/audio/event-start.ogg", "assets/audio/event-freeze.ogg",
     "assets/audio/event-reward.ogg", "assets/audio/event-bonk.ogg",
-    "assets/audio/event-end.ogg", "assets/audio/event-music-loop.ogg",
+    "assets/audio/event-end.ogg", "assets/audio/sfx/hit-light.ogg", "assets/audio/sfx/hit-medium.ogg", "assets/audio/sfx/hit-heavy.ogg", "assets/audio/sfx/land.ogg", "assets/audio/sfx/menu-move.ogg", "assets/audio/sfx/menu-confirm.ogg", "assets/audio/sfx/menu-back.ogg", "assets/audio/sfx/respawn.ogg", "assets/audio/sfx/throw.ogg", "assets/audio/event-music-loop.ogg",
     "tools/fetch_open_audio_assets.py", "docs/EVENT_AUDIO_ASSETS.md",
     "scripts/progression.gd", "scripts/graphics_manager.gd", "scripts/oxenwar_event_fx.gd", "shaders/neon_surface.gdshader",
     "tools/set_android_version.py", "tests/test_android_version.py",
@@ -448,8 +448,8 @@ checks.extend([
 checks.extend([
     ("func inspect_weapon() -> void:", player, "weapon inspect animation action"),
     ("make_weapon_stream(weapon_id: String)", player, "weapon-specific synthetic audio generator"),
-    ('"aether":[260.0, 105.0, 520.0, 0.22]', player, "Aether Blaster synthesized pulse audio profile"),
-    ('"rubber_chicken":[390.0, 720.0, 1170.0, 0.42]', player, "Rubber Chicken distinct audio profile"),
+    ('"aether": [260.0, 105.0, 520.0, 0.22]', read("scripts/weapon_audio.gd"), "Aether Blaster synthesized pulse audio profile"),
+    ('"rubber_chicken": [390.0, 720.0, 1170.0, 0.42]', read("scripts/weapon_audio.gd"), "Rubber Chicken distinct audio profile"),
     ('"star_piercer":[780.0, 620.0, 1560.0, 0.08]', player, "Star Piercer distinct audio profile"),
     ("KEY_H", main, "keyboard weapon inspect shortcut"),
     ("ROTATE PREVIEW", main, "arsenal weapon inspect control"),
@@ -491,6 +491,8 @@ for label, source, function_name in [
 
 net_source = read("scripts/oxenwar_network.gd")
 checks.extend([
+    ("SOUND_OCCLUSION.apply", read("scripts/main.gd"), "wall occlusion for other players' gunfire"),
+    ("WEAPON_AUDIO.stream", read("scripts/player.gd"), "layered weapon audio variants"),
     ("SFX_DIRECTOR", read("scripts/main.gd"), "match feedback audio director"),
     ("attach_sounds", read("scripts/fps_ui.gd"), "menu hover and click sounds"),
     ("_update_camera_view", read("scripts/player.gd"), "character intro and third-person camera"),
