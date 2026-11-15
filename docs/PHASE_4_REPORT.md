@@ -186,6 +186,11 @@ The map and mode blocks are design choices (for example no ice on the water map,
 
 - Balance and feel in real matches; per-event audio timing; client reaction to the new gaps beyond the unchanged snapshot fields.
 
+## Character visibility and feedback audio
+
+- **Local character was invisible.** The local body is deliberately on a render layer the first-person camera skips, so players never saw their own model. IMPLEMENTED: a 2.6 s orbit intro when the match starts (front view swinging behind the character) and a `C` / on-screen `VIEW` third-person camera with wall pull-in, the weapon aimed from the head toward the crosshair point, firing blocked only during the intro. `tests/test_third_person_view.gd` passed in CI. NOT VERIFIED: how it looks and feels in play on PC/phone; the first-person weapon is hidden in third person (no held weapon on the local body yet).
+- **Feedback audio.** See `docs/SFX_RESEARCH.md`. IMPLEMENTED: original synthesized cues, director and menu sounds. NOT VERIFIED: listening balance. Recorded licensed audio and meme sounds remain unassigned.
+
 ## Exports and checks
 
 The ZIP contains Windows x86-64 EXE/PCK and a signed ARM64 Android debug APK, plus build logs and APK signature/package checks. See `docs/qa/phase4`. To repeat the new regression after importing the project, run `godot --headless --path . --script tests/test_meme_events.gd`.
