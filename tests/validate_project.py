@@ -450,7 +450,7 @@ checks.extend([
     ("make_weapon_stream(weapon_id: String)", player, "weapon-specific synthetic audio generator"),
     ('"aether": [260.0, 105.0, 520.0, 0.22]', read("scripts/weapon_audio.gd"), "Aether Blaster synthesized pulse audio profile"),
     ('"rubber_chicken": [390.0, 720.0, 1170.0, 0.42]', read("scripts/weapon_audio.gd"), "Rubber Chicken distinct audio profile"),
-    ('"star_piercer":[780.0, 620.0, 1560.0, 0.08]', player, "Star Piercer distinct audio profile"),
+    ('"star_piercer": [780.0, 620.0, 1560.0, 0.08]', read("scripts/weapon_audio.gd"), "Star Piercer distinct audio profile"),
     ("KEY_H", main, "keyboard weapon inspect shortcut"),
     ("ROTATE PREVIEW", main, "arsenal weapon inspect control"),
     ("_inspect_current_weapon", main, "inspect UI action routing"),
