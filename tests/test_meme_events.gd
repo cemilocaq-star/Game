@@ -20,13 +20,13 @@ func _run() -> void:
 			push_error("Ineligible event selected")
 			quit(1)
 			return
-	var room := {"mode": "ffa", "event_id": "", "event_left": 0.0, "event_clock": 0.1, "round_left": 100.0}
+	var room := {"mode": "ffa", "event_id": "", "event_left": 0.0, "event_clock": 0.1, "round_left": 100.0, "event_fail_streak": 99}
 	var alive: Array[int] = [2, 3]
 	var ok := sunshine > 0 and sunshine < 65
 	ok = EVENTS.step(room, 0.1, rng, alive) and ok
 	ok = room.event_serial == 1 and room.event_warning == 3.0 and ok
-	ok = EVENTS.step(room, 20.0, rng, alive) and room.event_id == "" and room.event_clock == 20.0 and ok
-	ok = not EVENTS.step(room, 19.0, rng, alive) and ok
+	ok = EVENTS.step(room, 20.0, rng, alive) and room.event_id == "" and room.event_clock >= 16.0 and room.event_clock <= 50.0 and ok
+	ok = not EVENTS.step(room, 1.0, rng, alive) and ok
 	ok = EVENTS.track(Vector3.ZERO, Vector3(100, 0, 0), 0.1).is_equal_approx(Vector3(2.4, 0, 0)) and ok
 	var fx := FX.new()
 	root.add_child(fx)

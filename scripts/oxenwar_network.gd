@@ -1177,7 +1177,7 @@ func _new_room(code: String, owner_uid: String, public_room: bool, mode: String 
 		"code": code, "owner_uid": owner_uid, "is_public": public_room, "mode": _sanitize_mode(mode), "map_index": map_index, "grenades": [],
 		"max_players": ROOM_CAPACITY, "members": {}, "orb_available": availability,
 		"orb_respawn": respawn, "event_id": "", "event_left": 0.0,
-		"event_clock": EVENT_INTERVAL, "round_left": 180.0 if _sanitize_mode(mode) == "demolition" else ROUND_SECONDS,
+		"event_clock": MEME_EVENTS.next_gap(_rng, false, true), "event_cooldowns": {}, "event_fail_streak": 0, "event_history": [], "previous_event": "", "round_left": 180.0 if _sanitize_mode(mode) == "demolition" else ROUND_SECONDS,
 		"round_id": str(Time.get_unix_time_from_system()) + "-" + code,
 		"started_at_ms": Time.get_ticks_msec(),
 		"round_finished": false,
@@ -1532,7 +1532,7 @@ func _server_step_meme_event(code: String, room: Dictionary, delta: float) -> vo
 			alive.append(peer)
 	var changed := MEME_EVENTS.step(room, delta, _rng, alive)
 	if room.round_left <= 0.0 and not str(room.event_id).is_empty():
-		MEME_EVENTS.cancel(room)
+		MEME_EVENTS.cancel(room, _rng)
 		changed = true
 	if changed:
 		for member in room.members.values():
@@ -1542,7 +1542,7 @@ func _server_step_meme_event(code: String, room: Dictionary, delta: float) -> vo
 		return
 	var peer := int(room.event_target)
 	if not alive.has(peer):
-		MEME_EVENTS.cancel(room)
+		MEME_EVENTS.cancel(room, _rng)
 		return
 	var target = _server_players[peer]
 	var aim: Vector3 = target.global_position + Vector3.UP * 1.0

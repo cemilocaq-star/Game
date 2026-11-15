@@ -210,6 +210,9 @@ jobs:
       - name: Test imported canyon landmarks
         run: timeout 45s godot --headless --path . --script tests/test_canyon_landmarks.gd
 
+      - name: Test randomized event scheduling
+        run: timeout 90s godot --headless --path . --script tests/test_event_scheduling.gd
+
       - name: Test netcode helpers (interpolation, lag compensation, reconciliation)
         run: timeout 45s godot --headless --path . --script tests/test_net_sync.gd
 
