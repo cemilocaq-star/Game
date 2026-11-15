@@ -145,6 +145,47 @@ Request: study how ten FPS games run their servers (and their weapons, animation
 
 - Downloading real-firearm 3D models, character GLB sets and authentic meme audio (items in the master directive): the build environment only reaches package registries and GitHub, not Sketchfab/CGTrader/sound libraries. These need files supplied by the owner or a network allowance.
 
+## Randomized event system
+
+### IMPLEMENTED AND VERIFIED (GitHub Actions run on this commit)
+
+- The fixed 20 s clock is gone. Each room now waits a random gap (16-38 s, 12-28 s before the first event, +12 s calm after a disruptive event). When the gap ends an activation roll decides whether an event starts (75 %, 60 % of that for a lone player); a failed roll retries after 4-9 s and each failure adds 12 % so events never stall.
+- The event is a weighted pick among events that are eligible right now: not the previous event, not on cooldown, enough players, allowed in this game mode and on this map, short enough to finish before the round ends, and no two Rare/Legendary/Secret events back to back. Only one event runs at a time.
+- `tests/test_event_scheduling.gd` checks the configuration, every eligibility rule, the probability and gap ranges, and a simulation of 300 five-minute rounds (events per round, no overlaps or repeats, variety, legendary rarer than common, no long quiet periods). `tests/test_meme_events.gd` was updated for the new gap behaviour. Both passed in CI.
+
+### Per-event configuration (from `scripts/meme_events.gd`)
+
+Cooldown = time after the event starts before it can return in the same room (rarity cooldown + duration).
+
+| Event | Weight (share) | Rarity | Duration | Cooldown | Min players | Disruptive | Blocked modes | Blocked maps |
+|---|---|---|---|---|---|---|---|---|
+| DUCK_PARADE | 20 (15%) | Common | 12 s | 57 s | 1 | no | - | - |
+| PINK_SKY | 20 (15%) | Common | 12 s | 57 s | 1 | no | - | - |
+| CONFETTI_STORM | 20 (15%) | Common | 12 s | 57 s | 1 | no | - | - |
+| LOW_GRAVITY | 16 (12%) | Common | 12 s | 57 s | 1 | yes | demolition | - |
+| GOLDEN_ORB_RUSH | 10 (7%) | Uncommon | 12 s | 87 s | 1 | no | - | - |
+| BONK_MODE | 9 (7%) | Uncommon | 9 s | 84 s | 1 | yes | demolition | - |
+| NPC_MODE | 8 (6%) | Uncommon | 9 s | 84 s | 1 | yes | - | - |
+| ICE_WORLD | 7 (5%) | Uncommon | 10 s | 85 s | 1 | yes | demolition | Sunken Oasis |
+| BIG_HEAD | 7 (5%) | Uncommon | 10 s | 85 s | 1 | no | - | - |
+| DUCK_EXE | 4 (3%) | Rare | 10 s | 130 s | 1 | yes | - | - |
+| METEOR_SHOWER | 4 (3%) | Rare | 10 s | 130 s | 1 | yes | - | Lost Mall |
+| FREEZE_FRAME | 3 (2%) | Rare | 5 s | 125 s | 2 | yes | demolition | - |
+| REVERSE_PANIC | 3 (2%) | Rare | 7 s | 127 s | 1 | yes | demolition | - |
+| DOUBLE_XP | 2 (1%) | Legendary | 10 s | 190 s | 1 | no | - | - |
+| SUNSHINE | 1 (1%) | Secret | 15 s | 255 s | 2 | yes | demolition, team_deathmatch, king_of_the_hill | - |
+
+The map and mode blocks are design choices (for example no ice on the water map, no meteors inside the mall) and have not been playtested.
+
+### Event presentation and audio status
+
+- Visuals: each event already has procedural effects (`scripts/oxenwar_event_fx.gd`, `scripts/sunshine_fx.gd`) and the DuckBeacon GLB; these were not changed in this step and were not visually re-verified.
+- Audio: the only integrated sounds are the CC0 Kenney cues and the qubodup loop listed in `docs/EVENT_AUDIO_ASSETS.md`, plus the original synthesized motif. **No authentic meme sounds are integrated and none were generated or labelled as memes.** The slots stay unassigned until licensed files are supplied.
+
+### NOT VERIFIED
+
+- Balance and feel in real matches; per-event audio timing; client reaction to the new gaps beyond the unchanged snapshot fields.
+
 ## Exports and checks
 
 The ZIP contains Windows x86-64 EXE/PCK and a signed ARM64 Android debug APK, plus build logs and APK signature/package checks. See `docs/qa/phase4`. To repeat the new regression after importing the project, run `godot --headless --path . --script tests/test_meme_events.gd`.
