@@ -4,6 +4,8 @@ class_name ArcadePlayer
 const CharacterVisuals = preload("res://scripts/character_visuals.gd")
 const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
 const ARCADE_WEAPON_VISUALS = preload("res://scripts/arcade_weapon_visuals.gd")
+const WEAPON_FEEL = preload("res://scripts/weapon_feel.gd")
+const FEEL_SETTINGS = preload("res://scripts/user_settings.gd")
 
 const ARCADE_WEAPON_LOCAL := {
 	"aether": {"name":"AETHER BLASTER", "cooldown":0.24, "range":65.0, "color":Color("#8CEEFF")},
@@ -90,6 +92,7 @@ var _blaster_audio: AudioStreamPlayer3D
 var _blaster_model: Node3D
 var _blaster_cooldown := 0.0
 var _blaster_recoil := 0.0
+var _feel = WEAPON_FEEL.Tracker.new()
 const WEAPON_REST := Vector3(0.27, -0.24, -0.48)
 var _weapon_equip_tween: Tween
 var _weapon_inspect_tween: Tween
@@ -269,6 +272,10 @@ func _process(delta: float) -> void:
 	CharacterMotionRig.animate(_motion_rig, _motion_clock, Vector2(velocity.x, velocity.z).length(), is_on_floor(), _is_sliding, active_emote, delta)
 	_blaster_cooldown = maxf(0.0, _blaster_cooldown - delta)
 	_blaster_recoil = move_toward(_blaster_recoil, 0.0, delta * 1.35)
+	var recoil_recovery: float = _feel.step(delta)
+	if recoil_recovery > 0.0 and is_instance_valid(_camera) and not is_dead:
+		pitch = clampf(pitch - recoil_recovery, deg_to_rad(-82.0), deg_to_rad(82.0))
+		_camera.rotation.x = pitch
 	_weapon_idle_clock += delta
 	if is_instance_valid(_blaster_model):
 		var pose_locked := _weapon_pose_locked()
@@ -619,6 +626,11 @@ func _fire_blaster() -> void:
 	var origin := _camera.global_position
 	var direction := -_camera.global_basis.z.normalized()
 	var weapon_data: Dictionary = ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"])
+	# Weapon feel: spread depends on movement and sustained fire, then the camera kicks up a little.
+	var feel_profile: Dictionary = WEAPON_FEEL.profile(float(weapon_data.get("cooldown", 0.24)), float(weapon_data.get("range", 65.0)))
+	var aiming_now := _aim_held and not arsenal_open and not ui_blocked
+	var spread_now: float = _feel.spread_deg(feel_profile, Vector2(velocity.x, velocity.z).length(), is_on_floor(), _is_sliding, aiming_now)
+	direction = WEAPON_FEEL.apply_spread(direction, spread_now)
 	var endpoint := origin + direction * float(weapon_data.get("range", 65.0))
 	var query := PhysicsRayQueryParameters3D.create(origin, endpoint)
 	query.exclude = [get_rid()]
@@ -628,6 +640,11 @@ func _fire_blaster() -> void:
 		endpoint = hit.position
 	var net: Node = get_parent().get_node_or_null("OxenWarNet")
 	var online_fire: bool = is_instance_valid(net) and bool(net.get("is_authenticated"))
+	var recoil_scale := clampf(float(FEEL_SETTINGS.read_value("gameplay", "recoil_scale", 1.0)), 0.0, 1.5)
+	var kick: Dictionary = _feel.fire(feel_profile, aiming_now, recoil_scale)
+	pitch = clampf(pitch + float(kick.pitch), deg_to_rad(-82.0), deg_to_rad(82.0))
+	_camera.rotation.x = pitch
+	rotate_y(float(kick.yaw))
 	if online_fire:
 		net.call("request_blaster_fire", selected_weapon_id, direction)
 	else:

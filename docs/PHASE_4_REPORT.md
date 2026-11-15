@@ -103,6 +103,48 @@ Request: no server address to type; joining a friend needs only the room code.
 
 - The migration and the Edge Function change are in the repository but **not applied** to the live Supabase project, and no dedicated server is deployed. Until both are done, the lobby shows `NO ONLINE SERVER`.
 
+## Server netcode and weapon feel (research of ten shooters)
+
+Request: study how ten FPS games run their servers (and their weapons, animation and maps) and improve OxenWar accordingly.
+
+### Research summary (what the big shooters do, and what OxenWar did before)
+
+| Technique | Seen in | OxenWar before | Now |
+|---|---|---|---|
+| Fixed server tick, clients decoupled from render rate | Valorant 128, CS2 sub-tick, OW2/R6 64, CoD/Halo 60, Fortnite 30, Apex 20 | 20 Hz snapshots, 20 Hz input | 30 Hz snapshots and input (same class as Fortnite/Apex-plus, cheap for 8-player rooms) |
+| Client-side prediction + server reconciliation | Overwatch, Valorant, Source | Client predicted movement but was **hard-snapped to the 50-100 ms old server position (and server yaw) on every snapshot** | Input sequence numbers; client compares server position with its own position *at that input* and corrects only real disagreement (dead-zone, smooth nudge, snap above 3 m); mouse-look yaw is never overwritten |
+| Snapshot interpolation (about 100 ms behind) | Source default, Overwatch | Remote players lerped toward the latest snapshot | Remote players are drawn 100 ms in the past between two real snapshots; extrapolation capped at 100 ms; teleports (respawn) do not glide |
+| Lag compensation with a cap | Valve (rewind to the shooter's view), Overwatch (about 220 ms fairness clamp) | Hitscan tested enemies at their *current* position | Server keeps 1 s of position history and tests the shot against where each enemy was on the shooter's screen (half RTT + 100 ms), clamped to 220 ms; dead players no longer block shots |
+| Lean snapshots | Source delta compression, Fortnite relevancy | Every snapshot carried about 40 fields per player | Fast fields every snapshot; names, colours, xp, mastery, collections only every 10th snapshot or when someone joins/leaves; client merges |
+| Weapon feel: first shot accurate, bloom while firing, movement/ADS multipliers, per-weapon kick | CS2, Valorant, Apex, CoD | Perfectly accurate laser, visual-only recoil | Hybrid kick plus spread derived from fire rate and range; movement and aim multipliers; bloom recovers; kick partly returns; accessibility scale `gameplay/recoil_scale` (0 = no camera kick) |
+
+### IMPLEMENTED
+
+- `scripts/net_sync.gd` (interpolation buffer, position history, rewind clamp, ray-vs-capsule test, reconciliation), wired into `oxenwar_network.gd`, `oxenwar_remote_player.gd` and `main.gd`.
+- Ping/pong RPC (`_server_ping` / `_client_pong`) measures round-trip time for the rewind amount.
+- `scripts/weapon_feel.gd` wired into `player.gd` (`_fire_blaster`, `_process`).
+- Tests `tests/test_net_sync.gd` and `tests/test_weapon_feel.gd` added to the CI workflow; `tests/validate_project.py` has new structural checks.
+
+### VERIFIED
+
+- Structural validation (`tests/validate_project.py`) passes locally.
+- GitHub Actions result for the two new tests and the existing suite: see the run on this commit (recorded in the final message).
+
+### NOT VERIFIED
+
+- No real multiplayer session was played: feel under real latency, jitter and packet loss, and the exact bandwidth saving of partial snapshots, are not measured.
+- Weapon values (kick, spread) are first-pass numbers and need playtesting on PC and Android.
+
+### NOT IMPLEMENTED (honest gaps)
+
+- Full input replay (re-simulating unacknowledged inputs after a correction). The current reconciliation compares positions at the acknowledged input instead, which is simpler and safe but less exact under heavy correction.
+- Spread is applied on the client; the server trusts the direction within a view-cone check. A server-side spread/anti-cheat model is future work.
+- Map-flow changes (more routes, sightline mix, chokepoints, landmarks) and first-person animation upgrades (viewmodel sway/bob, ADS blend, additive reload): audited as recommendations only, because they cannot be verified without a running game.
+
+### BLOCKED
+
+- Downloading real-firearm 3D models, character GLB sets and authentic meme audio (items in the master directive): the build environment only reaches package registries and GitHub, not Sketchfab/CGTrader/sound libraries. These need files supplied by the owner or a network allowance.
+
 ## Exports and checks
 
 The ZIP contains Windows x86-64 EXE/PCK and a signed ARM64 Android debug APK, plus build logs and APK signature/package checks. See `docs/qa/phase4`. To repeat the new regression after importing the project, run `godot --headless --path . --script tests/test_meme_events.gd`.

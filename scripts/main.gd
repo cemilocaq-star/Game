@@ -416,10 +416,10 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 		player.set_selected_weapon(synced_weapon)
 		if is_instance_valid(equipped_weapon_label):
 			equipped_weapon_label.text = "EQUIPPED  •  " + str(WEAPON_DISPLAY.get(synced_weapon, synced_weapon.to_upper())) + "   [V / E / R]"
-	var position_value: Variant = state.get("position", player.global_position)
-	if position_value is Vector3:
-		player.global_position = position_value
-	player.rotation.y = float(state.get("yaw", player.rotation.y))
+	# The local player predicts its own movement; the server only corrects real disagreement
+	# (and never overwrites the camera yaw, which used to make mouse-look rubber-band).
+	if is_instance_valid(network):
+		network.reconcile_local_player(state)
 	player.score = int(state.get("score", player.score))
 	if is_instance_valid(killstreak_label):
 		var streak_now := int(state.get("kill_streak", 0))

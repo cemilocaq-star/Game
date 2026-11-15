@@ -5,9 +5,11 @@ const CharacterVisuals = preload("res://scripts/character_visuals.gd")
 const WEAPON_VISUALS := preload("res://scripts/arcade_weapon_visuals.gd")
 const PLAYER := preload("res://scripts/player.gd")
 const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
+const NET_SYNC := preload("res://scripts/net_sync.gd")
 
 var target_position := Vector3.ZERO
 var target_yaw := 0.0
+var _snapshots = NET_SYNC.SnapshotBuffer.new()
 var _sliding := false
 var _dead := false
 var _grounded := true
@@ -178,6 +180,7 @@ func _remote_material(color: Color) -> StandardMaterial3D:
 func apply_network_state(position_value: Vector3, yaw_value: float, sliding: bool = false, health: float = 100.0, dead: bool = false, team_id: String = "", emote_id: String = "", swimming: bool = false) -> void:
 	target_position = position_value
 	target_yaw = yaw_value
+	_snapshots.push(Time.get_ticks_msec(), position_value, yaw_value)
 	if is_instance_valid(_swimwear_root):
 		_swimwear_root.visible = swimming
 	CharacterVisuals.set_clothing_visible(_character_detail_root, not swimming)
@@ -251,8 +254,14 @@ func _process(delta: float) -> void:
 		_visual.rotation.x = move_toward(_visual.rotation.x, 0.0, delta * 2.0)
 		_visual.rotation.y = move_toward(_visual.rotation.y, 0.0, delta * 2.0)
 		_visual.rotation.z = move_toward(_visual.rotation.z, 0.0, delta * 2.0)
-	global_position = global_position.lerp(target_position, minf(1.0, delta * 14.0))
-	rotation.y = lerp_angle(rotation.y, target_yaw, minf(1.0, delta * 14.0))
+	# Snapshot interpolation: draw the player INTERP_DELAY_MS in the past, between two real snapshots.
+	var rendered: Dictionary = _snapshots.sample(Time.get_ticks_msec() - NET_SYNC.INTERP_DELAY_MS)
+	if bool(rendered.get("valid", false)) and _snapshots.size() >= 2:
+		global_position = rendered.position
+		rotation.y = float(rendered.yaw)
+	else:
+		global_position = global_position.lerp(target_position, minf(1.0, delta * 14.0))
+		rotation.y = lerp_angle(rotation.y, target_yaw, minf(1.0, delta * 14.0))
 	_motion_clock += delta
 	var estimated_speed := 0.0
 	if _has_previous_position:

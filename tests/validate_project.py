@@ -6,7 +6,7 @@ errors = []
 
 required = [
     "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/arcade_weapon_visuals.gd", "scripts/character_visuals.gd", "scripts/character_motion_rig.gd", "scripts/map_world_builder.gd", "scripts/combat_fx.gd",
-    "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd", "supabase/migrations/20261115120000_oxenwar_server_directory.sql", "scripts/fps_ui.gd", "tests/test_menu_ui.gd",
+    "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd", "supabase/migrations/20261115120000_oxenwar_server_directory.sql", "scripts/fps_ui.gd", "tests/test_menu_ui.gd", "scripts/net_sync.gd", "scripts/weapon_feel.gd", "tests/test_net_sync.gd", "tests/test_weapon_feel.gd",
     "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "scripts/oxenwar_server_player.gd", "server/README.md", "Dockerfile", "fly.toml", "render.yaml",
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
     "supabase/migrations/20261109114619_oxenwar_social_foundation.sql",
@@ -239,8 +239,8 @@ checks = [
     ('net.request_emote("")', player, "server receives emote stop state"),
     ('"robot"', read("scripts/oxenwar_network.gd"), "server validates robot emote"),
     ('"wave"', read("scripts/oxenwar_network.gd"), "server validates wave emote"),
-    ('"collections": player.collection_counts.duplicate(true)', read("scripts/oxenwar_network.gd"), "authoritative collectible count snapshot"),
-    ('"secret_404_found": player.secret_404_found', read("scripts/oxenwar_network.gd"), "authoritative secret discovery snapshot"),
+    ('state["collections"] = player.collection_counts.duplicate(true)', read("scripts/oxenwar_network.gd"), "authoritative collectible count snapshot"),
+    ('state["secret_404_found"] = player.secret_404_found', read("scripts/oxenwar_network.gd"), "authoritative secret discovery snapshot"),
     ("GOLD ORBS (XP ONLY)", main, "clear non-currency orb counter"),
     ("_server_throw_grenade", read("scripts/oxenwar_network.gd"), "server-validated grenade throw"),
     ("_server_detonate_grenade", read("scripts/oxenwar_network.gd"), "server-authoritative grenade blast"),
@@ -489,6 +489,20 @@ for label, source, function_name in [
     if "BoxMesh.new()" in body:
         errors.append(f"{label} still contains block-shaped character geometry")
 
+net_source = read("scripts/oxenwar_network.gd")
+checks.extend([
+    ("ray_capsule_distance", net_source, "lag-compensated server hit test"),
+    ("_record_position_history", net_source, "server position history for lag compensation"),
+    ("clamp_rewind", net_source, "rewind window is clamped to a fairness limit"),
+    ("reconcile_local_player", net_source, "client reconciliation instead of position snapping"),
+    ("_input_seq", net_source, "input sequence numbers"),
+    ("FULL_STATE_EVERY", net_source, "partial snapshots"),
+    ("_client_state_cache", net_source, "client merges partial snapshots"),
+    ("_server_ping", net_source, "round-trip measurement for lag compensation"),
+    ("SnapshotBuffer", read("scripts/oxenwar_remote_player.gd"), "remote players use snapshot interpolation"),
+    ("reconcile_local_player", read("scripts/main.gd"), "main uses reconciliation for the local player"),
+    ("WEAPON_FEEL", read("scripts/player.gd"), "weapon spread and recoil in the player"),
+])
 for needle, source, label in checks:
     if needle not in source:
         errors.append(f"missing {label}")

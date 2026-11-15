@@ -19,7 +19,10 @@ signal killstreak_received(player_name: String, streak: int, bonus: int)
 const PORT := 2456
 const MAX_CLIENTS := 32
 const ROOM_CAPACITY := 8
-const SNAPSHOT_INTERVAL := 0.05
+const SNAPSHOT_INTERVAL := 0.033 # 30 snapshots/s (was 20): smoother interpolation, still cheap with partial snapshots
+const INPUT_SEND_MS := 33
+const FULL_STATE_EVERY := 10 # every Nth snapshot carries the slow fields (names, colours, xp...); the rest only the fast ones
+const NET_SYNC := preload("res://scripts/net_sync.gd")
 const ROOM_GRACE_SECONDS := 30.0
 const ROUND_SECONDS := 300.0
 const MEME_EVENTS := preload("res://scripts/meme_events.gd")
@@ -74,6 +77,15 @@ var _pending_jump := false
 var _pending_slide := false
 var _pending_dash := false
 var _snapshot_accumulator := 0.0
+var _input_seq := 0
+var _seq_times: Dictionary = {} # client: input sequence -> send time (ms)
+var _local_history = NET_SYNC.PositionHistory.new() # client: where the predicted player was, per frame
+var _rtt_ms := 0.0
+var _ping_left := 0.0
+var _client_state_cache: Dictionary = {} # client: peer id -> last merged state (partial snapshots)
+var _client_cache_room := ""
+var _last_input_seq: Dictionary = {} # server: peer id -> newest input sequence
+var _pos_history: Dictionary = {} # server: peer id -> PositionHistory (lag compensation)
 var _server_players: Dictionary = {} # peer id -> CharacterBody3D
 var _last_input_ms: Dictionary = {}
 var _last_blaster_ms: Dictionary = {}
@@ -391,7 +403,7 @@ func request_select_weapon(weapon_id: String) -> void:
 
 func request_blaster_fire(weapon_id: String, direction: Vector3) -> void:
 	if is_authenticated and not is_dedicated_server and ARCADE_WEAPONS.has(weapon_id) and direction.length() > 0.9:
-		rpc_id(1, "_server_blaster_fire", weapon_id, direction.normalized())
+		rpc_id(1, "_server_blaster_fire", weapon_id, direction.normalized(), view_delay_ms())
 
 func _process(delta: float) -> void:
 	if is_dedicated_server:
@@ -406,15 +418,70 @@ func _process(delta: float) -> void:
 	_pending_slide = _pending_slide or Input.is_action_just_pressed("slide")
 	_pending_dash = _pending_dash or Input.is_action_just_pressed("dash")
 	var now := Time.get_ticks_msec()
-	if now - _last_send_ms < 50:
+	_local_history.record(now, local_player.global_position)
+	_ping_left -= delta
+	if _ping_left <= 0.0:
+		_ping_left = 1.0
+		rpc_id(1, "_server_ping", now)
+	if now - _last_send_ms < INPUT_SEND_MS:
 		return
 	_last_send_ms = now
 	var move := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var sprint := Input.is_action_pressed("sprint")
-	rpc_id(1, "_server_submit_input", move, local_player.rotation.y, _pending_jump, sprint, _pending_slide, _pending_dash)
+	_input_seq += 1
+	_seq_times[_input_seq] = now
+	_seq_times.erase(_input_seq - 120)
+	rpc_id(1, "_server_submit_input", move, local_player.rotation.y, _pending_jump, sprint, _pending_slide, _pending_dash, _input_seq)
 	_pending_jump = false
 	_pending_slide = false
 	_pending_dash = false
+
+## Delay the shooter's screen was behind the server: half the round trip plus the interpolation delay.
+func view_delay_ms() -> int:
+	return NET_SYNC.rewind_ms(_rtt_ms)
+
+func round_trip_ms() -> float:
+	return _rtt_ms
+
+@rpc("any_peer", "call_remote", "unreliable")
+func _server_ping(client_ms: int) -> void:
+	if not multiplayer.is_server():
+		return
+	rpc_id(multiplayer.get_remote_sender_id(), "_client_pong", client_ms)
+
+@rpc("authority", "call_remote", "unreliable")
+func _client_pong(client_ms: int) -> void:
+	if multiplayer.is_server():
+		return
+	var sample := float(maxi(0, Time.get_ticks_msec() - client_ms))
+	_rtt_ms = sample if _rtt_ms <= 0.0 else lerpf(_rtt_ms, sample, 0.3)
+
+## Client-side reconciliation: the local player predicts its own movement, so the (older) server
+## position is compared with where the client was at that same input. Only real disagreement is
+## corrected, and smoothly; the camera yaw always stays under the player's control.
+func reconcile_local_player(state: Dictionary) -> void:
+	if not is_instance_valid(local_player):
+		return
+	var server_position: Variant = state.get("position")
+	if not (server_position is Vector3):
+		return
+	var seq := int(state.get("input_seq", 0))
+	var age_ms := clampi(int(state.get("input_age_ms", 0)), 0, 200)
+	var reference: Variant = null
+	if seq > 0 and _seq_times.has(seq):
+		reference = _local_history.position_at(int(_seq_times[seq]) + age_ms)
+	if reference == null:
+		reference = local_player.global_position
+	var result: Dictionary = NET_SYNC.reconcile(server_position, reference, local_player.global_position, bool(state.get("dead", false)))
+	var action := str(result.get("action", "none"))
+	if action == "none":
+		return
+	local_player.global_position = result.get("position", local_player.global_position)
+	if action == "snap":
+		_local_history = NET_SYNC.PositionHistory.new()
+		if "velocity" in local_player:
+			local_player.velocity = Vector3.ZERO
+		local_player.rotation.y = float(state.get("yaw", local_player.rotation.y))
 
 func _on_connected_to_server() -> void:
 	_reconnect_attempts = 0
@@ -466,6 +533,8 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			_server_players.erase(peer_id)
 		_peer_users.erase(peer_id)
 		_last_input_ms.erase(peer_id)
+		_last_input_seq.erase(peer_id)
+		_pos_history.erase(peer_id)
 		_last_blaster_ms.erase(peer_id)
 		return
 	var room_code := str(_user_rooms.get(user_id, ""))
@@ -514,6 +583,8 @@ func _on_peer_disconnected(peer_id: int) -> void:
 			_server_players.erase(peer_id)
 	_peer_users.erase(peer_id)
 	_last_input_ms.erase(peer_id)
+	_last_input_seq.erase(peer_id)
+	_pos_history.erase(peer_id)
 	_last_blaster_ms.erase(peer_id)
 	if int(_user_peers.get(user_id, 0)) == peer_id:
 		_user_peers.erase(user_id)
@@ -655,7 +726,7 @@ func _create_server_player(peer_id: int, profile: Dictionary, stats: Dictionary 
 	return player
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _server_submit_input(move: Vector2, yaw: float, jump: bool, sprint: bool, slide: bool, dash: bool) -> void:
+func _server_submit_input(move: Vector2, yaw: float, jump: bool, sprint: bool, slide: bool, dash: bool, seq: int = 0) -> void:
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
@@ -667,6 +738,7 @@ func _server_submit_input(move: Vector2, yaw: float, jump: bool, sprint: bool, s
 	if not is_finite(move.x) or not is_finite(move.y) or not is_finite(yaw):
 		return
 	_last_input_ms[peer_id] = now
+	_last_input_seq[peer_id] = maxi(int(_last_input_seq.get(peer_id, 0)), seq)
 	var user_id := str(_peer_users[peer_id])
 	var room_code := str(_user_rooms.get(user_id, ""))
 	if room_code.is_empty() or not _rooms.has(room_code) or bool(_rooms[room_code].get("round_finished", false)):
@@ -693,12 +765,34 @@ func _server_select_weapon(weapon_id: String) -> void:
 		return
 	player.equipped_weapon_id = weapon_id
 
+func _lag_position(peer_id: int, rewind_ms: int, fallback: Vector3) -> Vector3:
+	var history = _pos_history.get(peer_id)
+	if history == null or rewind_ms <= 0:
+		return fallback
+	var past: Variant = history.position_at(Time.get_ticks_msec() - rewind_ms)
+	return past if past is Vector3 else fallback
+
+func _lag_height(peer_id: int, rewind_ms: int, fallback: float) -> float:
+	var history = _pos_history.get(peer_id)
+	if history == null or rewind_ms <= 0:
+		return fallback
+	return history.height_at(Time.get_ticks_msec() - rewind_ms, fallback)
+
+func _record_position_history(now_ms: int) -> void:
+	for peer_id in _server_players.keys():
+		var tracked = _server_players[peer_id]
+		if not is_instance_valid(tracked):
+			continue
+		if not _pos_history.has(peer_id):
+			_pos_history[peer_id] = NET_SYNC.PositionHistory.new()
+		_pos_history[peer_id].record(now_ms, tracked.global_position, NET_SYNC.PLAYER_HEIGHT_SLIDING if bool(tracked.get("sliding_active")) else NET_SYNC.PLAYER_HEIGHT)
+
 static func view_forward(yaw: float) -> Vector3:
 	# Matches the player's -Z camera axis after the authoritative yaw rotation.
 	return Basis(Vector3.UP, yaw) * Vector3.FORWARD
 
 @rpc("any_peer", "call_remote", "unreliable")
-func _server_blaster_fire(weapon_id: String, direction: Vector3) -> void:
+func _server_blaster_fire(weapon_id: String, direction: Vector3, view_delay_ms: int = 0) -> void:
 	if not ARCADE_WEAPONS.has(weapon_id):
 		return
 	if not multiplayer.is_server() or not is_finite(direction.x) or not is_finite(direction.y) or not is_finite(direction.z) or direction.length() < 0.9 or direction.length() > 1.1:
@@ -730,37 +824,60 @@ func _server_blaster_fire(weapon_id: String, direction: Vector3) -> void:
 	var eye_height := 0.90 if shooter.sliding_active else 1.45
 	var origin: Vector3 = shooter.global_position + Vector3.UP * eye_height
 	var endpoint := origin + safe_direction * float(weapon.range)
+	var fire_room: Dictionary = _rooms[room_code]
+	var room_peers: Array[int] = []
+	var exclude: Array[RID] = []
+	for member_user in fire_room.members.keys():
+		var member_id := int(fire_room.members[member_user])
+		if member_id > 0 and _server_players.has(member_id):
+			room_peers.append(member_id)
+			exclude.append(_server_players[member_id].get_rid())
 	var query := PhysicsRayQueryParameters3D.create(origin, endpoint)
-	query.exclude = [shooter.get_rid()]
+	query.exclude = exclude
 	query.collide_with_areas = false
 	var hit: Dictionary = shooter.get_world_3d().direct_space_state.intersect_ray(query)
+	var best_distance := float(weapon.range)
 	if not hit.is_empty():
 		endpoint = hit.position
-		var target: Object = hit.get("collider")
-		if target is CharacterBody3D and target != shooter and target.has_method("apply_damage") and not bool(target.get("is_dead")):
-			for target_peer in _server_players.keys():
-				if _server_players[target_peer] == target:
-					if str(shooter.team_id) != "" and str(shooter.team_id) == str(target.get("team_id")):
-						break
-					var weapon_damage := float(weapon.damage)
-					var was_killed: bool = target.apply_damage(weapon_damage)
-					shooter.shots_hit += 1
-					if weapon_id == "aether":
-						_award_weapon_mastery(shooter, "blaster", 8)
-					shooter.damage_dealt += weapon_damage
-					target.damage_received += weapon_damage
-					if was_killed:
-						shooter.kills += 1
-						if weapon_id == "aether":
-							_award_weapon_mastery(shooter, "blaster", 35)
-						shooter.kill_streak += 1
-						shooter.best_kill_streak = maxi(shooter.best_kill_streak, shooter.kill_streak)
-						target.deaths += 1
-						target.kill_streak = 0
-						_award_killstreak(room_code, peer_id)
-						_broadcast_kill_feed(room_code, peer_id, int(target_peer), str(weapon.name))
-					shooter.score += 10 + (50 if was_killed else 0)
-					break
+		best_distance = origin.distance_to(endpoint)
+	# Lag compensation: test the ray against where each enemy was on the shooter's screen.
+	var rewind := NET_SYNC.clamp_rewind(view_delay_ms)
+	var target_peer := -1
+	for candidate in room_peers:
+		if candidate == peer_id:
+			continue
+		var candidate_player = _server_players[candidate]
+		if bool(candidate_player.get("is_dead")):
+			continue
+		var candidate_base: Vector3 = _lag_position(candidate, rewind, candidate_player.global_position)
+		var candidate_height: float = _lag_height(candidate, rewind, NET_SYNC.PLAYER_HEIGHT_SLIDING if bool(candidate_player.get("sliding_active")) else NET_SYNC.PLAYER_HEIGHT)
+		var candidate_distance := NET_SYNC.ray_capsule_distance(origin, safe_direction, best_distance, candidate_base, NET_SYNC.PLAYER_RADIUS, candidate_height)
+		if candidate_distance >= 0.0 and candidate_distance <= best_distance:
+			best_distance = candidate_distance
+			target_peer = candidate
+	if target_peer != -1:
+		endpoint = origin + safe_direction * best_distance
+		var target = _server_players[target_peer]
+		var same_team: bool = str(shooter.team_id) != "" and str(shooter.team_id) == str(target.get("team_id"))
+		if not same_team and target.has_method("apply_damage"):
+			var weapon_damage := float(weapon.damage)
+			var was_killed: bool = target.apply_damage(weapon_damage)
+			shooter.shots_hit += 1
+			if weapon_id == "aether":
+				_award_weapon_mastery(shooter, "blaster", 8)
+			shooter.damage_dealt += weapon_damage
+			target.damage_received += weapon_damage
+			if was_killed:
+				shooter.kills += 1
+				if weapon_id == "aether":
+					_award_weapon_mastery(shooter, "blaster", 35)
+				shooter.kill_streak += 1
+				shooter.best_kill_streak = maxi(shooter.best_kill_streak, shooter.kill_streak)
+				target.deaths += 1
+				target.kill_streak = 0
+				_award_killstreak(room_code, peer_id)
+				_broadcast_kill_feed(room_code, peer_id, target_peer, str(weapon.name))
+			shooter.score += 10 + (50 if was_killed else 0)
 	var room: Dictionary = _rooms[room_code]
 	for member_user in room.members.keys():
 		var member_peer := int(room.members[member_user])
@@ -1280,6 +1397,7 @@ func _server_process_rooms(delta: float) -> void:
 				else:
 					_broadcast_room_state(code)
 	_snapshot_accumulator += delta
+	_record_position_history(now)
 	for code in _rooms.keys():
 		var room: Dictionary = _rooms[code]
 		if bool(room.round_finished):
@@ -1554,22 +1672,49 @@ func _broadcast_snapshot(code: String) -> void:
 		return
 	var room: Dictionary = _rooms[code]
 	var states := {}
+	var counter := int(room.get("snap_counter", 0))
+	room["snap_counter"] = counter + 1
+	var member_signature := ""
+	var now_ms := Time.get_ticks_msec()
+	var peer_states := {}
 	for user_id in room.members.keys():
 		var peer_id := int(room.members[user_id])
 		if peer_id <= 0 or not _server_players.has(peer_id):
 			continue
+		member_signature += "%d," % peer_id
+		peer_states[peer_id] = str(user_id)
+	# Slow fields (names, colours, xp, mastery...) go out every FULL_STATE_EVERY-th snapshot and
+	# whenever someone joins or leaves; every other snapshot carries only what changes quickly.
+	var full_state: bool = counter % FULL_STATE_EVERY == 0 or str(room.get("snap_members", "")) != member_signature
+	room["snap_members"] = member_signature
+	for peer_id in peer_states.keys():
+		var user_id := str(peer_states[peer_id])
 		var player = _server_players[peer_id]
-		states[peer_id] = {
+		var profile: Dictionary = _profiles.get(user_id, {})
+		var state := {
 			"position": player.global_position, "yaw": player.rotation.y, "grounded": player.is_on_floor(), "match_outcome": player.match_outcome,
-			"display_name": str(_profiles.get(user_id, {}).get("display_name", "Player")),
-			"color": _color_for_profile(_profiles.get(user_id, {})),
-			"outfit_id": str(_profiles.get(user_id, {}).get("outfit_id", "outfit_default")),
-			"accessory_id": _profiles.get(user_id, {}).get("accessory_id"),
 			"team_id": str(player.team_id), "emote_id": str(player.emote_id), "is_swimming": bool(player.is_swimming),
-			"score": player.score, "kills": player.kills, "deaths": player.deaths, "kill_streak": player.kill_streak, "best_kill_streak": player.best_kill_streak, "equipped_weapon_id": player.equipped_weapon_id, "blaster_mastery_xp": player.blaster_mastery_xp, "grenade_mastery_xp": player.grenade_mastery_xp, "shots_fired": player.shots_fired, "shots_hit": player.shots_hit, "damage_dealt": player.damage_dealt, "damage_received": player.damage_received, "xp": player.xp, "match_xp": player.match_xp, "stamina": player.stamina, "sliding": player.sliding_active,
+			"score": player.score, "kills": player.kills, "deaths": player.deaths, "kill_streak": player.kill_streak,
+			"equipped_weapon_id": player.equipped_weapon_id, "shots_hit": player.shots_hit, "damage_received": player.damage_received,
+			"stamina": player.stamina, "sliding": player.sliding_active,
 			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left,
-			"collections": player.collection_counts.duplicate(true), "secret_404_found": player.secret_404_found
+			"input_seq": int(_last_input_seq.get(peer_id, 0)), "input_age_ms": maxi(0, now_ms - int(_last_input_ms.get(peer_id, now_ms)))
 		}
+		if full_state:
+			state["display_name"] = str(profile.get("display_name", "Player"))
+			state["color"] = _color_for_profile(profile)
+			state["outfit_id"] = str(profile.get("outfit_id", "outfit_default"))
+			state["accessory_id"] = profile.get("accessory_id")
+			state["best_kill_streak"] = player.best_kill_streak
+			state["blaster_mastery_xp"] = player.blaster_mastery_xp
+			state["grenade_mastery_xp"] = player.grenade_mastery_xp
+			state["shots_fired"] = player.shots_fired
+			state["damage_dealt"] = player.damage_dealt
+			state["xp"] = player.xp
+			state["match_xp"] = player.match_xp
+			state["collections"] = player.collection_counts.duplicate(true)
+			state["secret_404_found"] = player.secret_404_found
+		states[peer_id] = state
 	for user_id in room.members.keys():
 		var peer_id := int(room.members[user_id])
 		if peer_id > 0:
@@ -1635,13 +1780,22 @@ func _client_room_invite(owner_name: String, room_code: String) -> void:
 func _client_receive_snapshot(states: Dictionary, event_id: String, event_left: float, round_left: float, orb_available: Dictionary, room_code: String, mode: String, hill_control: float, hill_points_red: float, hill_points_blue: float, bomb_planted: bool, bomb_site: String, bomb_fuse: float, objective_progress: float, objective_action: String, objective_result: String, meme: Dictionary = {}) -> void:
 	if multiplayer.is_server():
 		return
+	if room_code != _client_cache_room:
+		_client_state_cache.clear()
+		_client_cache_room = room_code
 	for key in states.keys():
 		var peer_id := int(key)
-		var state: Dictionary = states[key]
+		# Snapshots may be partial: keep the slow fields from the last full one.
+		var state: Dictionary = _client_state_cache.get(peer_id, {}).duplicate()
+		state.merge(states[key], true)
+		_client_state_cache[peer_id] = state
 		if peer_id == multiplayer.get_unique_id():
 			local_state_received.emit(state)
 		else:
 			player_state_received.emit(peer_id, state)
+	for cached_peer in _client_state_cache.keys():
+		if not states.has(cached_peer):
+			_client_state_cache.erase(cached_peer)
 	for key in states.keys():
 		var incoming_peer := int(key)
 		if incoming_peer != multiplayer.get_unique_id():
