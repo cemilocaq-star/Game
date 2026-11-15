@@ -189,7 +189,7 @@ The map and mode blocks are design choices (for example no ice on the water map,
 ## Character visibility and feedback audio
 
 - **Local character was invisible.** The local body is deliberately on a render layer the first-person camera skips, so players never saw their own model. IMPLEMENTED: a 2.6 s orbit intro when the match starts (front view swinging behind the character) and a `C` / on-screen `VIEW` third-person camera with wall pull-in, the weapon aimed from the head toward the crosshair point, firing blocked only during the intro. `tests/test_third_person_view.gd` passed in CI. NOT VERIFIED: how it looks and feels in play on PC/phone; the first-person weapon is hidden in third person (no held weapon on the local body yet).
-- **Feedback audio.** See `docs/SFX_RESEARCH.md`. IMPLEMENTED: original synthesized cues, director and menu sounds. NOT VERIFIED: listening balance. Recorded licensed audio and meme sounds remain unassigned.
+- **Feedback audio.** See `docs/SFX_RESEARCH.md`. IMPLEMENTED: original synthesized cues, director and menu sounds. NOT VERIFIED: listening balance. Follow-up: layered weapon audio, wall occlusion and nine recorded CC0 sounds are IMPLEMENTED and unit-tested (see `docs/SFX_RESEARCH.md`); recorded gunshots are BLOCKED (no reachable redistributable gun recordings); meme sounds remain unassigned.
 
 ## Exports and checks
 

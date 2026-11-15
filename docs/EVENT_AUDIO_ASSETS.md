@@ -9,6 +9,10 @@ The build setup downloads a small set of event cues and one low-volume backgroun
 
 The original license notices are copied into assets/audio/licenses/ when the setup script runs. The fetch script pins SHA-256 hashes and fails if a downloaded file differs. Audio is downloaded at setup/build time only; the shipped game does not make audio requests to the internet.
 
+## Match feedback recordings (Kenney, CC0 1.0)
+
+assets/audio/sfx/: hit-light, hit-medium, hit-heavy, land, menu-move, menu-confirm, menu-back, respawn, throw. Same upstream folder and provenance as above (Kenney Impact Sounds and Interface Sounds); each file's SHA-256 is pinned in the fetch script. Used by `scripts/sfx_bank.gd` and `scripts/sfx_director.gd`.
+
 ## Setup
 
 Run from the repository root before opening/exporting the project:
