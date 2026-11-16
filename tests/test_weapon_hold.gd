@@ -105,6 +105,7 @@ func _test_rig(outfit: String) -> void:
 	var worst_left := 0.0
 	var worst_aim := 0.0
 	var tightest := 10.0
+	var dropped_off_hand := 0
 	for weapon_id: String in PLAYER.ARCADE_WEAPON_LOCAL:
 		var data: Dictionary = PLAYER.ARCADE_WEAPON_LOCAL[weapon_id]
 		var mount: Node3D = VISUALS.build_weapon(weapon_id, data.color)
@@ -127,7 +128,10 @@ func _test_rig(outfit: String) -> void:
 				var forward := -mount.global_transform.basis.z.normalized()
 				var wanted := (rig.global_transform.basis.orthonormalized() * Basis(Vector3.RIGHT, aim_pitch)) * Vector3.FORWARD
 				worst_aim = maxf(worst_aim, rad_to_deg(forward.angle_to(wanted)))
-				if hold.left != null:
+				if hold.left == null:
+					if info.two_handed:
+						dropped_off_hand += 1
+				else:
 					var left_world: Vector3 = elbow_left.global_transform * HOLD.GLOVE_LOCAL
 					worst_left = maxf(worst_left, left_world.distance_to(rig.global_transform * hold.left))
 				# No clipping: keep clear of the torso cylinder while it overlaps the torso height.
@@ -138,7 +142,7 @@ func _test_rig(outfit: String) -> void:
 					if gap < CLEARANCE:
 						failures.append("%s (%s, pitch %.1f) clips the torso by %.3f m" % [weapon_id, outfit, aim_pitch, gap])
 		mount.free()
-	report.append("%s: worst glove error %.4f m, grip %.4f m, aim %.2f deg, left hand %.4f m, tightest torso gap %.3f m" % [outfit, worst_glove, worst_grip, worst_aim, worst_left, tightest])
+	report.append("%s: worst glove error %.4f m, grip %.4f m, aim %.2f deg, left hand %.4f m, tightest torso gap %.3f m, two-handed poses that let the off hand go: %d" % [outfit, worst_glove, worst_grip, worst_aim, worst_left, tightest, dropped_off_hand])
 	_check(worst_glove < 0.04, "%s: right glove reaches its target (worst %f)" % [outfit, worst_glove])
 	_check(worst_grip < 0.005, "%s: the grip stays inside the glove (worst %f)" % [outfit, worst_grip])
 	_check(worst_aim < 0.6, "%s: the weapon points where the body aims (worst %f deg)" % [outfit, worst_aim])

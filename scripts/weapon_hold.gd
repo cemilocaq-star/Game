@@ -208,7 +208,11 @@ static func hold_targets(info: Dictionary, aim_pitch: float, bob: float = 0.0) -
 		var fraction := 1.0
 		while fraction > 0.0 and (right + weapon_basis * offset * fraction).distance_to(left_shoulder) > max_reach() * 0.95:
 			fraction -= 0.1
-		result["left"] = right + weapon_basis * offset * maxf(fraction, 0.0)
+		var left_target := right + weapon_basis * offset * maxf(fraction, 0.0)
+		# If even the grip hand is out of the off arm's reach (long weapon slid sideways), the off
+		# arm hangs naturally instead of reaching into empty air.
+		if left_target.distance_to(left_shoulder) <= max_reach() * 0.97:
+			result["left"] = left_target
 	return result
 
 
