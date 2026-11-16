@@ -5,6 +5,7 @@ const CharacterVisuals = preload("res://scripts/character_visuals.gd")
 const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
 const ARCADE_WEAPON_VISUALS = preload("res://scripts/arcade_weapon_visuals.gd")
 const WEAPON_FEEL = preload("res://scripts/weapon_feel.gd")
+const WEAPON_VIEW_ANIM = preload("res://scripts/weapon_viewmodel_anim.gd")
 const WEAPON_AUDIO = preload("res://scripts/weapon_audio.gd")
 const SFX_BANK_PLAYER = preload("res://scripts/sfx_bank.gd")
 const FEEL_SETTINGS = preload("res://scripts/user_settings.gd")
@@ -93,7 +94,12 @@ var _admin_hammer: Node3D
 var _blaster_audio: AudioStreamPlayer3D
 var _blaster_model: Node3D
 var _blaster_cooldown := 0.0
-var _blaster_recoil := 0.0
+## First-person weapon presentation (sway, bob, ADS, recoil springs, reload, raise). The model sits
+## under _weapon_pivot, which receives this layer's pose; the model keeps its own tweens.
+var _view_anim = WEAPON_VIEW_ANIM.new()
+var _weapon_pivot: Node3D
+var _prev_look := Vector2.ZERO
+var _look_primed := false
 var _feel = WEAPON_FEEL.Tracker.new()
 ## The local character is hidden from the first-person camera, so players never saw their own model.
 ## A short orbit intro when the match starts, and a C / VIEW toggle for a third-person camera, show it.
@@ -262,8 +268,7 @@ func set_swimming(enabled: bool) -> void:
 
 func _process(delta: float) -> void:
 	if is_instance_valid(_camera):
-		var aiming := _aim_held and not arsenal_open and not ui_blocked and not is_dead and not _weapon_pose_locked()
-		_camera.fov = move_toward(_camera.fov, 68.0 if aiming else 86.0, delta * 110.0)
+		_camera.fov = lerpf(86.0, 68.0, _view_anim.fov_blend())
 	if Input.is_action_just_pressed("emote_griddy"):
 		play_emote("griddy")
 	elif Input.is_action_just_pressed("emote_goofy"):
@@ -282,7 +287,6 @@ func _process(delta: float) -> void:
 		_body_mesh.position.y = 0.9 + (absf(sin(_motion_clock * 10.0)) * 0.035 if moving else sin(_motion_clock * 1.8) * 0.012)
 	CharacterMotionRig.animate(_motion_rig, _motion_clock, Vector2(velocity.x, velocity.z).length(), is_on_floor(), _is_sliding, active_emote, delta)
 	_blaster_cooldown = maxf(0.0, _blaster_cooldown - delta)
-	_blaster_recoil = move_toward(_blaster_recoil, 0.0, delta * 1.35)
 	var on_floor_now := is_on_floor()
 	if on_floor_now and not _prev_on_floor and _prev_fall_speed < -5.5 and not is_dead:
 		SFX_BANK_PLAYER.play_recorded(self, "land", clampf(-14.0 + (-_prev_fall_speed - 5.5) * 0.8, -14.0, -5.0))
@@ -293,13 +297,7 @@ func _process(delta: float) -> void:
 		pitch = clampf(pitch - recoil_recovery, deg_to_rad(-82.0), deg_to_rad(82.0))
 		_camera.rotation.x = pitch
 	_weapon_idle_clock += delta
-	if is_instance_valid(_blaster_model):
-		var pose_locked := _weapon_pose_locked()
-		if not pose_locked:
-			_blaster_model.position.z = WEAPON_REST.z + _blaster_recoil
-		if not pose_locked and (_weapon_fire_tween == null or not _weapon_fire_tween.is_running()):
-			_blaster_model.rotation.z = sin(_weapon_idle_clock * 1.35) * 0.012
-			_blaster_model.position.y = -0.24 + sin(_weapon_idle_clock * 1.7) * 0.006
+	_update_weapon_view(delta)
 	if is_instance_valid(_blaster_model):
 		_animate_weapon_details()
 	# A raw mouse click on a HUD button must not fire: on desktop only shoot while the
@@ -374,6 +372,56 @@ func _update_camera_view(delta: float) -> void:
 			desired = to_local(clear)
 	_camera.position = desired
 	_camera.rotation = Vector3(pitch, yaw_offset, 0.0)
+
+
+func _weapon_aim_allowed() -> bool:
+	return _aim_held and not arsenal_open and not ui_blocked and not is_dead and not _weapon_pose_locked()
+
+
+## Drives the first-person weapon layer once per frame. The look rate comes from how much the
+## view actually turned, so mouse, touch drag, gyro and recoil all sway the weapon the same way.
+func _update_weapon_view(delta: float) -> void:
+	if not is_instance_valid(_weapon_pivot):
+		return
+	if is_dead:
+		_view_anim.reset()
+		_weapon_pivot.transform = Transform3D.IDENTITY
+		_look_primed = false
+		return
+	var look_rate := Vector2.ZERO
+	if _look_primed and delta > 0.0:
+		look_rate = Vector2(angle_difference(_prev_look.x, rotation.y), pitch - _prev_look.y) / delta
+	_prev_look = Vector2(rotation.y, pitch)
+	_look_primed = true
+	if InputMap.has_action("reload") and Input.is_action_just_pressed("reload"):
+		request_reload()
+	var move_input := Vector2.ZERO
+	if not ui_blocked:
+		move_input = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var pose: Dictionary = _view_anim.step(delta, {
+		"look_rate": look_rate,
+		"speed": Vector2(velocity.x, velocity.z).length(),
+		"vertical_speed": velocity.y,
+		"on_floor": is_on_floor(),
+		"sprinting": Input.is_action_pressed("sprint") and stamina > 0.0 and not ui_blocked,
+		"sliding": _is_sliding,
+		"aiming": _weapon_aim_allowed(),
+		"move_input": move_input
+	})
+	_weapon_pivot.transform = WEAPON_VIEW_ANIM.pivot_transform(WEAPON_REST, pose)
+
+
+## Plays the reload animation. There is no ammo system yet, so this is presentation only; firing
+## is held back while the magazine swap plays. Returns false when a reload cannot start now.
+func request_reload() -> bool:
+	if is_dead or arsenal_open or ui_blocked or _intro_left > 0.0 or _weapon_pose_locked():
+		return false
+	var cooldown := float(ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"]).get("cooldown", 0.24))
+	return _view_anim.start_reload(WEAPON_VIEW_ANIM.reload_duration(cooldown))
+
+
+func is_reloading() -> bool:
+	return _view_anim.is_reloading()
 
 
 func _weapon_pose_locked() -> bool:
@@ -516,7 +564,9 @@ func set_combat_dead(dead: bool) -> void:
 	for tween: Tween in [_weapon_equip_tween, _weapon_inspect_tween, _weapon_fire_tween]:
 		if tween != null and tween.is_valid():
 			tween.kill()
-	_blaster_recoil = 0.0
+	_view_anim.reset()
+	if is_instance_valid(_weapon_pivot):
+		_weapon_pivot.transform = Transform3D.IDENTITY
 	if is_instance_valid(_blaster_model):
 		_blaster_model.visible = not dead
 		_blaster_model.position = WEAPON_REST
@@ -531,7 +581,7 @@ func set_selected_weapon(weapon_id: String) -> void:
 		return
 	selected_weapon_id = weapon_id
 	_setup_blaster()
-	_blaster_recoil = 0.035
+	_view_anim.start_switch()
 	if is_instance_valid(_blaster_model):
 		var target_position := WEAPON_REST
 		_blaster_model.position = target_position + Vector3(0.0, -0.09, 0.08)
@@ -550,14 +600,19 @@ func _setup_blaster() -> void:
 		if tween != null and tween.is_valid():
 			tween.kill()
 	if is_instance_valid(_blaster_model):
-		_camera.remove_child(_blaster_model)
+		if _blaster_model.get_parent() != null:
+			_blaster_model.get_parent().remove_child(_blaster_model)
 		_blaster_model.queue_free()
+	if not is_instance_valid(_weapon_pivot):
+		_weapon_pivot = Node3D.new()
+		_weapon_pivot.name = "WeaponPivot"
+		_camera.add_child(_weapon_pivot)
 	var weapon_data: Dictionary = ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"])
 	var weapon_color: Color = weapon_data.get("color", Color("#8CEEFF"))
 	_blaster_model = ARCADE_WEAPON_VISUALS.build_weapon(selected_weapon_id, weapon_color)
 	_blaster_model.position = Vector3(0.27, -0.24, -0.48)
 	_blaster_model.visible = not is_dead
-	_camera.add_child(_blaster_model)
+	_weapon_pivot.add_child(_blaster_model)
 	if not is_instance_valid(_blaster_audio):
 		_blaster_audio = AudioStreamPlayer3D.new()
 		_blaster_audio.name = "ArcadeWeaponAudio"
@@ -649,10 +704,10 @@ func _animate_weapon_fire() -> void:
 
 
 func _fire_blaster() -> void:
-	if is_dead or not is_instance_valid(_camera) or _blaster_cooldown > 0.0 or _weapon_pose_locked() or _intro_left > 0.0:
+	if is_dead or not is_instance_valid(_camera) or _blaster_cooldown > 0.0 or _weapon_pose_locked() or _intro_left > 0.0 or _view_anim.is_reloading():
 		return
 	_blaster_cooldown = float(ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"]).get("cooldown", 0.24))
-	_blaster_recoil = 0.055
+	_view_anim.fire(clampf(pow(_blaster_cooldown / 0.24, 0.55), 0.45, 1.8), 1.0 if randf() > 0.5 else -1.0)
 	_animate_weapon_fire()
 	var origin := _camera.global_position
 	var direction := -_camera.global_basis.z.normalized()

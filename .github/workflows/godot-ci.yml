@@ -228,6 +228,12 @@ jobs:
       - name: Test weapon feel (spread, bloom, recoil)
         run: timeout 45s godot --headless --path . --script tests/test_weapon_feel.gd
 
+      - name: Test first-person weapon animation (sway, bob, ADS, recoil, reload, switch)
+        run: timeout 60s godot --headless --path . --script tests/test_weapon_viewmodel_anim.gd
+
+      - name: Test weapon animation wired into the player
+        run: timeout 60s godot --headless --path . --script tests/test_weapon_view_integration.gd
+
       - name: Test per-room maps and isolated physics worlds
         run: timeout 90s godot --headless --path . --script tests/test_room_worlds.gd
 
