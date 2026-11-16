@@ -21,6 +21,7 @@ const ELBOW_LIMITS := Vector2(0.0, 2.4)
 const TWO_HAND_LENGTH := 0.42 ## scaled weapon length (m) from which the off hand supports it
 const REACH_MARGIN := 0.97
 const HOLD_X := 0.06 ## how far right of the body centre the grip hand sits
+const MAX_HOLD_X := 0.22
 const MIN_FORWARD := 0.44
 const MAX_FORWARD := 0.64
 const CLEAR_MARGIN := 0.035 ## wanted gap between weapon and torso (the test demands 0.02)
@@ -189,12 +190,17 @@ static func hold_targets(info: Dictionary, aim_pitch: float, bob: float = 0.0) -
 	var pivot := Vector3(0.0, SHOULDER_Y, 0.0)
 	var swing := Basis(Vector3.RIGHT, pitch * 0.55)
 	var forward := MIN_FORWARD
+	var hold_x := HOLD_X
 	var right := Vector3.ZERO
-	for step in range(12):
-		right = pivot + swing * (Vector3(HOLD_X, SHOULDER_Y - 0.10 + bob, -forward) - pivot)
-		if torso_gap(info, right, weapon_basis) >= CLEAR_MARGIN or forward >= MAX_FORWARD:
+	for step in range(20):
+		right = pivot + swing * (Vector3(hold_x, SHOULDER_Y - 0.10 + bob, -forward) - pivot)
+		if torso_gap(info, right, weapon_basis) >= CLEAR_MARGIN:
 			break
-		forward = minf(forward + 0.02, MAX_FORWARD)
+		if forward < MAX_FORWARD:
+			forward = minf(forward + 0.02, MAX_FORWARD)
+		else:
+			# Out of reach to push further: slide the weapon off the centre line instead.
+			hold_x = minf(hold_x + 0.02, MAX_HOLD_X)
 	var result := {"right": right, "left": null}
 	if bool(info.get("two_handed", false)):
 		var offset: Vector3 = ((info.foregrip as Vector3) - (info.grip as Vector3)) * WEAPON_SCALE
