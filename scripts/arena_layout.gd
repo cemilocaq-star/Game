@@ -55,7 +55,7 @@ static func spawn_position(map_index: int, team_id: String, slot: int = 0) -> Ve
 		if on_blue_bank:
 			return Vector3(-8.4 + float(index % 4) * 1.2, 1.5, 9.5 + float(int(index / 4) % 2) * 1.4)
 		# The waterfall basin rules out a plain mirror image, so the red bank has its own block.
-		return Vector3(9.6 - float(index % 4) * 0.95, 1.5, -8.3 - float(int(index / 4) % 2) * 1.3)
+		return Vector3(8.8 - float(index % 4) * 0.95, 1.5, -7.9 - float(int(index / 4) % 2) * 1.0)
 	var offset := Vector3(float(slot % 4) * 1.6 - 2.4, 0.0, float(int(slot / 4) % 4) * 1.6)
 	var team_x := -10.0 if team_id == "red" else (10.0 if team_id == "blue" else 0.0)
 	return Vector3(team_x, 1.5, 6.0) + offset
