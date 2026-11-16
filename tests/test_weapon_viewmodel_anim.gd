@@ -100,7 +100,10 @@ func _test_bob_and_poses() -> void:
 	var sprint_pose := _simulate(sprinter, 0.4, 1.0 / 60.0, {"speed": 9.0, "on_floor": true, "sprinting": true})
 	_check(sprinter.sprint_blend > 0.99, "sprint pose fully blends in within 0.4 s")
 	_check(sprint_pose.rotation.y > deg_to_rad(12.0), "sprinting angles the weapon across the body")
-	_check(sprint_pose.position.y < -0.04, "sprinting lowers the weapon")
+	var mean_y := 0.0
+	for index in range(60):
+		mean_y += float(sprinter.step(1.0 / 60.0, {"speed": 9.0, "on_floor": true, "sprinting": true}).position.y) / 60.0
+	_check(mean_y < -0.04, "sprinting lowers the weapon on average (%f); bob only oscillates around it" % mean_y)
 	var stopped := _simulate(sprinter, 0.4, 1.0 / 60.0, {})
 	_check(sprinter.sprint_blend < 0.01 and absf(stopped.rotation.y) < 0.01, "the sprint pose releases when you stop")
 	var no_sprint_standing = ANIM.new()
