@@ -237,6 +237,12 @@ jobs:
       - name: Test third-person weapon holding (IK, grip fit, torso clearance)
         run: timeout 120s godot --headless --path . --script tests/test_weapon_hold.gd
 
+      - name: Test map flow analyser (synthetic world with known answers)
+        run: timeout 120s godot --headless --path . --script tests/test_map_flow_analysis.gd
+
+      - name: Map flow report and checks for all seven maps
+        run: timeout 420s godot --headless --path . --script tests/test_map_flow.gd
+
       - name: Test per-room maps and isolated physics worlds
         run: timeout 90s godot --headless --path . --script tests/test_room_worlds.gd
 
