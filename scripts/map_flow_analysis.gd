@@ -24,6 +24,10 @@ const EYE := 1.6
 ## position to a wall that still counts as walkable (a real capsule is 0.38 m, tolerance is half a cell).
 const MIN_CLEARANCE := 0.3
 const CLEARANCE_PROBE := 1.5
+const JUMP_VELOCITY := 7.0 ## same as the server player
+const GRAVITY := 18.0
+const JUMP_SPEED := 7.5 ## horizontal speed assumed while airborne (between walk 6 and sprint 9)
+const MAX_JUMP_RISE := 1.2
 const MIN_NODE_HEIGHT := -2.5 ## river beds and basins are fine, the void below is not
 
 var space: PhysicsDirectSpaceState3D
@@ -33,6 +37,7 @@ var cells: Dictionary = {} ## Vector2i -> Array[int]
 var adjacency: Array = [] ## per node: Array of Vector2(neighbour index, cost)
 var reverse_adjacency: Array = []
 var step_jump_edges := 0
+var gap_jump_edges := 0
 var _heap: Array = []
 
 
@@ -70,6 +75,7 @@ func build(direct_space: PhysicsDirectSpaceState3D) -> void:
 			for a: int in cells[key]:
 				for b: int in cells[other_key]:
 					_try_connect(a, b)
+	_add_gap_jumps()
 
 
 ## Standable heights at (x, z): upward-facing surfaces with enough room above for a player.
@@ -91,6 +97,61 @@ func _surfaces(x: float, z: float) -> Array[float]:
 			continue
 		found.append(point.y)
 	return found
+
+
+## How far a jump travels horizontally before landing `rise` metres above (or below) the take-off.
+static func jump_reach(rise: float) -> float:
+	var discriminant := JUMP_VELOCITY * JUMP_VELOCITY - 2.0 * GRAVITY * rise
+	if discriminant < 0.0:
+		return 0.0
+	return JUMP_SPEED * (JUMP_VELOCITY + sqrt(discriminant)) / GRAVITY
+
+
+## Jumps across gaps and onto ledges: from every node, in each direction where no walkable
+## neighbour exists one step away, the nearest node within ballistic reach becomes a jump edge.
+func _add_gap_jumps() -> void:
+	var directions: Array[Vector2] = []
+	for step in range(16):
+		var angle := TAU * float(step) / 16.0
+		directions.append(Vector2(cos(angle), sin(angle)))
+	var count := positions.size()
+	for a in range(count):
+		var origin := positions[a]
+		var walkable_neighbours: Array[Vector3] = []
+		for edge: Vector2 in adjacency[a]:
+			walkable_neighbours.append(positions[int(edge.x)])
+		for direction in directions:
+			var open := true
+			for neighbour in walkable_neighbours:
+				var offset := Vector2(neighbour.x - origin.x, neighbour.z - origin.z)
+				if offset.length() > 0.01 and offset.normalized().dot(direction) > 0.8:
+					open = false
+					break
+			if not open:
+				continue
+			var landed := false
+			var distance := 1.0
+			while distance <= 6.2 and not landed:
+				var sample := Vector2(origin.x, origin.z) + direction * distance
+				var key := Vector2i(int(floor((sample.x + HALF_X) / CELL)), int(floor((sample.y + HALF_Z) / CELL)))
+				if cells.has(key):
+					for b: int in cells[key]:
+						var rise := positions[b].y - origin.y
+						if rise > MAX_JUMP_RISE or rise < -MAX_DROP:
+							continue
+						if distance > jump_reach(rise):
+							continue
+						var height := maxf(origin.y, positions[b].y) + 1.0
+						var query := PhysicsRayQueryParameters3D.create(Vector3(origin.x, height, origin.z), Vector3(positions[b].x, height, positions[b].z))
+						if not space.intersect_ray(query).is_empty():
+							continue
+						var cost := Vector2(positions[b].x - origin.x, positions[b].z - origin.z).length() + 4.0
+						adjacency[a].append(Vector2(b, cost))
+						reverse_adjacency[b].append(Vector2(a, cost))
+						gap_jump_edges += 1
+						landed = true
+						break
+				distance += 0.5
 
 
 func _clearance_at(spot: Vector3) -> float:
@@ -330,7 +391,11 @@ func distinct_routes(from: int, to: int, corridor: float = 3.5, end_margin: floa
 		var narrowest := CLEARANCE_PROBE
 		for node in path:
 			narrowest = minf(narrowest, clearance[node])
-		routes.append({"cost": path_cost(path), "min_clearance": narrowest, "nodes": path.size()})
+		var squeezes := 0
+		for index in range(0, path.size(), 2):
+			if passage_half_width(positions[path[index]], 1.0) < 0.8:
+				squeezes += 1
+		routes.append({"cost": path_cost(path), "min_clearance": narrowest, "nodes": path.size(), "squeezed_share": float(squeezes) / maxf(1.0, float(path.size()) * 0.5)})
 		for node in path:
 			if positions[node].distance_to(positions[from]) < end_margin or positions[node].distance_to(positions[to]) < end_margin:
 				continue
@@ -402,3 +467,26 @@ func tightest_near(point: Vector3, radius: float) -> float:
 		if Vector2(positions[node].x - point.x, positions[node].z - point.z).length() <= radius and absf(positions[node].y - point.y) < 1.6:
 			narrowest = minf(narrowest, clearance[node])
 	return narrowest
+
+
+## Cost (path metres) from every node to `target`, using the reverse graph.
+func costs_to(target: int) -> PackedFloat32Array:
+	return _dijkstra(reverse_adjacency, target).dist
+
+
+## Half-width of the passage around a point: the best clearance among nearby nodes on the same
+## level. Small values mean a corridor or doorway, large values open ground.
+func passage_half_width(point: Vector3, radius: float = 1.2) -> float:
+	var widest := 0.0
+	var ix := int(floor((point.x + HALF_X) / CELL))
+	var iz := int(floor((point.z + HALF_Z) / CELL))
+	var reach := int(ceil(radius / CELL))
+	for dx in range(-reach, reach + 1):
+		for dz in range(-reach, reach + 1):
+			var key := Vector2i(ix + dx, iz + dz)
+			if not cells.has(key):
+				continue
+			for node: int in cells[key]:
+				if absf(positions[node].y - point.y) < 1.0:
+					widest = maxf(widest, clearance[node])
+	return widest

@@ -47,6 +47,7 @@ func _run() -> void:
 	await _test_extras()
 	await _test_gap_width()
 	await _test_pit()
+	await _test_gap_jumps()
 	if failures.is_empty():
 		print("PASS: map flow analyser (detours, routes, steps, headroom, gap width, pits, sightlines)")
 		quit(0)
@@ -165,3 +166,42 @@ func _test_pit() -> void:
 	_check(result.pits.has(pit_node), "dropping into the pit is possible but climbing out is not")
 	_check(not result.members.has(pit_node), "pit nodes are not part of the safe space")
 	holder.free()
+
+
+func _gap_world(gap: float, east_top: float) -> Node3D:
+	var holder := Node3D.new()
+	root.add_child(holder)
+	var half := gap * 0.5
+	var west_width := 18.0 - half
+	_box(holder, Vector3(west_width, 0.8, 30), Vector3(-(half + west_width * 0.5), -0.4, 0))
+	_box(holder, Vector3(west_width, 0.8 + east_top, 30), Vector3(half + west_width * 0.5, east_top - (0.8 + east_top) * 0.5, 0))
+	return holder
+
+
+func _test_gap_jumps() -> void:
+	var near := _gap_world(4.0, 0.0)
+	var analysis = await _analyse(near)
+	var a: int = analysis.nearest_node(Vector3(-8, 0, 0))
+	var b: int = analysis.nearest_node(Vector3(8, 0, 0))
+	_check(not analysis.path_between(a, b).is_empty() and not analysis.path_between(b, a).is_empty(), "a 4 m gap can be jumped both ways")
+	_check(analysis.gap_jump_edges > 0, "gap jumps are counted")
+	near.free()
+	await physics_frame
+	var wide := _gap_world(9.0, 0.0)
+	var blocked = await _analyse(wide)
+	var c: int = blocked.nearest_node(Vector3(-8, 0, 0))
+	var d: int = blocked.nearest_node(Vector3(8, 0, 0))
+	_check(blocked.path_between(c, d).is_empty(), "a 9 m gap cannot be jumped")
+	wide.free()
+	await physics_frame
+	var raised := _gap_world(3.0, 1.0)
+	var ledge = await _analyse(raised)
+	var e: int = ledge.nearest_node(Vector3(-8, 0, 0))
+	var f: int = ledge.nearest_node(Vector3(8, 1.0, 0))
+	_check(not ledge.path_between(e, f).is_empty(), "a 3 m gap onto a 1.0 m higher ledge can be jumped")
+	_check(not ledge.path_between(f, e).is_empty(), "and the drop back down works")
+	raised.free()
+	await physics_frame
+	_check(absf(ANALYSIS.jump_reach(0.0) - 5.83) < 0.1, "jump reach on level ground is about 5.8 m (%f)" % ANALYSIS.jump_reach(0.0))
+	_check(ANALYSIS.jump_reach(1.2) < ANALYSIS.jump_reach(0.0), "landing higher shortens the jump")
+	_check(ANALYSIS.jump_reach(2.0) == 0.0, "a ledge above the jump apex cannot be reached")
