@@ -108,8 +108,10 @@ static func _build_sunken_oasis(root: Node3D) -> void:
 	var cloth_red := Color("#C86F4D")
 	var cloth_blue := Color("#4F9AAB")
 
-	_box(root, "OasisWestMarketHall", Vector3(7.0, 3.0, 0.75), Vector3(-11.0, 1.5, -8.2), sandstone)
-	_box(root, "OasisEastMarketHall", Vector3(7.0, 3.0, 0.75), Vector3(11.0, 1.5, 8.2), sandstone)
+	# The halls stand behind the energy sites instead of across them: the west hall used to cut
+	# through site A, which made red's walk to its site four metres longer than blue's to site B.
+	_box(root, "OasisWestMarketHall", Vector3(7.0, 3.0, 0.75), Vector3(-10.1, 1.5, -11.2), sandstone)
+	_box(root, "OasisEastMarketHall", Vector3(7.0, 3.0, 0.75), Vector3(10.1, 1.5, 11.2), sandstone)
 	_box(root, "OasisNorthGallery", Vector3(12.0, 2.2, 0.65), Vector3(0.0, 1.1, -13.0), pale_stone)
 	_box(root, "OasisSouthGallery", Vector3(12.0, 2.2, 0.65), Vector3(0.0, 1.1, 13.0), pale_stone)
 	_arch(root, "OasisGrandArch", Vector3(0.0, 0.0, -10.5), 5.2, 3.5, 0.72, sandstone)
@@ -153,6 +155,7 @@ static func _build_jungle_temple(root: Node3D) -> void:
 	_jungle_side(root, "B", -1.0)
 	_jungle_mid_ruins(root)
 	_jungle_flags_and_cover(root)
+	_jungle_sight_breakers(root)
 	_jungle_paths(root)
 	_jungle_foliage(root)
 	_label(root, "JUNGLE ARENA", Vector3(0.0, 6.7, -13.4), Color("#E5FFD8"))
@@ -388,6 +391,38 @@ static func _jungle_flags_and_cover(root: Node3D) -> void:
 		_box(root, "JungleSiteCrate_%s_%s" % [_tag(site_cover.x), _tag(site_cover.z)], Vector3(1.2, 1.0, 1.2), site_cover + Vector3(0.0, 0.5, 0.0), crate)
 
 
+## Tall mossy stone slabs that cut the long open views along the two banks and across the river
+## (the other maps get this from their stage, platforms and pillars). Listed for the west/north
+## side and mirrored through the center like everything else in the Jungle Arena, with 1.5 m or
+## more left open beside each slab.
+const JUNGLE_SLABS := [
+	["Gate", Vector3(0.7, 3.2, 3.2), Vector3(-6.0, 0.0, -0.2)],
+	["Ridge", Vector3(3.0, 3.2, 0.7), Vector3(-13.5, 0.0, 2.0)],
+	["Bank", Vector3(3.0, 3.2, 0.7), Vector3(-13.2, 0.0, 7.8)],
+]
+## One extra slab for the blue spawn bank only. The red bank sits in the lee of the waterfall cliff
+## and is already less exposed, so a mirrored copy would hide red far more than blue (measured:
+## red 29% / blue 48% of the map seeing a spawn, against 53% / 48% with this single slab).
+const JUNGLE_BLUE_SCREEN := [Vector3(0.7, 3.2, 2.4), Vector3(-4.7, 0.0, 6.8)]
+
+
+static func _jungle_sight_breakers(root: Node3D) -> void:
+	var slab_stone := Color("#7C8B6E")
+	var slab_moss := Color("#5E8F4E")
+	for side_info in [["W", 1.0], ["E", -1.0]]:
+		var tag: String = side_info[0]
+		var side_sign: float = side_info[1]
+		for slab in JUNGLE_SLABS:
+			var size: Vector3 = slab[1]
+			var origin := _mirror(side_sign, slab[2])
+			_box(root, "JungleSlab_%s_%s" % [str(slab[0]), tag], size, origin + Vector3(0.0, size.y * 0.5, 0.0), slab_stone)
+			_ellipsoid(root, "JungleSlabMoss_%s_%s" % [str(slab[0]), tag], Vector3(size.x * 0.5 + 0.1, 0.22, size.z * 0.5 + 0.1), origin + Vector3(0.0, size.y + 0.05, 0.0), slab_moss, false)
+	var screen_size: Vector3 = JUNGLE_BLUE_SCREEN[0]
+	var screen_origin: Vector3 = JUNGLE_BLUE_SCREEN[1]
+	_box(root, "JungleSlab_BlueScreen", screen_size, screen_origin + Vector3(0.0, screen_size.y * 0.5, 0.0), slab_stone)
+	_ellipsoid(root, "JungleSlabMoss_BlueScreen", Vector3(screen_size.x * 0.5 + 0.1, 0.22, screen_size.z * 0.5 + 0.1), screen_origin + Vector3(0.0, screen_size.y + 0.05, 0.0), slab_moss, false)
+
+
 static func _jungle_paths(root: Node3D) -> void:
 	var sand := Color("#D3AA6B")
 	var segments := [
@@ -507,7 +542,9 @@ static func _build_neon_rooftops(root: Node3D) -> void:
 	var cyan := Color("#42DCE2")
 	for i in range(5):
 		var x := -12.0 + float(i) * 6.0
-		var height := 2.0 + float(i % 3) * 0.7
+		# Heights cycle 2.0 / 3.4 / 2.7 so that the north-west and north-east corners each get a tower
+		# above 3 m to steer by (the old 2.0 / 2.7 / 3.4 cycle left the north-east without one).
+		var height := 2.0 + float((i * 2) % 3) * 0.7
 		_box(root, "NeonTower_%d" % i, Vector3(3.6, height, 3.6), Vector3(x, height * 0.5, -10.0), dark)
 		_box(root, "NeonTowerTrim_%d" % i, Vector3(3.75, 0.16, 0.18), Vector3(x, height - 0.25, -8.12), cyan, false)
 	_box(root, "NeonSkywalk", Vector3(17.0, 0.36, 2.0), Vector3(0.0, 2.3, -5.0), blue)
@@ -526,6 +563,14 @@ static func _build_sky_islands(root: Node3D) -> void:
 		_box(root, "SkyIslandDeck_%d" % i, Vector3(4.0, 0.28, 3.2), position + Vector3(0.0, 0.72, 0.0), pale)
 		_ellipsoid(root, "SkyIslandGlow_%d" % i, Vector3(0.5, 0.18, 0.5), position + Vector3(0.0, 1.3, 0.0), glow, false)
 	_box(root, "SkyCenterPlatform", Vector3(7.5, 0.55, 5.8), Vector3(0.0, 1.0, 0.0), stone)
+	# Crystal spires in the two north corners (the shared pylons only stand in the south), so every
+	# quarter of the map has a tall landmark to steer by.
+	for side in [-1.0, 1.0]:
+		var spire_base := Vector3(side * 14.2, 0.0, -11.6)
+		var spire_tag := "W" if side < 0.0 else "E"
+		_cylinder(root, "SkySpire_" + spire_tag, 0.55, 5.6, spire_base + Vector3(0.0, 2.8, 0.0), Color("#5C6B7A"))
+		_cylinder(root, "SkySpireCap_" + spire_tag, 0.72, 0.3, spire_base + Vector3(0.0, 5.75, 0.0), glow, false)
+		_ellipsoid(root, "SkySpireGlow_" + spire_tag, Vector3(0.45, 0.45, 0.45), spire_base + Vector3(0.0, 6.2, 0.0), glow, false)
 
 
 static func _build_candy_garden(root: Node3D) -> void:

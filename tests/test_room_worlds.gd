@@ -44,7 +44,7 @@ func _run_tests() -> void:
 	_test_rooms_are_isolated()
 	_test_orbs_are_reachable()
 	_test_spawn_points_free()
-	_test_hitscan_blocked_by_jungle_geometry()
+	await _test_hitscan_blocked_by_jungle_geometry()
 	await _test_grenade_bounces_on_jungle_geometry()
 	await _test_players_leave_and_world_is_freed(p1)
 
@@ -88,10 +88,12 @@ func _test_players_are_in_their_room_worlds(p1, p2, p3) -> void:
 func _test_jungle_spawn_and_landing(p1, p2) -> void:
 	for player in [p1, p2]:
 		var pos: Vector3 = player.global_position
-		_assert_near("%s lands on the causeway (y %.2f)" % [player.name, pos.y], pos.y, 0.5, 0.08)
+		# Players spawn on the two river banks (the causeway is no longer a shared spawn), whose
+		# floor top is at y = 0.
+		_assert_near("%s lands on its river bank (y %.2f)" % [player.name, pos.y], pos.y, 0.0, 0.08)
 		_assert_true("%s is on the floor" % player.name, player.is_on_floor())
 		_assert_true("%s is not swimming" % player.name, not bool(player.get("is_swimming")))
-		_assert_true("%s is inside the arena" % player.name, absf(pos.x) < 3.0 and pos.z > 5.0 and pos.z < 9.0)
+		_assert_true("%s is inside the arena, beside the river and not in it" % player.name, absf(pos.x) > 2.9 and absf(pos.x) < 17.0 and absf(pos.z) < 14.0)
 
 
 func _room_space(code: String) -> PhysicsDirectSpaceState3D:
@@ -146,7 +148,7 @@ func _test_spawn_points_free() -> void:
 			_assert_equal("jungle spawn team '%s' slot %d is free" % [team, slot], space.intersect_shape(query, 4).size(), 0)
 			var ground := _ray(space, Vector3(spawn.x, 3.0, spawn.z), Vector3(spawn.x, -3.0, spawn.z), [], 1)
 			var ground_text := "no ground" if ground.is_empty() else "%s at %s" % [str(ground.collider.get_parent().name), str(ground.position)]
-			_assert_true("jungle spawn team '%s' slot %d at %s stands on the causeway (%s)" % [team, slot, str(spawn), ground_text], not ground.is_empty() and absf(ground.position.y - 0.5) < 0.12)
+			_assert_true("jungle spawn team '%s' slot %d at %s stands on its river bank (%s)" % [team, slot, str(spawn), ground_text], not ground.is_empty() and absf(ground.position.y) < 0.12)
 
 
 func _test_hitscan_blocked_by_jungle_geometry() -> void:
@@ -165,6 +167,10 @@ func _test_hitscan_blocked_by_jungle_geometry() -> void:
 	var p1 = network.get("_server_players")[11]
 	var p2 = network.get("_server_players")[12]
 	var p3 = network.get("_server_players")[13]
+	# Free-for-all spawns alternate between the two river banks, so the two players start 25 m
+	# apart. Stand p2 next to p1 (an unused spawn spot on the same bank) for a short, clear shot.
+	p2.global_position = p1.global_position + Vector3(0.0, 0.0, 1.4)
+	await physics_frame # the physics server only sees the moved body after a physics step
 	var from: Vector3 = p1.global_position + Vector3.UP * 1.0
 	var to: Vector3 = p2.global_position + Vector3.UP * 1.0
 	var direction := (to - from).normalized()

@@ -122,11 +122,17 @@ func _add_gap_jumps() -> void:
 			walkable_neighbours.append(positions[int(edge.x)])
 		for direction in directions:
 			var open := true
+			# A lower floor beside the take-off edge does not make the direction "walkable": a
+			# player can still jump over it onto a ledge of the same height or higher.
+			var drop_only := false
 			for neighbour in walkable_neighbours:
 				var offset := Vector2(neighbour.x - origin.x, neighbour.z - origin.z)
 				if offset.length() > 0.01 and offset.normalized().dot(direction) > 0.8:
-					open = false
-					break
+					if neighbour.y - origin.y < -STEP_WALK:
+						drop_only = true
+					else:
+						open = false
+						break
 			if not open:
 				continue
 			var landed := false
@@ -138,6 +144,9 @@ func _add_gap_jumps() -> void:
 					for b: int in cells[key]:
 						var rise := positions[b].y - origin.y
 						if rise > MAX_JUMP_RISE or rise < -MAX_DROP:
+							continue
+						# Landing lower is already possible by simply walking off the edge.
+						if drop_only and rise < -STEP_WALK:
 							continue
 						if distance > jump_reach(rise):
 							continue
