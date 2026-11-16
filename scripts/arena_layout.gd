@@ -47,14 +47,15 @@ static func orb_positions(map_index: int) -> Array[Vector3]:
 ## Where a player appears. `slot` spreads players that spawn together a little.
 static func spawn_position(map_index: int, team_id: String, slot: int = 0) -> Vector3:
 	if map_index == JUNGLE_MAP:
-		# Opposite river banks, point-symmetric like the rest of the map: blue on the south-west
+		# Opposite river banks, blue on the south-west
 		# bank in front of its flag, red on the north-east bank in front of its flag. (Both teams
 		# used to share the 2.4 m causeway.) Free-for-all alternates between the two banks.
 		var on_blue_bank := team_id == "blue" or (team_id != "red" and slot % 2 == 0)
 		var index := slot if team_id == "red" or team_id == "blue" else int(slot / 2)
-		var bank_x := -8.4 + float(index % 4) * 1.2
-		var bank_z := 9.5 + float(int(index / 4) % 2) * 1.4
-		return Vector3(bank_x, 1.5, bank_z) if on_blue_bank else Vector3(-bank_x, 1.5, -bank_z)
+		if on_blue_bank:
+			return Vector3(-8.4 + float(index % 4) * 1.2, 1.5, 9.5 + float(int(index / 4) % 2) * 1.4)
+		# The waterfall basin rules out a plain mirror image, so the red bank has its own block.
+		return Vector3(9.6 - float(index % 4) * 0.95, 1.5, -8.3 - float(int(index / 4) % 2) * 1.3)
 	var offset := Vector3(float(slot % 4) * 1.6 - 2.4, 0.0, float(int(slot / 4) % 4) * 1.6)
 	var team_x := -10.0 if team_id == "red" else (10.0 if team_id == "blue" else 0.0)
 	return Vector3(team_x, 1.5, 6.0) + offset
