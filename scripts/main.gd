@@ -532,7 +532,7 @@ func _update_objective_core(state: Dictionary) -> void:
 	_objective_core_site = site
 	_objective_core_visual = Node3D.new()
 	_objective_core_visual.name = "PlantedEnergyCore_" + site
-	_objective_core_visual.global_position = Vector3(-9.0, 0.25, -8.0) if site == "A" else Vector3(9.0, 0.25, 8.0)
+	_objective_core_visual.global_position = ARENA_LAYOUT.objective_site(active_map_index, "A" if site == "A" else "B") + Vector3(0.0, 0.25, 0.0)
 	add_child(_objective_core_visual)
 	var core := MeshInstance3D.new()
 	var core_mesh := SphereMesh.new()

@@ -27,7 +27,7 @@ const CLEARANCE_PROBE := 1.5
 const JUMP_VELOCITY := 7.0 ## same as the server player
 const GRAVITY := 18.0
 const JUMP_SPEED := 7.5 ## horizontal speed assumed while airborne (between walk 6 and sprint 9)
-const MAX_JUMP_RISE := 1.2
+const MAX_JUMP_RISE := 1.25 ## apex of a jump is 1.36 m, so 1.25 keeps a margin
 const MIN_NODE_HEIGHT := -2.5 ## river beds and basins are fine, the void below is not
 
 var space: PhysicsDirectSpaceState3D

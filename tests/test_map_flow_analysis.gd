@@ -203,5 +203,5 @@ func _test_gap_jumps() -> void:
 	raised.free()
 	await physics_frame
 	_check(absf(ANALYSIS.jump_reach(0.0) - 5.83) < 0.1, "jump reach on level ground is about 5.8 m (%f)" % ANALYSIS.jump_reach(0.0))
-	_check(ANALYSIS.jump_reach(1.2) < ANALYSIS.jump_reach(0.0), "landing higher shortens the jump")
+	_check(ANALYSIS.jump_reach(1.25) < ANALYSIS.jump_reach(0.0), "landing higher shortens the jump")
 	_check(ANALYSIS.jump_reach(2.0) == 0.0, "a ledge above the jump apex cannot be reached")

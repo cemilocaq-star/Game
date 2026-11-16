@@ -291,8 +291,9 @@ func _server_objective_interact() -> void:
 	else:
 		if team != "red":
 			return
-		var site_a := Vector3(-8.0, 1.5, -8.0)
-		var site_b := Vector3(8.0, 1.5, 8.0)
+		var site_map := int(room.get("map_index", 4))
+		var site_a: Vector3 = ARENA_LAYOUT.objective_site(site_map, "A") + Vector3(0.0, 1.5, 0.0)
+		var site_b: Vector3 = ARENA_LAYOUT.objective_site(site_map, "B") + Vector3(0.0, 1.5, 0.0)
 		var dist_a: float = actor.global_position.distance_to(site_a)
 		var dist_b: float = actor.global_position.distance_to(site_b)
 		if minf(dist_a, dist_b) > 3.0:
@@ -356,7 +357,7 @@ func _server_step_objective(room_code: String, room: Dictionary, delta: float) -
 		var planted_position: Vector3 = room.get("bomb_position", Vector3.ZERO)
 		valid = bool(room.get("bomb_planted", false)) and str(actor.team_id) == "blue" and actor.global_position.distance_to(planted_position) <= 3.0
 	else:
-		var site := Vector3(-8.0, 1.5, -8.0) if action == "plant_a" else Vector3(8.0, 1.5, 8.0)
+		var site: Vector3 = ARENA_LAYOUT.objective_site(int(room.get("map_index", 4)), "A" if action == "plant_a" else "B") + Vector3(0.0, 1.5, 0.0)
 		valid = not bool(room.get("bomb_planted", false)) and str(actor.team_id) == "red" and actor.global_position.distance_to(site) <= 3.0
 	if not valid:
 		room.objective_interactor = 0
@@ -373,7 +374,7 @@ func _server_step_objective(room_code: String, room: Dictionary, delta: float) -
 		else:
 			room.bomb_planted = true
 			room.bomb_site = "A" if action == "plant_a" else "B"
-			room.bomb_position = Vector3(-8.0, 1.5, -8.0) if action == "plant_a" else Vector3(8.0, 1.5, 8.0)
+			room.bomb_position = ARENA_LAYOUT.objective_site(int(room.get("map_index", 4)), str(room.bomb_site)) + Vector3(0.0, 1.5, 0.0)
 			room.bomb_fuse = 35.0
 			room.objective_result = "ENERGY CORE PLANTED • SITE " + str(room.bomb_site)
 		room.objective_interactor = 0

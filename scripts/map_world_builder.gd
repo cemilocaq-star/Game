@@ -16,6 +16,15 @@ const LANDMARKS := {
 	6: ["Saguaro_2", "CanyonCactusCrest", Vector3(-10.7, 3.7, -23.4), 1.25, -0.3],
 }
 
+## Energy sites of the demolition mode (floor level, pad centre). The flat maps put both sites on
+## the far side from the spawns, one nearer each team, so attackers and defenders travel alike;
+## the Jungle Arena is point-symmetric, so its second site sits on the opposite diagonal.
+static func objective_site(map_index: int, site_id: String) -> Vector3:
+	if site_id == "A":
+		return Vector3(-9.0, 0.0, -8.0)
+	return Vector3(9.0, 0.0, 8.0) if map_index == 5 else Vector3(9.0, 0.0, -8.0)
+
+
 static func build(parent: Node3D, map_index: int, include_landmarks: bool = true) -> Node3D:
 	var root := Node3D.new()
 	root.name = "GeneratedWorld_%d" % map_index
@@ -35,7 +44,8 @@ static func build(parent: Node3D, map_index: int, include_landmarks: bool = true
 			_build_candy_garden(root)
 		_:
 			_build_lost_mall(root)
-	_build_objective_sites(root)
+	_build_objective_sites(root, map_index)
+	_build_landmark_pylons(root, map_index)
 	if include_landmarks and LANDMARKS.has(map_index):
 		var detail: Array = LANDMARKS[map_index]
 		var model := load("res://assets/environment/%s.glb" % str(detail[0])) as PackedScene
@@ -44,10 +54,28 @@ static func build(parent: Node3D, map_index: int, include_landmarks: bool = true
 	return root
 
 
-static func _build_objective_sites(root: Node3D) -> void:
+## Tall glowing pylons in the two south corners. The north side already has towers, columns and the
+## bridge, so without these the south half has nothing to steer by. Not built in the Jungle Arena,
+## which has its pyramid, ruins and treehouses.
+const PYLON_COLORS := [Color("#45BEB8"), Color("#42DCE2"), Color("#89DDF2"), Color("#E58EC5"), Color("#F0C46C"), Color("#7ACF72"), Color("#E8825A")]
+
+
+static func _build_landmark_pylons(root: Node3D, map_index: int) -> void:
+	if map_index == 5:
+		return
+	var tint: Color = PYLON_COLORS[clampi(map_index, 0, PYLON_COLORS.size() - 1)]
+	for side in [-1.0, 1.0]:
+		var base := Vector3(side * 14.2, 0.0, 11.6)
+		var tag := "W" if side < 0.0 else "E"
+		_cylinder(root, "LandmarkPylon_" + tag, 0.55, 5.6, base + Vector3(0.0, 2.8, 0.0), Color("#5C6B7A"))
+		_cylinder(root, "LandmarkPylonCap_" + tag, 0.72, 0.3, base + Vector3(0.0, 5.75, 0.0), tint, false)
+		_ellipsoid(root, "LandmarkPylonGlow_" + tag, Vector3(0.45, 0.45, 0.45), base + Vector3(0.0, 6.2, 0.0), tint, false)
+
+
+static func _build_objective_sites(root: Node3D, map_index: int) -> void:
 	var site_data := [
-		{"id": "A", "position": Vector3(-9.0, 0.0, -8.0), "color": Color("#FF9B62")},
-		{"id": "B", "position": Vector3(9.0, 0.0, 8.0), "color": Color("#65DFFF")}
+		{"id": "A", "position": objective_site(map_index, "A"), "color": Color("#FF9B62")},
+		{"id": "B", "position": objective_site(map_index, "B"), "color": Color("#65DFFF")}
 	]
 	for site in site_data:
 		var site_id := str(site.id)

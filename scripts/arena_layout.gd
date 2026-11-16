@@ -35,6 +35,11 @@ static func map_name(map_index: int) -> String:
 	return MAP_NAMES[sanitize_map(map_index)]
 
 
+## Floor-level centre of an energy site ("A" or "B") for the demolition mode.
+static func objective_site(map_index: int, site_id: String) -> Vector3:
+	return MAP_WORLD_SCRIPT.objective_site(map_index, site_id)
+
+
 static func orb_positions(map_index: int) -> Array[Vector3]:
 	return ORBS_JUNGLE if map_index == JUNGLE_MAP else ORBS_DEFAULT
 
@@ -42,9 +47,14 @@ static func orb_positions(map_index: int) -> Array[Vector3]:
 ## Where a player appears. `slot` spreads players that spawn together a little.
 static func spawn_position(map_index: int, team_id: String, slot: int = 0) -> Vector3:
 	if map_index == JUNGLE_MAP:
-		# The spawn causeway is a narrow bridge over the river (x -2.4..2.4, z 6..7.6 is free).
-		var jungle_x := -1.2 if team_id == "red" else (1.2 if team_id == "blue" else 0.0)
-		return Vector3(jungle_x + float(slot % 4) * 0.4 - 0.6, 1.5, 6.0 + float(int(slot / 4) % 2) * 1.2)
+		# Opposite river banks, point-symmetric like the rest of the map: blue on the south-west
+		# bank in front of its flag, red on the north-east bank in front of its flag. (Both teams
+		# used to share the 2.4 m causeway.) Free-for-all alternates between the two banks.
+		var on_blue_bank := team_id == "blue" or (team_id != "red" and slot % 2 == 0)
+		var index := slot if team_id == "red" or team_id == "blue" else int(slot / 2)
+		var bank_x := -8.4 + float(index % 4) * 1.2
+		var bank_z := 9.5 + float(int(index / 4) % 2) * 1.4
+		return Vector3(bank_x, 1.5, bank_z) if on_blue_bank else Vector3(-bank_x, 1.5, -bank_z)
 	var offset := Vector3(float(slot % 4) * 1.6 - 2.4, 0.0, float(int(slot / 4) % 4) * 1.6)
 	var team_x := -10.0 if team_id == "red" else (10.0 if team_id == "blue" else 0.0)
 	return Vector3(team_x, 1.5, 6.0) + offset
@@ -67,6 +77,9 @@ static func base_boxes(map_index: int) -> Array[Dictionary]:
 	if jungle:
 		# Jungle Arena builds its own floor, river and platforms in MapWorldBuilder.
 		return boxes
+	# A pillar in the south lane, between the stage and the south platform: it breaks the straight
+	# line of sight between the two spawns and splits the lane into two 1.5 m passages.
+	boxes.append({"name": "SouthLanePillar", "size": Vector3(1.6, 3.0, 1.6), "position": Vector3(0, 1.5, 5.3), "role": "wall"})
 	boxes.append({"name": "CentralStage", "size": Vector3(9, 1.2, 6.2), "position": Vector3(0, 0.6, 0), "role": "stage"})
 	boxes.append({"name": "WestUpperPlatform", "size": Vector3(6.5, 1.2, 5.2), "position": Vector3(-11.2, 1.9, -5.6), "role": "platform"})
 	boxes.append({"name": "EastUpperPlatform", "size": Vector3(6.5, 1.2, 5.2), "position": Vector3(11.2, 1.9, -5.6), "role": "platform"})

@@ -395,7 +395,7 @@ checks.extend([
     ("_server_step_objective", network, "server-side objective progress and fuse"),
     ("objective_winner_team", network, "team objective win resolution"),
     ("BOMB RUSH • PLANT / DEFUSE", read("scripts/oxenwar_menu.gd"), "bomb objective game mode selection"),
-    ("_build_objective_sites(root)", read("scripts/map_world_builder.gd"), "A/B sites on every generated map"),
+    ("_build_objective_sites(root, map_index)", read("scripts/map_world_builder.gd"), "A/B sites on every generated map"),
     ("ObjectiveSite_%s_EnergyRing", read("scripts/map_world_builder.gd"), "A/B site energy ring visuals"),
     ("objective_interact", read("scripts/main.gd"), "keyboard/mobile plant and defuse input"),
     ("PlantedEnergyCore_", read("scripts/main.gd"), "visible animated planted energy core"),

@@ -4,8 +4,10 @@ extends SceneTree
 ## timings, range checks and win conditions are exercised instead of only grepped.
 
 const NETWORK_SCRIPT := preload("res://scripts/oxenwar_network.gd")
-const SITE_A := Vector3(-8.0, 1.5, -8.0)
-const SITE_B := Vector3(8.0, 1.5, 8.0)
+const ARENA_LAYOUT := preload("res://scripts/arena_layout.gd")
+## Sites of the default map (the rooms below use it), at the height the server compares against.
+var SITE_A: Vector3 = ARENA_LAYOUT.objective_site(4, "A") + Vector3(0.0, 1.5, 0.0)
+var SITE_B: Vector3 = ARENA_LAYOUT.objective_site(4, "B") + Vector3(0.0, 1.5, 0.0)
 const STEP := 0.1
 
 var failures: Array[String] = []

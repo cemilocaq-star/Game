@@ -3,7 +3,6 @@ extends SceneTree
 
 const ANALYSIS := preload("res://scripts/map_flow_analysis.gd")
 const LAYOUT := preload("res://scripts/arena_layout.gd")
-const SITES := {"A": Vector3(-9.0, 0.0, -8.0), "B": Vector3(9.0, 0.0, 8.0)}
 var failures: Array[String] = []
 var report: Array[String] = []
 
@@ -35,6 +34,25 @@ func _fmt(point: Vector3) -> String:
 	return "(%.1f,%.1f,%.1f)" % [point.x, point.y, point.z]
 
 
+## Tall solid props (top at least 3 m, not boundary walls) per quadrant: x<0/x>0, z<0/z>0.
+func _landmarks(node: Node, found: Array) -> void:
+	for child in node.get_children():
+		if child is StaticBody3D:
+			var body := child as StaticBody3D
+			for part in body.get_children():
+				if part is CollisionShape3D and (part as CollisionShape3D).shape != null:
+					var shape := (part as CollisionShape3D).shape
+					var height := 0.0
+					if shape is BoxShape3D:
+						height = (shape as BoxShape3D).size.y
+					elif shape is CylinderShape3D:
+						height = (shape as CylinderShape3D).height
+					var centre: Vector3 = body.global_transform * (part as CollisionShape3D).position
+					if height > 0.0 and centre.y + height * 0.5 >= 3.0 and absf(centre.x) < 16.4 and absf(centre.z) < 13.6:
+						found.append(centre)
+		_landmarks(child, found)
+
+
 func _analyse_map(map_index: int) -> void:
 	var holder := Node3D.new()
 	root.add_child(holder)
@@ -63,6 +81,7 @@ func _analyse_map(map_index: int) -> void:
 			if node < 0 or not members.has(node):
 				bad_spawns += 1
 	_check(bad_spawns == 0, "%s: %d spawn slots are not on safe ground" % [name, bad_spawns])
+	var pits_ok: bool = safe.pits.size() == 0
 	var pit_samples: Array[String] = []
 	for node: int in safe.pits:
 		if pit_samples.size() < 5:
@@ -85,8 +104,8 @@ func _analyse_map(map_index: int) -> void:
 	_check(lost_orbs == 0, "%s: %d pickups are out of reach" % [name, lost_orbs])
 	var site_nodes := {}
 	var balance_numbers := {}
-	for site_id in SITES:
-		var node: int = analysis.nearest_node(SITES[site_id] + Vector3(0, 0.22, 0))
+	for site_id in ["A", "B"]:
+		var node: int = analysis.nearest_node(LAYOUT.objective_site(map_index, site_id) + Vector3(0, 0.22, 0))
 		site_nodes[site_id] = node
 		_check(node >= 0 and members.has(node), "%s: objective site %s is reachable" % [name, site_id])
 	# Routes between the spawns.
@@ -132,6 +151,28 @@ func _analyse_map(map_index: int) -> void:
 	report.append("  spawn exposure (share of the map beyond 10 m that sees a spawn, mean of 8 slots): red %.0f%%, blue %.0f%%" % [float(exposure.red) * 100.0, float(exposure.blue) * 100.0])
 	var spawn_gap: float = analysis.positions[red_start].distance_to(analysis.positions[blue_start])
 	report.append("  red/blue spawn distance (slot 0): %.1f m" % spawn_gap)
+	# Design targets, measured above.
+	_check(pits_ok, "%s: players can drop into a pit they cannot leave" % name)
+	_check(spawn_gap >= 15.0, "%s: the teams spawn only %.1f m apart" % [name, spawn_gap])
+	_check(routes.size() >= 3 and float(routes[2].cost) <= float(routes[0].cost) * 2.0, "%s: fewer than three reasonable routes between the spawns" % name)
+	if balance_numbers.has("centre"):
+		_check(absf(float(balance_numbers.centre.red) - float(balance_numbers.centre.blue)) <= 3.0, "%s: the centre is not equally far from both teams" % name)
+	if balance_numbers.has("A") and balance_numbers.has("B"):
+		var red_best := minf(float(balance_numbers.A.red), float(balance_numbers.B.red))
+		var blue_best := minf(float(balance_numbers.A.blue), float(balance_numbers.B.blue))
+		_check(absf(red_best - blue_best) <= 3.0, "%s: nearest energy site is %.0f m for red but %.0f m for blue" % [name, red_best, blue_best])
+		_check(minf(float(balance_numbers.A.blue), float(balance_numbers.B.blue)) >= 8.0, "%s: an energy site is practically inside a spawn" % name)
+	_check(float(exposure.red) <= 0.6 and float(exposure.blue) <= 0.6, "%s: a spawn is visible from more than 60%% of the map" % name)
+	_check(absf(float(exposure.red) - float(exposure.blue)) <= 0.15, "%s: spawn exposure differs a lot between teams" % name)
+	_check(float(sight.bands[2]) <= 0.45, "%s: too many long open sightlines (%.0f%% beyond 16 m)" % [name, float(sight.bands[2]) * 100.0])
+	var landmarks: Array = []
+	_landmarks(arena, landmarks)
+	var quadrants := [0, 0, 0, 0]
+	for point: Vector3 in landmarks:
+		quadrants[(1 if point.x > 0.0 else 0) + (2 if point.z > 0.0 else 0)] += 1
+	report.append("  landmarks (3 m+ solid props) per quadrant NW/NE/SW/SE: %s" % str(quadrants))
+	for quadrant in range(4):
+		_check(quadrants[quadrant] >= 1, "%s: quadrant %d has no landmark to steer by" % [name, quadrant])
 	arena.free()
 	holder.free()
 	await physics_frame
