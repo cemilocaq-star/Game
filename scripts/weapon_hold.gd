@@ -20,6 +20,10 @@ const ARM_Z_LIMITS := Vector2(-1.1, 1.1)
 const ELBOW_LIMITS := Vector2(0.0, 2.4)
 const TWO_HAND_LENGTH := 0.42 ## scaled weapon length (m) from which the off hand supports it
 const REACH_MARGIN := 0.97
+const HOLD_X := 0.06 ## how far right of the body centre the grip hand sits
+const MIN_FORWARD := 0.44
+const MAX_FORWARD := 0.64
+const CLEAR_MARGIN := 0.035 ## wanted gap between weapon and torso (the test demands 0.02)
 
 static var _info_cache: Dictionary = {}
 
@@ -54,18 +58,35 @@ static func solve_arm(target: Vector3) -> Dictionary:
 	var l2 := forearm_length()
 	var interior := acos(clampf((l1 * l1 + l2 * l2 - distance * distance) / (2.0 * l1 * l2), -1.0, 1.0))
 	var elbow_x := PI - interior
-	var params := Vector3(arm_x, arm_z, elbow_x)
-	for iteration in range(10):
+	var best := Vector3.ZERO
+	var best_error := INF
+	# Joint limits can trap the first guess; a few alternative starts fix that cheaply.
+	for start in [Vector2.ZERO, Vector2(0.5, 0.0), Vector2(-0.5, 0.0), Vector2(1.0, 0.0), Vector2(0.0, 0.4), Vector2(0.0, -0.4)]:
+		var params := _refine(goal, Vector3(arm_x + start.x, arm_z + start.y, elbow_x))
+		var error := goal.distance_to(hand_position(params.x, params.y, params.z))
+		if error < best_error:
+			best_error = error
+			best = params
+		if best_error < 0.003:
+			break
+	var final_error := target.distance_to(hand_position(best.x, best.y, best.z))
+	return {"arm_x": best.x, "arm_z": best.y, "elbow_x": best.z, "error": final_error}
+
+
+## Damped least squares with a numeric Jacobian (three joints, three coordinates).
+static func _refine(goal: Vector3, start: Vector3) -> Vector3:
+	var params := start
+	for iteration in range(20):
 		params = _clamp_params(params)
 		var error := goal - hand_position(params.x, params.y, params.z)
-		if error.length() < 0.002:
+		if error.length() < 0.001:
 			break
-		# Damped least squares with a numeric Jacobian (three joints, three coordinates).
+		var base := hand_position(params.x, params.y, params.z)
 		var columns: Array[Vector3] = []
 		for axis in range(3):
 			var probe := params
 			probe[axis] += 0.0005
-			columns.append((hand_position(probe.x, probe.y, probe.z) - hand_position(params.x, params.y, params.z)) / 0.0005)
+			columns.append((hand_position(probe.x, probe.y, probe.z) - base) / 0.0005)
 		var damping := 0.0004
 		var normal := Basis(
 			Vector3(columns[0].dot(columns[0]) + damping, columns[0].dot(columns[1]), columns[0].dot(columns[2])),
@@ -74,9 +95,7 @@ static func solve_arm(target: Vector3) -> Dictionary:
 		)
 		var rhs := Vector3(columns[0].dot(error), columns[1].dot(error), columns[2].dot(error))
 		params += normal.inverse() * rhs
-	params = _clamp_params(params)
-	var final_error := target.distance_to(hand_position(params.x, params.y, params.z))
-	return {"arm_x": params.x, "arm_z": params.y, "elbow_x": params.z, "error": final_error}
+	return _clamp_params(params)
 
 
 static func _clamp_params(params: Vector3) -> Vector3:
@@ -137,20 +156,53 @@ static func _collect(node: Node, transform: Transform3D, holder: Dictionary) -> 
 		_collect(child3d, child_transform, holder)
 
 
+## Gap (m) between the weapon, gripped at `grip_world` and tilted by `weapon_basis`, and the torso
+## cylinder; 99 when the weapon is entirely above or below the torso. Uses the same bounding-box
+## measure as the clearance test.
+static func torso_gap(info: Dictionary, grip_world: Vector3, weapon_basis: Basis) -> float:
+	var box: AABB = info.get("aabb", AABB())
+	var grip: Vector3 = info.get("grip", Vector3.ZERO)
+	var low := Vector3(INF, INF, INF)
+	var high := Vector3(-INF, -INF, -INF)
+	for corner in range(8):
+		var offset := Vector3(
+			box.size.x if (corner & 1) != 0 else 0.0,
+			box.size.y if (corner & 2) != 0 else 0.0,
+			box.size.z if (corner & 4) != 0 else 0.0)
+		var point := grip_world + weapon_basis * ((box.position + offset - grip) * WEAPON_SCALE)
+		low = low.min(point)
+		high = high.max(point)
+	var half_height := CHARACTER_VISUALS.TROLL_BODY_HEIGHT * 0.5
+	if high.y < -half_height or low.y > half_height:
+		return 99.0
+	var nearest := Vector2(clampf(0.0, low.x, high.x), clampf(0.0, low.z, high.z))
+	return nearest.length() - TORSO_RADIUS
+
+
 ## Glove targets in the rig's space (relative to the rig origin, which is the body centre):
 ## {"right": Vector3, "left": Vector3 or null}. `aim_pitch` tilts the weapon up (+) or down (-).
+## The weapon is pushed forward until its stock or handle clears the torso, and the off hand
+## grips only as far forward as the arm can reach.
 static func hold_targets(info: Dictionary, aim_pitch: float, bob: float = 0.0) -> Dictionary:
 	var pitch := clampf(aim_pitch, -1.15, 1.15)
-	# The grip sits far enough ahead that the stock or handle behind it stays outside the torso.
-	var forward := clampf(TORSO_RADIUS + float(info.get("rear", 0.0)) + 0.10, 0.46, 0.60)
-	var pivot := Vector3(0.0, SHOULDER_Y, 0.0)
-	var base := Vector3(0.10, SHOULDER_Y - 0.17 + bob, -forward)
 	var weapon_basis := Basis(Vector3.RIGHT, pitch)
-	var right := pivot + Basis(Vector3.RIGHT, pitch * 0.55) * (base - pivot)
+	var pivot := Vector3(0.0, SHOULDER_Y, 0.0)
+	var swing := Basis(Vector3.RIGHT, pitch * 0.55)
+	var forward := MIN_FORWARD
+	var right := Vector3.ZERO
+	for step in range(12):
+		right = pivot + swing * (Vector3(HOLD_X, SHOULDER_Y - 0.10 + bob, -forward) - pivot)
+		if torso_gap(info, right, weapon_basis) >= CLEAR_MARGIN or forward >= MAX_FORWARD:
+			break
+		forward = minf(forward + 0.02, MAX_FORWARD)
 	var result := {"right": right, "left": null}
 	if bool(info.get("two_handed", false)):
 		var offset: Vector3 = ((info.foregrip as Vector3) - (info.grip as Vector3)) * WEAPON_SCALE
-		result["left"] = right + weapon_basis * offset
+		var left_shoulder := Vector3(-SHOULDER_X, SHOULDER_Y, 0.0)
+		var fraction := 1.0
+		while fraction > 0.0 and (right + weapon_basis * offset * fraction).distance_to(left_shoulder) > max_reach() * 0.95:
+			fraction -= 0.1
+		result["left"] = right + weapon_basis * offset * maxf(fraction, 0.0)
 	return result
 
 

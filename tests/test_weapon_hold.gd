@@ -42,11 +42,11 @@ func _run() -> void:
 func _test_ik() -> void:
 	var worst := 0.0
 	var count := 0
-	for x in [-0.55, -0.35, -0.15, 0.0, 0.15]:
-		for y in [-0.45, -0.30, -0.15, 0.0, 0.1]:
-			for z in [-0.65, -0.5, -0.35, -0.2]:
+	for x in [-0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5]:
+		for y in [-0.3, -0.2, -0.1, 0.0, 0.1, 0.15]:
+			for z in [-0.65, -0.55, -0.45, -0.4]:
 				var target := Vector3(x, y, z)
-				if target.length() > HOLD.max_reach() * 0.96 or target.length() < 0.2:
+				if target.length() > HOLD.max_reach() * 0.96 or target.length() < 0.4:
 					continue
 				var solved: Dictionary = HOLD.solve_arm(target)
 				var reached: Vector3 = HOLD.hand_position(solved.arm_x, solved.arm_z, solved.elbow_x)
@@ -142,7 +142,7 @@ func _test_rig(outfit: String) -> void:
 	_check(worst_glove < 0.04, "%s: right glove reaches its target (worst %f)" % [outfit, worst_glove])
 	_check(worst_grip < 0.005, "%s: the grip stays inside the glove (worst %f)" % [outfit, worst_grip])
 	_check(worst_aim < 0.6, "%s: the weapon points where the body aims (worst %f deg)" % [outfit, worst_aim])
-	_check(worst_left < 0.08, "%s: the off hand supports two-handed weapons (worst %f)" % [outfit, worst_left])
+	_check(worst_left < 0.06, "%s: the off hand supports two-handed weapons (worst %f)" % [outfit, worst_left])
 	host.free()
 
 
