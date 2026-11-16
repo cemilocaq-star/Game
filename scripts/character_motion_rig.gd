@@ -4,6 +4,7 @@ extends RefCounted
 
 const GHOST_RIG := preload("res://scripts/ghost_costume_rig.gd")
 const CHARACTER_VISUALS := preload("res://scripts/character_visuals.gd")
+const WEAPON_HOLD := preload("res://scripts/weapon_hold.gd")
 
 ## Builds the articulated limb rig on the shared slim torso. When `outfit_id`
 ## has a costume profile (see CharacterVisuals.profile_for) the limbs, hands and
@@ -115,7 +116,9 @@ static func _add_foot(knee: Node3D, style: String, is_left: bool, boot_material:
 		_add_capsule(knee, "FlipFlopStrap", 0.014, 0.16, Vector3(0, -0.385, -0.125), sole_material, Vector3(0.0, 0.0, deg_to_rad(90.0)))
 
 
-static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sliding: bool, emote: String, delta: float) -> void:
+## `hold` (optional) carries glove targets from WeaponHold.hold_targets: the arms then aim at them
+## instead of swinging, so a carried weapon stays level in front of the body.
+static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sliding: bool, emote: String, delta: float, hold: Dictionary = {}) -> void:
 	if not is_instance_valid(rig):
 		return
 
@@ -258,6 +261,13 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 			ankle_x = 0.0
 			leg_z = side * 0.015
 
+		if not hold.is_empty() and not active_emote:
+			var glove_target: Variant = hold.get("right") if is_right else hold.get("left")
+			if glove_target != null:
+				var solved: Dictionary = WEAPON_HOLD.solve_arm((glove_target as Vector3) - arm.position)
+				arm_x = float(solved.arm_x)
+				arm_z = float(solved.arm_z)
+				elbow_x = float(solved.elbow_x)
 		_move_rotation(arm, Vector3(arm_x, 0.0, arm_z), delta, 11.0)
 		_move_rotation(elbow, Vector3(elbow_x, 0.0, 0.0), delta, 13.0)
 		_move_rotation(leg, Vector3(leg_x, 0.0, leg_z), delta, 10.0)

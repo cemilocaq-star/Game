@@ -6,6 +6,7 @@ const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
 const ARCADE_WEAPON_VISUALS = preload("res://scripts/arcade_weapon_visuals.gd")
 const WEAPON_FEEL = preload("res://scripts/weapon_feel.gd")
 const WEAPON_VIEW_ANIM = preload("res://scripts/weapon_viewmodel_anim.gd")
+const WEAPON_HOLD = preload("res://scripts/weapon_hold.gd")
 const WEAPON_AUDIO = preload("res://scripts/weapon_audio.gd")
 const SFX_BANK_PLAYER = preload("res://scripts/sfx_bank.gd")
 const FEEL_SETTINGS = preload("res://scripts/user_settings.gd")
@@ -99,6 +100,10 @@ var _blaster_cooldown := 0.0
 var _view_anim = WEAPON_VIEW_ANIM.new()
 var _weapon_pivot: Node3D
 var _prev_look := Vector2.ZERO
+## The weapon the character carries in the world (seen in third person and the intro).
+var _tp_weapon: Node3D
+var _tp_weapon_info: Dictionary = {}
+var _tp_kick := 0.0
 var _look_primed := false
 var _feel = WEAPON_FEEL.Tracker.new()
 ## The local character is hidden from the first-person camera, so players never saw their own model.
@@ -285,7 +290,15 @@ func _process(delta: float) -> void:
 		var movement_speed := Vector2(velocity.x, velocity.z).length()
 		var moving := movement_speed > 0.35 and is_on_floor() and not _is_sliding
 		_body_mesh.position.y = 0.9 + (absf(sin(_motion_clock * 10.0)) * 0.035 if moving else sin(_motion_clock * 1.8) * 0.012)
-	CharacterMotionRig.animate(_motion_rig, _motion_clock, Vector2(velocity.x, velocity.z).length(), is_on_floor(), _is_sliding, active_emote, delta)
+	var tp_armed := is_instance_valid(_tp_weapon) and not is_dead and active_emote.is_empty()
+	var hold: Dictionary = {}
+	if tp_armed:
+		hold = WEAPON_HOLD.hold_targets(_tp_weapon_info, pitch)
+	CharacterMotionRig.animate(_motion_rig, _motion_clock, Vector2(velocity.x, velocity.z).length(), is_on_floor(), _is_sliding, active_emote, delta, hold)
+	_tp_kick = move_toward(_tp_kick, 0.0, delta * 7.0)
+	if is_instance_valid(_tp_weapon):
+		_tp_weapon.visible = tp_armed and (third_person or _intro_left > 0.0)
+		WEAPON_HOLD.place_mount(_tp_weapon, _tp_weapon.get_parent() as Node3D, _motion_rig, _tp_weapon_info, pitch, _tp_kick)
 	_blaster_cooldown = maxf(0.0, _blaster_cooldown - delta)
 	var on_floor_now := is_on_floor()
 	if on_floor_now and not _prev_on_floor and _prev_fall_speed < -5.5 and not is_dead:
@@ -613,6 +626,7 @@ func _setup_blaster() -> void:
 	_blaster_model.position = Vector3(0.27, -0.24, -0.48)
 	_blaster_model.visible = not is_dead
 	_weapon_pivot.add_child(_blaster_model)
+	_attach_tp_weapon()
 	if not is_instance_valid(_blaster_audio):
 		_blaster_audio = AudioStreamPlayer3D.new()
 		_blaster_audio.name = "ArcadeWeaponAudio"
@@ -621,6 +635,28 @@ func _setup_blaster() -> void:
 		_blaster_audio.unit_size = 9.0
 		_blaster_audio.stream = make_weapon_stream(selected_weapon_id)
 		_camera.add_child(_blaster_audio)
+
+## Builds the world-space copy of the weapon in the character's right hand. It is only drawn by the
+## external (intro / third-person) camera; the first-person camera never sees render layer 2.
+func _attach_tp_weapon() -> void:
+	if is_instance_valid(_tp_weapon):
+		_tp_weapon.get_parent().remove_child(_tp_weapon)
+		_tp_weapon.queue_free()
+		_tp_weapon = null
+	if not is_instance_valid(_motion_rig):
+		return
+	var elbow := _motion_rig.get_node_or_null("ArmPivot_R/ElbowPivot") as Node3D
+	if not is_instance_valid(elbow):
+		return
+	var weapon_data: Dictionary = ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"])
+	_tp_weapon = ARCADE_WEAPON_VISUALS.build_weapon(selected_weapon_id, weapon_data.get("color", Color("#8CEEFF")))
+	_tp_weapon_info = WEAPON_HOLD.measure(_tp_weapon, selected_weapon_id)
+	_tp_weapon.scale = Vector3.ONE * WEAPON_HOLD.WEAPON_SCALE
+	_tp_weapon.position = WEAPON_HOLD.GLOVE_LOCAL - (_tp_weapon_info.grip as Vector3) * WEAPON_HOLD.WEAPON_SCALE
+	_set_visual_layer_recursive(_tp_weapon, 2)
+	_tp_weapon.visible = false
+	elbow.add_child(_tp_weapon)
+
 
 func _blaster_material(color: Color, metallic_value: float, emissive: bool = false) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -707,6 +743,7 @@ func _fire_blaster() -> void:
 	if is_dead or not is_instance_valid(_camera) or _blaster_cooldown > 0.0 or _weapon_pose_locked() or _intro_left > 0.0 or _view_anim.is_reloading():
 		return
 	_blaster_cooldown = float(ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"]).get("cooldown", 0.24))
+	_tp_kick = 1.0
 	_view_anim.fire(clampf(pow(_blaster_cooldown / 0.24, 0.55), 0.45, 1.8), 1.0 if randf() > 0.5 else -1.0)
 	_animate_weapon_fire()
 	var origin := _camera.global_position

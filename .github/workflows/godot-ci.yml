@@ -234,6 +234,9 @@ jobs:
       - name: Test weapon animation wired into the player
         run: timeout 60s godot --headless --path . --script tests/test_weapon_view_integration.gd
 
+      - name: Test third-person weapon holding (IK, grip fit, torso clearance)
+        run: timeout 120s godot --headless --path . --script tests/test_weapon_hold.gd
+
       - name: Test per-room maps and isolated physics worlds
         run: timeout 90s godot --headless --path . --script tests/test_room_worlds.gd
 

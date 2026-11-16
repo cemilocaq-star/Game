@@ -6,6 +6,7 @@ const WEAPON_VISUALS := preload("res://scripts/arcade_weapon_visuals.gd")
 const PLAYER := preload("res://scripts/player.gd")
 const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
 const NET_SYNC := preload("res://scripts/net_sync.gd")
+const WEAPON_HOLD := preload("res://scripts/weapon_hold.gd")
 
 var target_position := Vector3.ZERO
 var target_yaw := 0.0
@@ -17,6 +18,9 @@ var _result_pose := ""
 var _weapon_id := ""
 var _weapon_mount: Node3D
 var _weapon_kick := 0.0
+var _weapon_info: Dictionary = {}
+## Vertical aim of this player (radians, + = up). Not replicated yet, so weapons stay level.
+var aim_pitch := 0.0
 var _fall_elapsed := 0.0
 const FALL_DURATION := 0.38
 var display_name := "Player"
@@ -151,8 +155,9 @@ func _attach_weapon() -> void:
 	var hand := _motion_rig.get_node("ArmPivot_R/ElbowPivot") as Node3D
 	var data: Dictionary = PLAYER.ARCADE_WEAPON_LOCAL[_weapon_id]
 	_weapon_mount = WEAPON_VISUALS.build_weapon(_weapon_id, data.color)
-	_weapon_mount.position = Vector3(0.0, -0.35, -0.08)
-	_weapon_mount.scale = Vector3.ONE * 0.58
+	_weapon_info = WEAPON_HOLD.measure(_weapon_mount, _weapon_id)
+	_weapon_mount.scale = Vector3.ONE * WEAPON_HOLD.WEAPON_SCALE
+	_weapon_mount.position = WEAPON_HOLD.GLOVE_LOCAL - (_weapon_info.grip as Vector3) * WEAPON_HOLD.WEAPON_SCALE
 	hand.add_child(_weapon_mount)
 
 
@@ -272,10 +277,12 @@ func _process(delta: float) -> void:
 	if not _dead and not _sliding and _emote_id == "":
 		_visual.position.y = 0.9 + (absf(sin(_motion_clock * 10.0)) * 0.035 if estimated_speed > 0.5 else sin(_motion_clock * 1.8) * 0.012)
 	var pose := _emote_id if _result_pose.is_empty() else ("wave" if _result_pose == "win" else "defeat")
-	CharacterMotionRig.animate(_motion_rig, _motion_clock, estimated_speed, _grounded or not _result_pose.is_empty(), _sliding and _result_pose.is_empty(), pose, delta)
+	var armed := is_instance_valid(_weapon_mount) and not _dead and pose.is_empty()
+	var hold: Dictionary = {}
+	if armed:
+		hold = WEAPON_HOLD.hold_targets(_weapon_info, aim_pitch)
+	CharacterMotionRig.animate(_motion_rig, _motion_clock, estimated_speed, _grounded or not _result_pose.is_empty(), _sliding and _result_pose.is_empty(), pose, delta, hold)
 	_weapon_kick = move_toward(_weapon_kick, 0.0, delta * 7.0)
 	if is_instance_valid(_weapon_mount):
-		_weapon_mount.visible = not _dead and pose.is_empty()
-		_weapon_mount.position.z = -0.08 + _weapon_kick * 0.055
-		var elbow := _weapon_mount.get_parent() as Node3D
-		_weapon_mount.rotation.x = -elbow.rotation.x - _weapon_kick * 0.16
+		_weapon_mount.visible = armed
+		WEAPON_HOLD.place_mount(_weapon_mount, _weapon_mount.get_parent() as Node3D, _motion_rig, _weapon_info, aim_pitch, _weapon_kick)
