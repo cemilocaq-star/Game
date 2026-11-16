@@ -141,9 +141,7 @@ func _add_gap_jumps() -> void:
 							continue
 						if distance > jump_reach(rise):
 							continue
-						var height := maxf(origin.y, positions[b].y) + 1.0
-						var query := PhysicsRayQueryParameters3D.create(Vector3(origin.x, height, origin.z), Vector3(positions[b].x, height, positions[b].z))
-						if not space.intersect_ray(query).is_empty():
+						if not _swept_clear(origin, positions[b], maxf(origin.y, positions[b].y) + 1.0):
 							continue
 						var cost := Vector2(positions[b].x - origin.x, positions[b].z - origin.z).length() + 4.0
 						adjacency[a].append(Vector2(b, cost))
@@ -152,6 +150,20 @@ func _add_gap_jumps() -> void:
 						landed = true
 						break
 				distance += 0.5
+
+
+## A body-wide corridor (three parallel rays) at `height` between two points is free of walls.
+func _swept_clear(from: Vector3, to: Vector3, height: float) -> bool:
+	var along := Vector2(to.x - from.x, to.z - from.z)
+	if along.length() < 0.001:
+		return true
+	var side := Vector2(-along.y, along.x).normalized() * MIN_CLEARANCE
+	for offset in [-1.0, 0.0, 1.0]:
+		var start := Vector3(from.x + side.x * offset, height, from.z + side.y * offset)
+		var end := Vector3(to.x + side.x * offset, height, to.z + side.y * offset)
+		if not space.intersect_ray(PhysicsRayQueryParameters3D.create(start, end)).is_empty():
+			return false
+	return true
 
 
 func _clearance_at(spot: Vector3) -> float:
