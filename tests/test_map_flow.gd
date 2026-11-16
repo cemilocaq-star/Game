@@ -130,7 +130,7 @@ func _analyse_map(map_index: int) -> void:
 			total += analysis.exposure_of(analysis.positions[spawn_node], member_list, 10.0)
 		exposure[team] = total / 8.0
 	report.append("  spawn exposure (share of the map beyond 10 m that sees a spawn, mean of 8 slots): red %.0f%%, blue %.0f%%" % [float(exposure.red) * 100.0, float(exposure.blue) * 100.0])
-	var spawn_gap := analysis.positions[red_start].distance_to(analysis.positions[blue_start])
+	var spawn_gap: float = analysis.positions[red_start].distance_to(analysis.positions[blue_start])
 	report.append("  red/blue spawn distance (slot 0): %.1f m" % spawn_gap)
 	arena.free()
 	holder.free()
