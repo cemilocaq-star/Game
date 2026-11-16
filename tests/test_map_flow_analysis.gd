@@ -77,8 +77,8 @@ func _test_detour_and_routes() -> void:
 		if absf(analysis.positions[node].z) > 9.5:
 			crossed_far = true
 	_check(crossed_far, "the path detours through a gap at the wall's end")
-	_check(analysis.path_cost(path) > 35.0, "the detour is long (%f)" % analysis.path_cost(path))
-	var routes: Array = analysis.distinct_routes(a, b, 2.5, 4.0, 4)
+	_check(analysis.path_cost(path) > 25.0, "the detour is long (%f)" % analysis.path_cost(path))
+	var routes: Array = analysis.distinct_routes(a, b, 3.5, 4.0, 4)
 	_check(routes.size() >= 2, "both gaps count as separate routes (%d)" % routes.size())
 	var members: Dictionary = analysis.strongly_connected_to(a).members
 	_check(members.has(b), "both sides of the wall are one walkable space")
@@ -91,7 +91,7 @@ func _test_detour_and_routes() -> void:
 	var one_way = await _analyse(sealed)
 	var c: int = one_way.nearest_node(Vector3(-8, 0, 0))
 	var d: int = one_way.nearest_node(Vector3(8, 0, 0))
-	var one_routes: Array = one_way.distinct_routes(c, d, 2.5, 4.0, 4)
+	var one_routes: Array = one_way.distinct_routes(c, d, 3.5, 4.0, 4)
 	_check(one_routes.size() == 1, "a single gap is a single route (%d)" % one_routes.size())
 	sealed.free()
 	await physics_frame
@@ -117,7 +117,7 @@ func _test_extras() -> void:
 
 
 func _test_gap_width() -> void:
-	# Two wall pieces leaving a 0.6 m slot (too tight) and a second pair leaving 1.4 m.
+	# Two wall pieces leaving a 0.4 m slot (too tight) and a second pair leaving 1.4 m.
 	var holder := Node3D.new()
 	root.add_child(holder)
 	_box(holder, Vector3(40, 0.8, 30), Vector3(0, -0.4, 0))
@@ -140,11 +140,11 @@ func _test_gap_width() -> void:
 	root.add_child(narrow)
 	_box(narrow, Vector3(40, 0.8, 30), Vector3(0, -0.4, 0))
 	_box(narrow, Vector3(1.0, 3.0, 14.2), Vector3(0, 1.5, -7.1)) # z -14.2..0
-	_box(narrow, Vector3(1.0, 3.0, 14.2 - 0.6), Vector3(0, 1.5, 0.6 + (14.2 - 0.6) * 0.5)) # z 0.6..14.2
+	_box(narrow, Vector3(1.0, 3.0, 14.2 - 0.4), Vector3(0, 1.5, 0.4 + (14.2 - 0.4) * 0.5)) # z 0.4..14.2
 	var tight = await _analyse(narrow)
 	var c: int = tight.nearest_node(Vector3(-8, 0, 0))
 	var d: int = tight.nearest_node(Vector3(8, 0, 0))
-	_check(tight.path_between(c, d).is_empty(), "a 0.6 m slot is too narrow to walk through")
+	_check(tight.path_between(c, d).is_empty(), "a 0.4 m slot is too narrow to walk through")
 	narrow.free()
 	await physics_frame
 

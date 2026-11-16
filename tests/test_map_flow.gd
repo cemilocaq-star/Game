@@ -89,7 +89,7 @@ func _analyse_map(map_index: int) -> void:
 		site_nodes[site_id] = node
 		_check(node >= 0 and members.has(node), "%s: objective site %s is reachable" % [name, site_id])
 	# Routes between the spawns.
-	var routes: Array = analysis.distinct_routes(red_start, blue_start, 2.5, 7.0, 4)
+	var routes: Array = analysis.distinct_routes(red_start, blue_start, 3.5, 7.0, 4)
 	var route_text: Array[String] = []
 	for route in routes:
 		route_text.append("%.0f m (narrowest %.2f)" % [route.cost, route.min_clearance])

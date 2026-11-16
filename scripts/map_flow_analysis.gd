@@ -20,7 +20,9 @@ const STEP_JUMP := 1.25
 const MAX_DROP := 4.0
 const HEADROOM := 1.85
 const EYE := 1.6
-const PLAYER_RADIUS := 0.38
+## Smallest free half-width a node needs. The grid is 0.5 m, so this is the closest sampled
+## position to a wall that still counts as walkable (a real capsule is 0.38 m, tolerance is half a cell).
+const MIN_CLEARANCE := 0.3
 const CLEARANCE_PROBE := 1.5
 const MIN_NODE_HEIGHT := -2.5 ## river beds and basins are fine, the void below is not
 
@@ -51,7 +53,7 @@ func build(direct_space: PhysicsDirectSpaceState3D) -> void:
 			for y in _surfaces(x, z):
 				var spot := Vector3(x, y, z)
 				var room := _clearance_at(spot)
-				if room < PLAYER_RADIUS:
+				if room < MIN_CLEARANCE:
 					continue
 				positions.append(spot)
 				clearance.append(room)
@@ -318,7 +320,7 @@ func exposure_of(spot: Vector3, members: Array, min_distance: float) -> float:
 ## Distinct routes between two nodes: the shortest, then each next one after closing the corridor
 ## (everything within `corridor` metres of the previous routes, except near the endpoints).
 ## Returns [{"cost": float, "min_clearance": float}, ...].
-func distinct_routes(from: int, to: int, corridor: float = 2.5, end_margin: float = 7.0, max_routes: int = 4) -> Array:
+func distinct_routes(from: int, to: int, corridor: float = 3.5, end_margin: float = 7.0, max_routes: int = 4) -> Array:
 	var routes: Array = []
 	var blocked := {}
 	for attempt in range(max_routes):
