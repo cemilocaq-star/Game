@@ -288,6 +288,10 @@ jobs:
             exit 1
           fi
 
+      - name: Online test (real server and two clients over UDP, hit validation, reconciliation)
+        shell: bash
+        run: timeout 180s bash tests/run_online_test.sh godot
+
       - name: Start dedicated WebSocket server smoke test
         shell: bash
         run: |

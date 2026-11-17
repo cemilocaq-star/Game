@@ -260,6 +260,25 @@ What the audit found before the change: touch had no way to aim down sights at a
 ### BLOCKED
 - Nothing is blocked by assets; device testing needs a phone or emulator that this environment does not have.
 
+## Online test: real server and two clients
+
+`tests/run_online_test.sh` starts a dedicated server and two clients (a shooter and a target) as separate Godot processes talking over real UDP sockets on localhost. They run the real `oxenwar_network.gd` through `tests/online/network_under_test.gd`, which only replaces the two things that need the internet: redeeming a game ticket (a Supabase HTTPS call) and saving the match result. That file lives in `tests/` and is never loaded by the game. The clients quick-match into the same room on the Sunken Oasis map.
+
+### IMPLEMENTED AND VERIFIED (3 local runs, then CI)
+- Authentication with a ticket, quick-match into one room, snapshots reaching both clients.
+- Movement: one second of walking moves the server player 3 to 8.5 m in the pressed direction; the client's predicted copy stays within 0.6 m of the server (reconciliation with the real `reconcile_local_player`); the other client sees the walk through snapshots with no jump over 1.5 m.
+- Server-side validation on the real fire path: ten shots sent in one frame become 1 or 2 (cooldown); a shot behind the player's facing, with a weapon that is not equipped, or straight up is ignored.
+- Hits and kills: every damage step the victim sees is exactly one Aether hit (34), the kill feed names killer and victim, exactly one kill and one death are counted, shots at a dead player add nothing, the victim respawns with full health, and the shooter's disconnect is reported to the other client.
+- Mutation check on production code: removing the facing check made "a shot aimed behind ... is ignored" fail; removing the fire cooldown made "ten shots in one frame" fail (both restored afterwards).
+
+### IMPLEMENTED BUT NOT VERIFIED
+- Anything over a real internet connection: latency, packet loss and jitter. On localhost the round trip is about zero, so lag compensation (`view_delay_ms`) and reconciliation under delay are not exercised.
+- The WebSocket transport (the online test uses UDP/ENet), and the real Supabase ticket and save path.
+- Three-or-more-player rooms, team modes and the demolition objective.
+
+### Known limit (not changed)
+- The ADS flag is still reported by the client. The most a cheater gains by always claiming to aim is the 0.55 factor on the spread (for example 1.0 to 0.55 standing, 2.4 to 1.32 in the air); the server still rolls the spread and clamps it, and cannot be made to hit outside its cone.
+
 ## Exports and checks
 
 The ZIP contains Windows x86-64 EXE/PCK and a signed ARM64 Android debug APK, plus build logs and APK signature/package checks. See `docs/qa/phase4`. To repeat the new regression after importing the project, run `godot --headless --path . --script tests/test_meme_events.gd`.
