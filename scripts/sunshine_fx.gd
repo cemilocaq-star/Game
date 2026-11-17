@@ -2,6 +2,7 @@ extends Node3D
 ## Client-only visualization. The room snapshot supplies every gameplay decision.
 const CHARACTER := preload("res://scripts/character_visuals.gd")
 const RIG := preload("res://scripts/character_motion_rig.gd")
+const AUDIO_BUSES := preload("res://scripts/audio_buses.gd")
 var _avatar := Node3D.new()
 var _rig: Node3D
 var _destination := Vector3.ZERO
@@ -69,6 +70,7 @@ func _ready() -> void:
 	_thunder.max_distance = 65.0
 	_thunder.unit_size = 14.0
 	_thunder.volume_db = -13.0
+	_thunder.bus = AUDIO_BUSES.bus_or_master(AUDIO_BUSES.SFX)
 	_avatar.add_child(_thunder)
 
 

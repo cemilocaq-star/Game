@@ -4,6 +4,7 @@ extends Node
 ## ding is never buried by a hit tick (louder, and it replaces a quieter sound on its channel).
 
 const SFX_BANK := preload("res://scripts/sfx_bank.gd")
+const AUDIO_BUSES := preload("res://scripts/audio_buses.gd")
 const LOW_HEALTH := 30.0
 const STALE_SECONDS := 1.5
 
@@ -35,6 +36,7 @@ func play(id: String) -> void:
 	if player == null:
 		player = AudioStreamPlayer.new()
 		player.name = "Sfx_" + group
+		player.bus = AUDIO_BUSES.bus_or_master(AUDIO_BUSES.UI)
 		add_child(player)
 		_channels[group] = player
 	# A kill ding may interrupt a hit tick, but a hit tick never cuts a kill ding short.
@@ -58,6 +60,7 @@ func play_recorded(sound_name: String, volume_db: float = -8.0, channel: String 
 	if player == null:
 		player = AudioStreamPlayer.new()
 		player.name = "Sfx_" + channel
+		player.bus = AUDIO_BUSES.bus_or_master(AUDIO_BUSES.UI)
 		add_child(player)
 		_channels[channel] = player
 	player.stream = sound

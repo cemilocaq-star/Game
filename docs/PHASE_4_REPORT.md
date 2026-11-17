@@ -200,6 +200,33 @@ The map and mode blocks are design choices (for example no ice on the water map,
 - **NOT TESTABLE on the Ghost shells (no such part exists):** head shell look-at/nod/turn limits, torso shell lean/twist/breathing, hips/pelvis motion and pelvis-driven foot IK, hand/finger shells and grip closing, spine/neck bones, skin-weight deformation (the shells are rigid, joints are checked as gaps instead). The head (`HeadPivot`) and torso capsule are procedural meshes that are animated, but they are not Ghost assets. The test prints these notes and updates them itself when such bones are added.
 - **Observation, not changed:** the foot shells dip up to about 7 cm below the ground line while running (toe pitch with no ground IK); at rest they are 2 cm below it.
 
+## Stage 6: audio (sound paths, footsteps, buses, room reverb)
+
+Code: `scripts/sound_paths.gd`, `world_audio.gd`, `footstep_audio.gd`, `audio_buses.gd`, `room_acoustics.gd`, `room_acoustics_driver.gd`. Tests: `test_sound_paths.gd`, `test_footsteps.gd`, `test_room_acoustics.gd`.
+
+- **Sound paths.** A sound with a blocked straight line looks for a one-bend way around the obstacle (7 sideways offsets, both sides). If there is one, the sound is placed at an apparent position along the bend direction at the full path length, so Godot's own distance attenuation and panning carry the detour; it is also low-passed (9 kHz to 1.8 kHz) and quieted (-1.5 to -6.5 dB) by how sharp the bend is. With no way around, or behind more than one wall, it falls back to the existing wall muffling profile. Used for other players' gunfire, grenade explosions (new synthesized "explosion" sound) and other players' footsteps.
+- **Footsteps.** One shared module (`footstep_audio.gd`) for the local player and for other players, who now have footsteps too (one every 1.55 m walking, 2.05 m sprinting; none while sliding, airborne or defeated). Every map's floor was named `ArenaFloor`, so all seven maps played "stone"; `tag_tree` now gives every solid body the map's ground (Lost Mall stone, Neon City and Space Islands metal, Candy World ice, Sunken Oasis and Redstone Canyon dirt, Jungle grass) and wooden things (bridge, treehouse, rope, plank, dock, boardwalk) by name. An existing `surface_type` meta or `surface_*` group is never overwritten.
+- **Buses.** SFX (positional world sounds, carries the room reverb), Events, Music, UI, all sending to Master so the master volume still controls everything.
+- **Room acoustics.** 13 rays (8 sideways, 1 up, 4 diagonal) every 0.2 s from the listening camera measure how enclosed it is and how far the walls are; the SFX reverb (wet 0.02 to 0.34, room size, damping) eases toward the result at 2.2/s so it never jumps.
+
+### IMPLEMENTED AND VERIFIED (headless Godot 4.4.1, local run of every CI test script)
+- Sound path resolution on synthetic geometry and on real physics bodies; `WorldAudio` bending, direct and out-of-range cases; the grenade explosion plays through it.
+- Footstep classification, per-map ground, wood by name, tagging without overwriting, every solid in all seven generated maps gets a surface, surface detection through real physics (meta, group, name, excluded body, nothing underfoot), per-surface streams, remote players' footsteps (count per distance, silent when still, sliding, airborne or defeated).
+- Bus layout (idempotent, exactly one reverb), routing of world sounds / menu sounds / feedback ticks, enclosure ordering (open < courtyard < roofed room), reverb ordering and caps, easing without overshoot, the live driver in a real closed room and back in the open. A deliberate break of the reverb formula made the test fail.
+
+### IMPLEMENTED BUT NOT VERIFIED
+- How it sounds. Headless Godot runs a dummy audio driver, so the actual filter, panning, reverb tail and loudness balance have not been heard by anyone. The constants (cutoffs, dB offsets, reverb caps, volumes) are reasoned values and need listening on a device.
+- Event cues, music and emote beat now play on the Events/Music buses; only the bus name is tested, not the mix.
+- Online play: remote footsteps and gunfire are driven by snapshot positions and the fire effect, and have not been exercised in a live two-client session.
+
+### NOT IMPLEMENTED
+- Sound propagation through more than one bend (a corridor with two turns falls back to muffling).
+- Footsteps for swimming / water surfaces, and materials inside buildings that differ from the map ground (only wood by name).
+- Per-bus volume sliders in the settings (only the master volume exists).
+
+### BLOCKED
+- Nothing in this stage is blocked by missing assets; all sounds are synthesized.
+
 ## Exports and checks
 
 The ZIP contains Windows x86-64 EXE/PCK and a signed ARM64 Android debug APK, plus build logs and APK signature/package checks. See `docs/qa/phase4`. To repeat the new regression after importing the project, run `godot --headless --path . --script tests/test_meme_events.gd`.

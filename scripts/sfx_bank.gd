@@ -5,8 +5,9 @@ extends RefCounted
 ## two-note ding plus low thump for a kill, a low thud for damage taken, a slow double-thump
 ## heartbeat when health is low, accelerating beeps for a bomb and soft ticks for a countdown.
 
+const AUDIO_BUSES := preload("res://scripts/audio_buses.gd")
 const SAMPLE_RATE := 22050
-const IDS := ["ui_hover", "ui_click", "hit", "kill", "damage", "heartbeat", "beep", "tick"]
+const IDS := ["ui_hover", "ui_click", "hit", "kill", "damage", "heartbeat", "beep", "tick", "explosion"]
 
 ## Real recordings (Kenney, CC0 1.0 - see assets/audio/licenses). Used as a layer or as the sound
 ## itself where one fits; the synthesized cue is the fallback if a file is not present.
@@ -57,6 +58,11 @@ static func _build(id: String) -> AudioStreamWAV:
 			samples = _burst(0.09, 1040.0, 1040.0, 0.0, 3.0, 13, 0.2)
 		"tick":
 			samples = _burst(0.05, 700.0, 700.0, 0.08, 7.0, 14)
+		"explosion":
+			# Original synthesis: a sharp crack, a falling low boom, and a rumbling noise tail.
+			samples = _burst(0.7, 78.0, 30.0, 0.18, 3.4, 16)
+			_mix(samples, _burst(0.1, 2000.0, 500.0, 0.92, 16.0, 17), 0.0, 0.7)
+			_mix(samples, _burst(0.85, 52.0, 26.0, 0.55, 4.2, 18), 0.03, 0.55)
 		_:
 			samples = _burst(0.05, 800.0, 800.0, 0.0, 6.0, 15)
 	_normalize(samples, 0.9)
@@ -141,6 +147,7 @@ static func _play_on_ui_player(from: Node, sound: AudioStream, volume_db: float)
 	if player == null:
 		player = AudioStreamPlayer.new()
 		player.name = node_name
+		player.bus = AUDIO_BUSES.bus_or_master(AUDIO_BUSES.UI)
 		host.add_child(player)
 	player.stream = sound
 	player.volume_db = volume_db

@@ -7,6 +7,8 @@ const PLAYER := preload("res://scripts/player.gd")
 const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
 const NET_SYNC := preload("res://scripts/net_sync.gd")
 const WEAPON_HOLD := preload("res://scripts/weapon_hold.gd")
+const FOOTSTEPS := preload("res://scripts/footstep_audio.gd")
+const WORLD_AUDIO := preload("res://scripts/world_audio.gd")
 
 var target_position := Vector3.ZERO
 var target_yaw := 0.0
@@ -41,6 +43,7 @@ var _motion_rig: Node3D
 var _motion_clock := 0.0
 var _previous_position := Vector3.ZERO
 var _has_previous_position := false
+var _footstep_distance := 0.0
 
 func _ready() -> void:
 	_visual = MeshInstance3D.new()
@@ -283,6 +286,7 @@ func _process(delta: float) -> void:
 	_previous_position = global_position
 	if not _dead and not _sliding and _emote_id == "":
 		_visual.position.y = 0.9 + (absf(sin(_motion_clock * 10.0)) * 0.035 if estimated_speed > 0.5 else sin(_motion_clock * 1.8) * 0.012)
+	_update_footsteps(estimated_speed, delta)
 	var pose := _emote_id if _result_pose.is_empty() else ("wave" if _result_pose == "win" else "defeat")
 	aim_pitch = lerpf(aim_pitch, _aim_pitch_target, 1.0 - exp(-14.0 * delta))
 	var armed := is_instance_valid(_weapon_mount) and not _dead and pose.is_empty()
@@ -294,3 +298,19 @@ func _process(delta: float) -> void:
 	if is_instance_valid(_weapon_mount):
 		_weapon_mount.visible = armed
 		WEAPON_HOLD.place_mount(_weapon_mount, _weapon_mount.get_parent() as Node3D, _motion_rig, _weapon_info, aim_pitch, _weapon_kick)
+
+
+## Other players' footsteps: a step every so many metres of ground covered, on the surface under them,
+## heard through doors and around corners and muffled behind walls (see world_audio.gd).
+func _update_footsteps(speed: float, delta: float) -> void:
+	if _dead or _sliding or not _grounded or speed < 1.25 or speed > 20.0 or not is_inside_tree():
+		_footstep_distance = 0.0
+		return
+	_footstep_distance += speed * delta
+	if _footstep_distance < FOOTSTEPS.step_distance(speed, PLAYER.WALK_SPEED):
+		return
+	_footstep_distance = 0.0
+	var surface := FOOTSTEPS.detect(get_world_3d(), global_position, [])
+	var ears := WORLD_AUDIO.listener_position(self, global_position)
+	var holder := get_parent() as Node3D
+	WORLD_AUDIO.play_at(holder if holder != null else self, FOOTSTEPS.stream(surface), global_position, -6.0, 26.0, 7.0, ears, WORLD_AUDIO.listener_exclusions(self), randf_range(0.92, 1.08), "RemoteFootstepAudio")

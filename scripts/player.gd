@@ -5,6 +5,8 @@ const CharacterVisuals = preload("res://scripts/character_visuals.gd")
 const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
 const ARCADE_WEAPON_VISUALS = preload("res://scripts/arcade_weapon_visuals.gd")
 const WEAPON_FEEL = preload("res://scripts/weapon_feel.gd")
+const FOOTSTEPS = preload("res://scripts/footstep_audio.gd")
+const AUDIO_BUSES = preload("res://scripts/audio_buses.gd")
 const WEAPON_VIEW_ANIM = preload("res://scripts/weapon_viewmodel_anim.gd")
 const WEAPON_HOLD = preload("res://scripts/weapon_hold.gd")
 const WEAPON_AUDIO = preload("res://scripts/weapon_audio.gd")
@@ -82,7 +84,6 @@ var _coyote_left := 0.0
 var _is_sliding := false
 var _footstep_player: AudioStreamPlayer3D
 var _footstep_distance := 0.0
-var _footstep_streams: Dictionary = {}
 var player_name := "Player"
 var cosmetic_color := Color("#27D7E7")
 var cosmetic_outfit := "outfit_default"
@@ -530,6 +531,7 @@ func _start_emote_music() -> void:
 		_emote_music = AudioStreamPlayer.new()
 		_emote_music.name = "OriginalGriddyBeat"
 		_emote_music.volume_db = -13.0
+		_emote_music.bus = AUDIO_BUSES.bus_or_master(AUDIO_BUSES.MUSIC)
 		add_child(_emote_music)
 	_emote_music.stream = _make_emote_music()
 	_emote_music.play()
@@ -633,6 +635,7 @@ func _setup_blaster() -> void:
 		_blaster_audio.volume_db = -7.0
 		_blaster_audio.max_distance = 42.0
 		_blaster_audio.unit_size = 9.0
+		_blaster_audio.bus = AUDIO_BUSES.bus_or_master(AUDIO_BUSES.SFX)
 		_blaster_audio.stream = make_weapon_stream(selected_weapon_id)
 		_camera.add_child(_blaster_audio)
 
@@ -918,6 +921,7 @@ func _setup_footstep_audio() -> void:
 	_footstep_player.volume_db = -9.0
 	_footstep_player.max_distance = 24.0
 	_footstep_player.unit_size = 8.0
+	_footstep_player.bus = AUDIO_BUSES.bus_or_master(AUDIO_BUSES.SFX)
 	add_child(_footstep_player)
 
 func _update_footsteps(delta: float) -> void:
@@ -928,99 +932,16 @@ func _update_footsteps(delta: float) -> void:
 		_footstep_distance = 0.0
 		return
 	_footstep_distance += horizontal_speed * delta
-	var step_distance := 2.05 if horizontal_speed > WALK_SPEED + 0.5 else 1.55
+	var step_distance := FOOTSTEPS.step_distance(horizontal_speed, WALK_SPEED)
 	if _footstep_distance >= step_distance:
 		_footstep_distance = 0.0
 		_play_surface_footstep()
 
 func _play_surface_footstep() -> void:
-	var surface := _detect_footstep_surface()
-	if not _footstep_streams.has(surface):
-		_footstep_streams[surface] = _make_footstep_stream(surface)
-	_footstep_player.stream = _footstep_streams[surface] as AudioStreamWAV
+	var surface := FOOTSTEPS.detect(get_world_3d(), global_position, [get_rid()])
+	_footstep_player.stream = FOOTSTEPS.stream(surface)
 	_footstep_player.pitch_scale = randf_range(0.92, 1.08)
 	_footstep_player.play()
-
-func _detect_footstep_surface() -> String:
-	var origin := global_position + Vector3.UP * 0.25
-	var target := global_position - Vector3.UP * 1.1
-	var query := PhysicsRayQueryParameters3D.create(origin, target)
-	query.exclude = [get_rid()]
-	query.collide_with_areas = false
-	var hit := get_world_3d().direct_space_state.intersect_ray(query)
-	if hit.is_empty():
-		return "stone"
-	var collider: Object = hit.get("collider")
-	var surface_hint := ""
-	if collider is CollisionObject3D:
-		surface_hint = str(collider.get_meta("surface_type", ""))
-		if surface_hint.is_empty():
-			for group_name in collider.get_groups():
-				if str(group_name).begins_with("surface_"):
-					surface_hint = str(group_name).trim_prefix("surface_")
-					break
-	if surface_hint.is_empty() and collider is Node:
-		surface_hint = str(collider.name)
-	surface_hint = surface_hint.to_lower()
-	if "grass" in surface_hint or "foliage" in surface_hint or "leaf" in surface_hint:
-		return "grass"
-	if "metal" in surface_hint or "steel" in surface_hint:
-		return "metal"
-	if "wood" in surface_hint or "plank" in surface_hint:
-		return "wood"
-	if "ice" in surface_hint or "snow" in surface_hint:
-		return "ice"
-	if "sand" in surface_hint or "dirt" in surface_hint or "soil" in surface_hint:
-		return "dirt"
-	return "stone"
-
-func _make_footstep_stream(surface: String) -> AudioStreamWAV:
-	# Original synthesized foley: distinct tonal/noise profiles, generated locally.
-	const sample_rate := 22050
-	const duration := 0.105
-	var sample_count := int(sample_rate * duration)
-	var bytes := PackedByteArray()
-	bytes.resize(sample_count * 2)
-	var rng := RandomNumberGenerator.new()
-	rng.randomize()
-	var frequency := 430.0
-	var noise_mix := 0.28
-	var amplitude := 0.52
-	match surface:
-		"grass":
-			frequency = 180.0
-			noise_mix = 0.78
-			amplitude = 0.34
-		"metal":
-			frequency = 920.0
-			noise_mix = 0.18
-			amplitude = 0.48
-		"wood":
-			frequency = 270.0
-			noise_mix = 0.24
-			amplitude = 0.48
-		"ice":
-			frequency = 1080.0
-			noise_mix = 0.52
-			amplitude = 0.30
-		"dirt":
-			frequency = 220.0
-			noise_mix = 0.88
-			amplitude = 0.30
-	for i in range(sample_count):
-		var t := float(i) / float(sample_rate)
-		var envelope := pow(maxf(0.0, 1.0 - float(i) / float(sample_count)), 2.2)
-		var tone := sin(TAU * frequency * t) * (1.0 - noise_mix)
-		var noise := rng.randf_range(-1.0, 1.0) * noise_mix
-		var transient := rng.randf_range(-1.0, 1.0) * 0.24 if i < int(sample_rate * 0.009) else 0.0
-		var sample := clampf((tone + noise + transient) * envelope * amplitude, -1.0, 1.0)
-		bytes.encode_s16(i * 2, int(sample * 32767.0))
-	var stream := AudioStreamWAV.new()
-	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = sample_rate
-	stream.stereo = false
-	stream.data = bytes
-	return stream
 
 func apply_server_slide(enabled: bool) -> void:
 	_set_sliding(enabled)

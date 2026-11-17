@@ -7,7 +7,7 @@ const ARSENAL_PREVIEW := preload("res://scripts/arsenal_preview.gd")
 const PLAYER_SCRIPT = preload("res://scripts/player.gd")
 const SFX_DIRECTOR = preload("res://scripts/sfx_director.gd")
 const WEAPON_AUDIO = preload("res://scripts/weapon_audio.gd")
-const SOUND_OCCLUSION = preload("res://scripts/sound_occlusion.gd")
+const WORLD_AUDIO = preload("res://scripts/world_audio.gd")
 const BACKEND_SCRIPT = preload("res://scripts/oxenwar_supabase.gd")
 const MENU_SCRIPT = preload("res://scripts/oxenwar_menu.gd")
 const NETWORK_SCRIPT = preload("res://scripts/oxenwar_network.gd")
@@ -20,6 +20,9 @@ const CROSSHAIR_SCRIPT = preload("res://scripts/crosshair_overlay.gd")
 const PAUSE_MENU_SCRIPT = preload("res://scripts/pause_menu.gd")
 const USER_SETTINGS = preload("res://scripts/user_settings.gd")
 const MAP_WORLD_SCRIPT = preload("res://scripts/map_world_builder.gd")
+const FOOTSTEPS = preload("res://scripts/footstep_audio.gd")
+const AUDIO_BUSES = preload("res://scripts/audio_buses.gd")
+const ROOM_ACOUSTICS_DRIVER = preload("res://scripts/room_acoustics_driver.gd")
 const ARENA_LAYOUT := preload("res://scripts/arena_layout.gd")
 const MAP_NAMES := ARENA_LAYOUT.MAP_NAMES
 const REMOTE_PLAYER_SCRIPT = preload("res://scripts/oxenwar_remote_player.gd")
@@ -239,6 +242,9 @@ func _ready() -> void:
 	graphics.load_settings()
 	graphics.quality_changed.connect(_refresh_graphics_materials)
 	USER_SETTINGS.apply_master_volume(USER_SETTINGS.master_volume())
+	AUDIO_BUSES.ensure()
+	if not OS.get_cmdline_user_args().has("--server"):
+		add_child(ROOM_ACOUSTICS_DRIVER.new())
 	_setup_input()
 	_build_environment()
 	_build_arena()
@@ -704,20 +710,14 @@ func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Ve
 	var remote = remote_players.get(shooter_peer_id)
 	if is_instance_valid(remote):
 		remote.play_weapon_fire(weapon_id)
-	var remote_audio := AudioStreamPlayer3D.new()
-	remote_audio.name = "RemoteAetherPulseAudio"
-	# Other players are heard in the simplified "far" layering, a different variant each shot.
-	remote_audio.stream = WEAPON_AUDIO.stream(weapon_id, WEAPON_AUDIO.FAR, randi() % WEAPON_AUDIO.VARIANTS)
-	remote_audio.volume_db = -7.0
-	remote_audio.max_distance = 42.0
-	remote_audio.unit_size = 9.0
-	add_child(remote_audio)
-	remote_audio.global_position = origin
-	# Walls between the listener and the shooter muffle and soften the shot.
+	# Other players are heard in the simplified "far" layering, a different variant each shot. The shot
+	# is heard through doors and around corners, and muffled behind walls (see sound_paths.gd).
+	var own_body: Array[RID] = []
+	var ears := origin
 	if is_instance_valid(player) and player.is_inside_tree():
-		SOUND_OCCLUSION.apply(remote_audio, player.global_position + Vector3.UP * 1.5, player.get_world_3d().direct_space_state, -7.0, [player.get_rid()])
-	remote_audio.play()
-	remote_audio.finished.connect(remote_audio.queue_free)
+		own_body.append(player.get_rid())
+		ears = player.global_position + Vector3.UP * 1.5
+	WORLD_AUDIO.play_at(self, WEAPON_AUDIO.stream(weapon_id, WEAPON_AUDIO.FAR, randi() % WEAPON_AUDIO.VARIANTS), origin, -7.0, 42.0, 9.0, ears, own_body, 1.0, "RemoteAetherPulseAudio")
 	var beam := MeshInstance3D.new()
 	beam.name = "RemoteAetherPulse"
 	var mesh := BoxMesh.new()
@@ -2024,6 +2024,11 @@ func _map_name() -> String:
 func _apply_map_variant() -> void:
 	var map_root: Node3D = MAP_WORLD_SCRIPT.build(self, active_map_index)
 	map_extras.append(map_root)
+	# Footsteps: the base boxes and the generated map each get the map's ground (wood by name).
+	for body in arena_bodies:
+		if is_instance_valid(body):
+			FOOTSTEPS.tag_tree(body, active_map_index)
+	FOOTSTEPS.tag_tree(map_root, active_map_index)
 
 func _spawn_meteor_shower() -> void:
 	for i in range(7):
