@@ -763,6 +763,8 @@ func _fire_blaster() -> void:
 	var feel_profile: Dictionary = WEAPON_FEEL.profile(float(weapon_data.get("cooldown", 0.24)), float(weapon_data.get("range", 65.0)))
 	var aiming_now := _aim_held and not arsenal_open and not ui_blocked
 	var spread_now: float = _feel.spread_deg(feel_profile, WEAPON_FEEL.movement_multiplier(Vector2(velocity.x, velocity.z).length(), is_on_floor(), _is_sliding, aiming_now))
+	# Online, the server rolls the spread (a client must not pick its own); this is the crosshair aim.
+	var aim_direction := direction
 	direction = WEAPON_FEEL.apply_spread(direction, spread_now)
 	var endpoint := origin + direction * float(weapon_data.get("range", 65.0))
 	var query := PhysicsRayQueryParameters3D.create(origin, endpoint)
@@ -779,7 +781,7 @@ func _fire_blaster() -> void:
 	_camera.rotation.x = pitch
 	rotate_y(float(kick.yaw))
 	if online_fire:
-		net.call("request_blaster_fire", selected_weapon_id, direction)
+		net.call("request_blaster_fire", selected_weapon_id, aim_direction, aiming_now)
 	else:
 		_show_blaster_beam(origin, endpoint)
 	if is_instance_valid(_blaster_audio):

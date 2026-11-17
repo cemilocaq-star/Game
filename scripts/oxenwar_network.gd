@@ -23,6 +23,7 @@ const SNAPSHOT_INTERVAL := 0.033 # 30 snapshots/s (was 20): smoother interpolati
 const INPUT_SEND_MS := 33
 const FULL_STATE_EVERY := 10 # every Nth snapshot carries the slow fields (names, colours, xp...); the rest only the fast ones
 const NET_SYNC := preload("res://scripts/net_sync.gd")
+const WEAPON_FEEL := preload("res://scripts/weapon_feel.gd")
 const ROOM_GRACE_SECONDS := 30.0
 const ROUND_SECONDS := 300.0
 const MEME_EVENTS := preload("res://scripts/meme_events.gd")
@@ -89,6 +90,8 @@ var _pos_history: Dictionary = {} # server: peer id -> PositionHistory (lag comp
 var _server_players: Dictionary = {} # peer id -> CharacterBody3D
 var _last_input_ms: Dictionary = {}
 var _last_blaster_ms: Dictionary = {}
+## Per-peer bloom state, rolled on the server so the client cannot choose its own spread.
+var _shot_trackers: Dictionary = {}
 var _last_grenade_ms: Dictionary = {}
 var _next_grenade_id := 1
 var _client_peer_ids: Dictionary = {}
@@ -402,9 +405,10 @@ func request_select_weapon(weapon_id: String) -> void:
 	if is_authenticated and not is_dedicated_server and ARCADE_WEAPONS.has(weapon_id):
 		rpc_id(1, "_server_select_weapon", weapon_id)
 
-func request_blaster_fire(weapon_id: String, direction: Vector3) -> void:
-	if is_authenticated and not is_dedicated_server and ARCADE_WEAPONS.has(weapon_id) and direction.length() > 0.9:
-		rpc_id(1, "_server_blaster_fire", weapon_id, direction.normalized(), view_delay_ms())
+## `aim_direction` is where the crosshair points. The server adds the spread itself.
+func request_blaster_fire(weapon_id: String, aim_direction: Vector3, aiming: bool = false) -> void:
+	if is_authenticated and not is_dedicated_server and ARCADE_WEAPONS.has(weapon_id) and aim_direction.length() > 0.9:
+		rpc_id(1, "_server_blaster_fire", weapon_id, aim_direction.normalized(), view_delay_ms(), aiming)
 
 func _process(delta: float) -> void:
 	if is_dedicated_server:
@@ -537,6 +541,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 		_last_input_seq.erase(peer_id)
 		_pos_history.erase(peer_id)
 		_last_blaster_ms.erase(peer_id)
+		_shot_trackers.erase(peer_id)
 		return
 	var room_code := str(_user_rooms.get(user_id, ""))
 	if not room_code.is_empty() and _rooms.has(room_code):
@@ -587,6 +592,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	_last_input_seq.erase(peer_id)
 	_pos_history.erase(peer_id)
 	_last_blaster_ms.erase(peer_id)
+	_shot_trackers.erase(peer_id)
 	if int(_user_peers.get(user_id, 0)) == peer_id:
 		_user_peers.erase(user_id)
 		_session_tokens.erase(user_id)
@@ -793,7 +799,7 @@ static func view_forward(yaw: float) -> Vector3:
 	return Basis(Vector3.UP, yaw) * Vector3.FORWARD
 
 @rpc("any_peer", "call_remote", "unreliable")
-func _server_blaster_fire(weapon_id: String, direction: Vector3, view_delay_ms: int = 0) -> void:
+func _server_blaster_fire(weapon_id: String, direction: Vector3, view_delay_ms: int = 0, aiming: bool = false) -> void:
 	if not ARCADE_WEAPONS.has(weapon_id):
 		return
 	if not multiplayer.is_server() or not is_finite(direction.x) or not is_finite(direction.y) or not is_finite(direction.z) or direction.length() < 0.9 or direction.length() > 1.1:
@@ -812,12 +818,24 @@ func _server_blaster_fire(weapon_id: String, direction: Vector3, view_delay_ms: 
 	var shooter = _server_players[peer_id]
 	if shooter.is_dead or str(shooter.event_id) == "FREEZE_FRAME" or str(shooter.equipped_weapon_id) != weapon_id:
 		return
-	var safe_direction := direction.normalized()
-	if absf(safe_direction.y) > 0.94:
+	var aim_direction := direction.normalized()
+	if absf(aim_direction.y) > 0.94:
 		return
 	var facing := view_forward(shooter.look_yaw)
-	if safe_direction.dot(facing) < 0.12:
+	if aim_direction.dot(facing) < 0.12:
 		return
+	# Spread is rolled here, from the server's own tracker and the shooter's server-side movement.
+	var tracker = _shot_trackers.get(peer_id)
+	if tracker == null:
+		tracker = WEAPON_FEEL.Tracker.new()
+		_shot_trackers[peer_id] = tracker
+	var last_shot_ms := int(_last_blaster_ms.get(peer_id, 0))
+	if last_shot_ms > 0:
+		tracker.step(float(now - last_shot_ms) / 1000.0)
+	var feel_profile: Dictionary = WEAPON_FEEL.profile(float(weapon.cooldown_ms) / 1000.0, float(weapon.range))
+	var horizontal_speed := Vector2(shooter.velocity.x, shooter.velocity.z).length()
+	var shot: Dictionary = WEAPON_FEEL.authoritative_shot(aim_direction, tracker, feel_profile, horizontal_speed, shooter.is_on_floor(), bool(shooter.sliding_active), aiming)
+	var safe_direction: Vector3 = shot.direction
 	_last_blaster_ms[peer_id] = now
 	shooter.shots_fired += 1
 	if weapon_id == "aether":

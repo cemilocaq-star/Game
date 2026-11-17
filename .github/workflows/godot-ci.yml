@@ -228,6 +228,9 @@ jobs:
       - name: Test weapon feel (spread, bloom, recoil)
         run: timeout 45s godot --headless --path . --script tests/test_weapon_feel.gd
 
+      - name: Test server-authoritative spread on the real fire path
+        run: timeout 90s godot --headless --path . --script tests/test_server_spread.gd
+
       - name: Test first-person weapon animation (sway, bob, ADS, recoil, reload, switch)
         run: timeout 60s godot --headless --path . --script tests/test_weapon_viewmodel_anim.gd
 

@@ -56,6 +56,18 @@ static func apply_spread(direction: Vector3, spread_deg: float, rng: RandomNumbe
 	return (unit + (right * cos(azimuth) + up * sin(azimuth)) * tan(angle)).normalized()
 
 
+## The shot the dedicated server fires. The client only reports where it aimed; the server rolls the
+## spread itself from its own tracker and the shooter's server-side movement, so a modified client
+## cannot shoot tighter than the rules allow (and cannot pick a lucky roll). Uses the same functions
+## as the client's own prediction, in the same order: spread first, then the shot registers bloom.
+## Returns {"direction": Vector3, "spread_deg": float}.
+static func authoritative_shot(aim_direction: Vector3, tracker, weapon_profile: Dictionary, horizontal_speed: float, grounded: bool, sliding: bool, aiming: bool, rng: RandomNumberGenerator = null) -> Dictionary:
+	var spread := float(tracker.spread_deg(weapon_profile, movement_multiplier(horizontal_speed, grounded, sliding, aiming)))
+	var direction := apply_spread(aim_direction, spread, rng)
+	tracker.fire(weapon_profile, aiming, 0.0, rng)
+	return {"direction": direction, "spread_deg": spread}
+
+
 ## Mutable per-player state: current bloom and the camera kick that can still be recovered.
 class Tracker extends RefCounted:
 	var bloom_deg := 0.0
