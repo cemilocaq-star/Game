@@ -8,8 +8,10 @@ const COMPETITIVE_THEME := preload("res://scripts/competitive_theme.gd")
 signal resume_requested
 signal leave_requested
 signal sensitivity_changed(value: float)
+signal input_settings_changed
 
 const USER_SETTINGS := preload("res://scripts/user_settings.gd")
+const LOOK := preload("res://scripts/look_control.gd")
 const FPS_UI := preload("res://scripts/fps_ui.gd")
 const ACCENT := Color("#25D7C2")
 const MUTED := Color("#91A5B8")
@@ -93,6 +95,8 @@ func _build() -> void:
 		sensitivity_changed.emit(value)
 	)
 
+	_add_input_rows(column, OS.has_feature("mobile") or DisplayServer.is_touchscreen_available())
+
 	column.add_child(_section_label("MASTER VOLUME"))
 	var volume_row := HBoxContainer.new()
 	column.add_child(volume_row)
@@ -126,6 +130,60 @@ func _build() -> void:
 	var leave := _button("LEAVE MATCH", "danger")
 	leave.pressed.connect(func(): leave_requested.emit())
 	column.add_child(leave)
+
+## Aiming-down-sights sensitivity for everyone; touch and gyro rows only on touch devices.
+func _add_input_rows(column: VBoxContainer, touch_device: bool) -> void:
+	column.add_child(_section_label("AIMING DOWN SIGHTS (x of normal)"))
+	_add_slider_row(column, "ads_sensitivity", LOOK.MIN_ADS_SENSITIVITY, 1.0, 0.01, USER_SETTINGS.ads_sensitivity(), "%.2fx")
+	if not touch_device:
+		return
+	column.add_child(_section_label("TOUCH LOOK SPEED"))
+	_add_slider_row(column, "touch_sensitivity", LOOK.MIN_TOUCH_SENSITIVITY, LOOK.MAX_TOUCH_SENSITIVITY, 0.05, USER_SETTINGS.touch_sensitivity(), "%.2fx")
+	column.add_child(_section_label("TOUCH ACCELERATION (faster swipes turn further)"))
+	_add_slider_row(column, "touch_acceleration", 0.0, 1.0, 0.05, USER_SETTINGS.touch_acceleration(), "%d%%", 100.0)
+	var gyro_check := CheckBox.new()
+	gyro_check.text = "GYRO AIMING"
+	gyro_check.button_pressed = USER_SETTINGS.gyro_enabled()
+	gyro_check.toggled.connect(func(on: bool):
+		USER_SETTINGS.write_value("input", "gyro_enabled", on)
+		input_settings_changed.emit()
+	)
+	column.add_child(gyro_check)
+	_add_slider_row(column, "gyro_sensitivity", LOOK.MIN_GYRO_SENSITIVITY, LOOK.MAX_GYRO_SENSITIVITY, 0.05, USER_SETTINGS.gyro_sensitivity(), "%.2fx")
+	for entry in [["gyro_invert_yaw", "INVERT GYRO LEFT / RIGHT", USER_SETTINGS.gyro_invert_yaw()], ["gyro_invert_pitch", "INVERT GYRO UP / DOWN", USER_SETTINGS.gyro_invert_pitch()]]:
+		var invert := CheckBox.new()
+		invert.text = str(entry[1])
+		invert.button_pressed = bool(entry[2])
+		var key := str(entry[0])
+		invert.toggled.connect(func(on: bool):
+			USER_SETTINGS.write_value("input", key, on)
+			input_settings_changed.emit()
+		)
+		column.add_child(invert)
+
+func _add_slider_row(column: VBoxContainer, key: String, min_value: float, max_value: float, step: float, value: float, format: String, display_scale: float = 1.0) -> HSlider:
+	var row := HBoxContainer.new()
+	column.add_child(row)
+	var slider := HSlider.new()
+	slider.name = "Slider_" + key
+	slider.min_value = min_value
+	slider.max_value = max_value
+	slider.step = step
+	slider.value = value
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slider.custom_minimum_size = Vector2(0, 32)
+	row.add_child(slider)
+	var label := Label.new()
+	label.custom_minimum_size = Vector2(56, 0)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	label.text = format % (value * display_scale)
+	row.add_child(label)
+	slider.value_changed.connect(func(new_value: float):
+		label.text = format % (new_value * display_scale)
+		USER_SETTINGS.write_value("input", key, new_value)
+		input_settings_changed.emit()
+	)
+	return slider
 
 func _sensitivity_text(value: float) -> String:
 	# Shown as a friendly multiple of the default (1.00x = original feel).

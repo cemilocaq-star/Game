@@ -6,6 +6,8 @@ const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
 const ARCADE_WEAPON_VISUALS = preload("res://scripts/arcade_weapon_visuals.gd")
 const WEAPON_FEEL = preload("res://scripts/weapon_feel.gd")
 const FOOTSTEPS = preload("res://scripts/footstep_audio.gd")
+const LOOK_CONTROL = preload("res://scripts/look_control.gd")
+const USER_SETTINGS_SCRIPT = preload("res://scripts/user_settings.gd")
 const AUDIO_BUSES = preload("res://scripts/audio_buses.gd")
 const WEAPON_VIEW_ANIM = preload("res://scripts/weapon_viewmodel_anim.gd")
 const WEAPON_HOLD = preload("res://scripts/weapon_hold.gd")
@@ -72,6 +74,13 @@ var event_gravity_scale := 1.0
 var event_speed_scale := 1.0
 var score := 0
 var gyro_enabled := true
+var touch_sensitivity := 1.0
+var touch_acceleration := 0.0
+var ads_sensitivity := 0.72
+var gyro_sensitivity := 1.0
+var gyro_invert_yaw := false
+var gyro_invert_pitch := false
+var device_look_scale := 1.0 ## finger travel on this screen compared with the reference phone
 var _dash_direction := Vector3.ZERO
 var _camera: Camera3D
 var _aim_held := false
@@ -909,11 +918,8 @@ func _physics_process(delta: float) -> void:
 		var target_camera_height := 1.05 if _is_sliding else 1.55
 		_camera.position.y = move_toward(_camera.position.y, target_camera_height, 5.5 * delta)
 
-	if gyro_enabled and OS.has_feature("android"):
-		var gyro := Input.get_gyroscope()
-		rotate_y(-gyro.y * look_sensitivity * 70.0 * delta)
-		pitch = clampf(pitch - gyro.x * look_sensitivity * 70.0 * delta, deg_to_rad(-82.0), deg_to_rad(82.0))
-		_camera.rotation.x = pitch
+	if OS.has_feature("android"):
+		apply_gyro(Input.get_gyroscope(), delta)
 
 func _setup_footstep_audio() -> void:
 	_footstep_player = AudioStreamPlayer3D.new()
@@ -1058,15 +1064,56 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventScreenDrag:
 		var viewport_size := get_viewport().get_visible_rect().size
 		if event.position.x > viewport_size.x * 0.38:
-			_apply_look(event.relative)
+			apply_touch_drag(event.relative, event.velocity.length())
 	# Esc is handled by the HUD (pause menu), which also frees/captures the mouse.
 
 func _apply_look(relative: Vector2) -> void:
 	if ui_blocked:
 		return
-	rotate_y(-relative.x * look_sensitivity)
-	pitch = clampf(pitch - relative.y * look_sensitivity, deg_to_rad(-82.0), deg_to_rad(82.0))
-	_camera.rotation.x = pitch
+	# Mouse: the original path, now slowed down while zoomed in (ADS).
+	var ads := _ads_look_scale()
+	_turn_view(Vector2(-relative.x, -relative.y) * look_sensitivity * ads)
+
+## A finger drag on the right side of the screen. `speed` is the finger speed in viewport pixels per
+## second (for the optional acceleration).
+func apply_touch_drag(relative: Vector2, speed: float) -> void:
+	if ui_blocked:
+		return
+	_turn_view(LOOK_CONTROL.touch_turn(relative, speed, look_sensitivity, touch_sensitivity, touch_acceleration, device_look_scale, _ads_look_scale()))
+
+## One frame of gyro aiming. Does nothing when gyro is off or the player cannot look (menus, defeat).
+func apply_gyro(rate: Vector3, delta: float) -> void:
+	if not gyro_enabled or ui_blocked or is_dead:
+		return
+	_turn_view(LOOK_CONTROL.gyro_turn(rate, delta, look_sensitivity, gyro_sensitivity, _ads_look_scale(), gyro_invert_yaw, gyro_invert_pitch))
+
+## 1.0 at the hip, down to the ADS setting when fully zoomed in.
+func _ads_look_scale() -> float:
+	return LOOK_CONTROL.ads_scale(ads_sensitivity, float(_view_anim.fov_blend()) if _view_anim != null else 0.0)
+
+## Turns the view by (yaw, pitch) radians and keeps the pitch inside its limits.
+func _turn_view(turn: Vector2) -> void:
+	if turn == Vector2.ZERO:
+		return
+	rotate_y(turn.x)
+	pitch = clampf(pitch + turn.y, deg_to_rad(-82.0), deg_to_rad(82.0))
+	if is_instance_valid(_camera):
+		_camera.rotation.x = pitch
+
+## Reads the saved touch, gyro and ADS settings and works out this screen's look scale.
+func load_input_settings() -> void:
+	touch_sensitivity = USER_SETTINGS_SCRIPT.touch_sensitivity()
+	touch_acceleration = USER_SETTINGS_SCRIPT.touch_acceleration()
+	ads_sensitivity = USER_SETTINGS_SCRIPT.ads_sensitivity()
+	gyro_enabled = USER_SETTINGS_SCRIPT.gyro_enabled()
+	gyro_sensitivity = USER_SETTINGS_SCRIPT.gyro_sensitivity()
+	gyro_invert_yaw = USER_SETTINGS_SCRIPT.gyro_invert_yaw()
+	gyro_invert_pitch = USER_SETTINGS_SCRIPT.gyro_invert_pitch()
+	device_look_scale = LOOK_CONTROL.device_scale(float(DisplayServer.screen_get_dpi()), Vector2(DisplayServer.window_get_size())) if DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") else 1.0
+
+## The on-screen AIM button: toggles aiming down sights (touch has no right mouse button).
+func set_touch_aim(enabled: bool) -> void:
+	_aim_held = enabled and not is_dead
 
 func _material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()

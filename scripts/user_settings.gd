@@ -8,6 +8,7 @@ const PATH := "user://game_settings.cfg"
 const DEFAULT_LOOK_SENSITIVITY := 0.0022
 const MIN_LOOK_SENSITIVITY := 0.0008
 const MAX_LOOK_SENSITIVITY := 0.0060
+const LOOK := preload("res://scripts/look_control.gd")
 
 static func read_value(section: String, key: String, fallback: Variant) -> Variant:
 	var config := ConfigFile.new()
@@ -24,6 +25,28 @@ static func write_value(section: String, key: String, value: Variant) -> void:
 
 static func look_sensitivity() -> float:
 	return clampf(float(read_value("input", "look_sensitivity", DEFAULT_LOOK_SENSITIVITY)), MIN_LOOK_SENSITIVITY, MAX_LOOK_SENSITIVITY)
+
+## Touch, gyro and aiming-down-sights settings (section "input"). Defaults keep the original feel.
+static func touch_sensitivity() -> float:
+	return clampf(float(read_value("input", "touch_sensitivity", LOOK.DEFAULT_TOUCH_SENSITIVITY)), LOOK.MIN_TOUCH_SENSITIVITY, LOOK.MAX_TOUCH_SENSITIVITY)
+
+static func touch_acceleration() -> float:
+	return clampf(float(read_value("input", "touch_acceleration", LOOK.DEFAULT_TOUCH_ACCELERATION)), 0.0, 1.0)
+
+static func ads_sensitivity() -> float:
+	return clampf(float(read_value("input", "ads_sensitivity", LOOK.DEFAULT_ADS_SENSITIVITY)), LOOK.MIN_ADS_SENSITIVITY, 1.0)
+
+static func gyro_enabled() -> bool:
+	return bool(read_value("input", "gyro_enabled", true))
+
+static func gyro_sensitivity() -> float:
+	return clampf(float(read_value("input", "gyro_sensitivity", LOOK.DEFAULT_GYRO_SENSITIVITY)), LOOK.MIN_GYRO_SENSITIVITY, LOOK.MAX_GYRO_SENSITIVITY)
+
+static func gyro_invert_yaw() -> bool:
+	return bool(read_value("input", "gyro_invert_yaw", false))
+
+static func gyro_invert_pitch() -> bool:
+	return bool(read_value("input", "gyro_invert_pitch", false))
 
 static func master_volume() -> float:
 	return clampf(float(read_value("audio", "master_volume", 1.0)), 0.0, 1.0)

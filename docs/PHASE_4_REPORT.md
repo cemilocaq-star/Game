@@ -227,6 +227,38 @@ Code: `scripts/sound_paths.gd`, `world_audio.gd`, `footstep_audio.gd`, `audio_bu
 ### BLOCKED
 - Nothing in this stage is blocked by missing assets; all sounds are synthesized.
 
+## Stage 7: Android controls (touch look, gyro, ADS, acceleration)
+
+Code: `scripts/look_control.gd` (pure maths), wiring in `player.gd`, `main.gd`, `pause_menu.gd`, `user_settings.gd`. Test: `tests/test_look_control.gd`.
+
+What the audit found before the change: touch had no way to aim down sights at all (ADS only listened to the right mouse button); look sensitivity was one raw per-pixel value, so a phone and a tablet felt different; there was no acceleration; ADS did not slow the look for anyone; the gyro had a fixed gain of `look_sensitivity * 70` (about 15 percent of the real hand rotation), no setting, no deadzone, no glitch filter, and kept turning the view while a menu was open or the player was defeated.
+
+- **Defaults keep the old feel.** Touch sensitivity 1.0, acceleration 0, gyro on, gyro multiplier 1.0 (the old gain), no inversion. New: ADS sensitivity 0.72 (about the view narrowing from 86 to 68 degrees FOV).
+- **Touch.** `device_scale(dpi, window)` makes one physical inch of swipe turn the same on a phone and a tablet (clamped 0.6 to 1.6; the reference is a 420 dpi 2400x1080 phone, which comes out at 1.0). Speed-based acceleration (smoothstep from 250 to 2500 viewport px/s, up to 2.5x at full setting, 1.0 for slow precise swipes). Sensitivity multiplier 0.4 to 2.5.
+- **ADS.** The look scale eases with the zoom blend (no snap) and applies to mouse, touch and gyro. A toggle AIM button on the touch controls (touch has no right mouse button, and holding would cost a thumb); it is released when a menu opens and when the player is defeated.
+- **Gyro.** Deadzone of 0.02 rad/s with a soft edge, readings above 12 rad/s or NaN/inf ignored, a multiplier of 0.2 to 8 (about 6.5 gives 1:1 with the hand at the default look sensitivity), invert left/right and up/down switches, and no gyro look while a menu is open or the player is defeated. Axis signs are unchanged from the old code.
+- **Settings.** Pause menu: ADS slider for everyone; touch speed, acceleration, gyro on/off, gyro multiplier and the two invert switches on touch devices only. Saved to the existing `input` section, clamped on read.
+
+### IMPLEMENTED AND VERIFIED (headless Godot 4.4.1, local run of all 31 CI test scripts)
+- Device scale (reference phone is 1.0; the same physical swipe gives the same turn on two different devices; clamps; unknown density), acceleration gain (monotonic, capped, direction independent, setting clamped), ADS eases and cannot freeze or speed up the view, touch turn reproduces the old `relative * look_sensitivity` at defaults, gyro filter and formula equal the old gain apart from the deadzone, invert flags, sensitivity scaling, zero or negative frame time.
+- Saved settings round-trip and are clamped; defaults are the old feel.
+- Real `Player`: touch drag turns like the mouse, pitch stops at plus/minus 82 degrees, no look while a menu is open, gyro off / defeated / menu blocks gyro, ADS halves the turn for touch, mouse and gyro, the AIM toggle, saved settings reach the player.
+- Pause menu rows exist, are hidden off touch devices, save on change and signal the game. The real touch controls contain the AIM button, it toggles aiming, is released on menu close, and does not overlap another button.
+- Mutation check: disabling ADS scaling makes the test fail.
+
+### IMPLEMENTED BUT NOT VERIFIED
+- Everything about feel on a real device: whether 0.72 ADS, the acceleration curve, the 0.02 rad/s deadzone and the 12 rad/s spike limit are comfortable, and whether the 420 dpi reference matches what you consider normal.
+- Gyro axes and signs on a real Android phone in both landscape orientations. Godot should deliver the gyro in screen axes and the signs were kept from the old code, but no device was available. My own right-hand-rule reading suggests the left/right sign may be inverted; the two invert switches exist so this can be corrected in the settings without a rebuild, and if it is wrong the defaults should be flipped.
+- `DisplayServer.screen_get_dpi()` on Android devices that report a wrong density (a wrong value only moves the scale inside the 0.6 to 1.6 clamp).
+- The APK builds in CI, but no test runs the touch UI on a device or emulator.
+- PC mouse ADS look is now slower while zoomed in (same 0.72 default); this is deliberate but changes the PC feel.
+
+### NOT IMPLEMENTED
+- Per-finger tracking for look (two fingers dragging on the right side both turn the view), left-handed or editable button layout, button size scaling for small phones, a gyro-only-while-aiming option, and per-device presets.
+
+### BLOCKED
+- Nothing is blocked by assets; device testing needs a phone or emulator that this environment does not have.
+
 ## Exports and checks
 
 The ZIP contains Windows x86-64 EXE/PCK and a signed ARM64 Android debug APK, plus build logs and APK signature/package checks. See `docs/qa/phase4`. To repeat the new regression after importing the project, run `godot --headless --path . --script tests/test_meme_events.gd`.

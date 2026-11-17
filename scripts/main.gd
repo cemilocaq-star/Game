@@ -145,6 +145,7 @@ var arena_meshes: Array[MeshInstance3D] = []
 var arena_colors: Array[Color] = []
 var map_extras: Array[Node3D] = []
 var arena_bodies: Array[Node] = []
+var _touch_aim_button: Button
 var arena_detail_root: Node3D
 var active_map_index := 4
 var selected_game_mode := "ffa"
@@ -253,6 +254,7 @@ func _ready() -> void:
 	add_child(event_fx)
 	_spawn_player()
 	player.look_sensitivity = USER_SETTINGS.look_sensitivity()
+	player.load_input_settings()
 	_start_multiplayer_client()
 	_build_hud()
 	_build_collectibles()
@@ -1046,6 +1048,11 @@ func _on_sensitivity_changed(value: float) -> void:
 	if is_instance_valid(player):
 		player.look_sensitivity = value
 
+func _on_input_settings_changed() -> void:
+	# The pause menu has already saved the value; the player re-reads all touch, gyro and ADS settings.
+	if is_instance_valid(player):
+		player.load_input_settings()
+
 func _toggle_admin_panel() -> void:
 	if not admin_available or not is_instance_valid(admin_panel):
 		return
@@ -1625,6 +1632,7 @@ func _build_hud() -> void:
 	pause_menu.resume_requested.connect(_toggle_pause_menu)
 	pause_menu.leave_requested.connect(_on_leave_match_requested)
 	pause_menu.sensitivity_changed.connect(_on_sensitivity_changed)
+	pause_menu.input_settings_changed.connect(_on_input_settings_changed)
 	hud_layer.add_child(pause_menu)
 	if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available():
 		_build_touch_controls(root)
@@ -2087,9 +2095,40 @@ func _build_touch_controls(root: Control) -> void:
 	_add_touch_button(root, "WEAPON -", "weapon_prev", Vector2(-98, -316), Vector2(76, 48), false)
 	_add_touch_button(root, "VIEW", "toggle_view", Vector2(-190, -388), Vector2(82, 44), false)
 	_add_touch_button(root, "RELOAD", "reload", Vector2(-282, -112), Vector2(80, 52), false)
+	_add_touch_aim_button(root, Vector2(-282, -180), Vector2(80, 56))
 	_build_emote_wheel(root)
 
+## The AIM button is a toggle: touch has no right mouse button, and holding ADS would take a thumb
+## away from look or fire.
+func _add_touch_aim_button(root: Control, offset: Vector2, button_size: Vector2) -> void:
+	var button := Button.new()
+	button.name = "TouchAimButton"
+	button.text = "AIM"
+	button.toggle_mode = true
+	button.size = button_size
+	button.anchor_left = 1.0
+	button.anchor_right = 1.0
+	button.anchor_top = 1.0
+	button.anchor_bottom = 1.0
+	button.position = offset
+	button.add_theme_font_size_override("font_size", 13)
+	button.modulate = Color(0.86, 0.97, 1.0, 0.90)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.035, 0.105, 0.15, 0.88)
+	style.border_color = Color("#3BA8B4")
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(14)
+	button.add_theme_stylebox_override("normal", style)
+	var pressed_style := style.duplicate()
+	pressed_style.bg_color = Color("#176C70")
+	button.add_theme_stylebox_override("pressed", pressed_style)
+	button.toggled.connect(func(on: bool): if is_instance_valid(player): player.set_touch_aim(on))
+	root.add_child(button)
+	_touch_aim_button = button
+
 func _release_all_touch_actions() -> void:
+	if is_instance_valid(_touch_aim_button) and _touch_aim_button.button_pressed:
+		_touch_aim_button.button_pressed = false
 	for action in ["move_left", "move_right", "move_forward", "move_back", "jump", "dash", "sprint", "slide", "fire", "throw_grenade", "objective_interact"]:
 		if InputMap.has_action(action):
 			Input.action_release(action)
