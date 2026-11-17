@@ -1,3 +1,8 @@
 .godot/
 build/
 *.tmp
+
+# Godot-generated import metadata and caches (created by local runs and tests)
+*.import
+*.uid
+__pycache__/
