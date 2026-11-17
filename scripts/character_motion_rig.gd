@@ -223,7 +223,8 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 			ankle_x = -0.10
 		elif emote == "griddy":
 			var dance := sin(emote_phase + phase_offset)
-			arm_x = -0.52 + dance * 0.46
+			# Positive X swings a hanging arm forward, so the dance pumps the arms in front of the body.
+			arm_x = 0.52 - dance * 0.46
 			arm_z = side * (0.12 + absf(dance) * 0.08)
 			elbow_x = 0.56 + maxf(0.0, dance) * 0.28
 			leg_x = dance * 0.38
@@ -232,7 +233,7 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 			leg_z = side * (0.10 + absf(dance) * 0.07)
 		elif emote == "goofy":
 			var dance := sin(emote_phase * 0.82 + phase_offset)
-			arm_x = -0.18 + dance * 0.70
+			arm_x = 0.18 - dance * 0.70
 			arm_z = side * (0.20 + dance * 0.10)
 			elbow_x = 0.25 + absf(dance) * 0.70
 			leg_x = dance * 0.48
@@ -240,18 +241,18 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 			ankle_x = -dance * 0.20
 			leg_z = side * 0.12
 		elif emote == "robot":
-			arm_x = -0.72 if is_right else -0.48
+			arm_x = 0.72 if is_right else 0.48
 			arm_z = 0.22 if is_right else -0.22
-			elbow_x = -0.92 if is_right else -0.58
+			elbow_x = 0.92 if is_right else 0.58
 			leg_x = sin(emote_phase + phase_offset) * 0.18
 			knee_x = 0.12
 			ankle_x = 0.0
 			leg_z = side * 0.035
 		elif emote == "wave":
 			if is_right:
-				arm_x = -2.05 + sin(emote_phase * 1.4) * 0.12
+				arm_x = 2.05 + sin(emote_phase * 1.4) * 0.12
 				arm_z = 0.08
-				elbow_x = -0.55 + sin(emote_phase * 2.8) * 0.48
+				elbow_x = 0.55 + sin(emote_phase * 2.8) * 0.48
 			else:
 				arm_x = -0.12
 				arm_z = -0.04

@@ -77,7 +77,7 @@ func _run_tests() -> void:
 	var remote_rig := remote.get("_motion_rig") as Node3D
 	_assert_true("remote motion rig created", is_instance_valid(remote_rig))
 	var remote_arm := remote_rig.get_node("ArmPivot_R") as Node3D if is_instance_valid(remote_rig) else null
-	_assert_true("remote wave pose begins", is_instance_valid(remote_arm) and remote_arm.rotation.x < -0.05)
+	_assert_true("remote wave pose begins", is_instance_valid(remote_arm) and remote_arm.rotation.x > 0.05)
 
 	# The default character must not pick up any signature-troll footwear or gear.
 	_assert_false("default outfit has no costume profile", CHARACTER_VISUALS.has_character_profile("outfit_default"))
