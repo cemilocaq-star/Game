@@ -243,6 +243,7 @@ What the audit found before the change: touch had no way to aim down sights at a
 - Device scale (reference phone is 1.0; the same physical swipe gives the same turn on two different devices; clamps; unknown density), acceleration gain (monotonic, capped, direction independent, setting clamped), ADS eases and cannot freeze or speed up the view, touch turn reproduces the old `relative * look_sensitivity` at defaults, gyro filter and formula equal the old gain apart from the deadzone, invert flags, sensitivity scaling, zero or negative frame time.
 - Saved settings round-trip and are clamped; defaults are the old feel.
 - Real `Player`: touch drag turns like the mouse, pitch stops at plus/minus 82 degrees, no look while a menu is open, gyro off / defeated / menu blocks gyro, ADS halves the turn for touch, mouse and gyro, the AIM toggle, saved settings reach the player.
+- One finger owns touch look until it lifts (a second finger on the right side cannot double the turn; a drag on the joystick side never turns the view), tested with synthetic touch events. A real multi-touch gesture on a device has not been tried.
 - Pause menu rows exist, are hidden off touch devices, save on change and signal the game. The real touch controls contain the AIM button, it toggles aiming, is released on menu close, and does not overlap another button.
 - Mutation check: disabling ADS scaling makes the test fail.
 
@@ -254,7 +255,7 @@ What the audit found before the change: touch had no way to aim down sights at a
 - PC mouse ADS look is now slower while zoomed in (same 0.72 default); this is deliberate but changes the PC feel.
 
 ### NOT IMPLEMENTED
-- Per-finger tracking for look (two fingers dragging on the right side both turn the view), left-handed or editable button layout, button size scaling for small phones, a gyro-only-while-aiming option, and per-device presets.
+- Left-handed or editable button layout, button size scaling for small phones, a gyro-only-while-aiming option, and per-device presets.
 
 ### BLOCKED
 - Nothing is blocked by assets; device testing needs a phone or emulator that this environment does not have.

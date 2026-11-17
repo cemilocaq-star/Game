@@ -217,6 +217,38 @@ func _test_player() -> void:
 	player.apply_gyro(Vector3(0.0, 1.0, 0.0), 0.05)
 	_check(_near(gyro_ads, absf(player.rotation.y - ads_before) * 0.5, 0.0001), "and so does the gyro")
 
+	# One finger owns the look; a second one cannot double the turn.
+	player.rotation.y = 0.0
+	var drag_a := InputEventScreenDrag.new()
+	drag_a.index = 0
+	drag_a.position = Vector2(900.0, 300.0)
+	drag_a.relative = Vector2(20.0, 0.0)
+	var drag_b := InputEventScreenDrag.new()
+	drag_b.index = 1
+	drag_b.position = Vector2(1000.0, 300.0)
+	drag_b.relative = Vector2(20.0, 0.0)
+	player._unhandled_input(drag_a)
+	var one_finger: float = player.rotation.y
+	player._unhandled_input(drag_b)
+	_check(player.rotation.y == one_finger and one_finger != 0.0, "a second finger does not turn the view while the first owns it")
+	player._unhandled_input(drag_a)
+	_check(absf(player.rotation.y) > absf(one_finger), "the owning finger keeps turning it")
+	var lift_a := InputEventScreenTouch.new()
+	lift_a.index = 0
+	lift_a.pressed = false
+	player._unhandled_input(lift_a)
+	var after_lift: float = player.rotation.y
+	player._unhandled_input(drag_b)
+	_check(player.rotation.y != after_lift, "when the first finger lifts the other can take over")
+	var left_side := InputEventScreenDrag.new()
+	left_side.index = 5
+	left_side.position = Vector2(100.0, 300.0)
+	left_side.relative = Vector2(20.0, 0.0)
+	var before_left: float = player.rotation.y
+	player._unhandled_input(left_side)
+	_check(player.rotation.y == before_left, "a drag on the left (joystick side) never turns the view")
+	player.set("_look_finger", -1)
+
 	# The AIM toggle.
 	player.set_touch_aim(true)
 	_check(player.get("_aim_held") and player._weapon_aim_allowed(), "the AIM button starts aiming")

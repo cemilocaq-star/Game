@@ -80,6 +80,7 @@ var ads_sensitivity := 0.72
 var gyro_sensitivity := 1.0
 var gyro_invert_yaw := false
 var gyro_invert_pitch := false
+var _look_finger := -1 ## index of the finger that owns touch look, -1 when none
 var device_look_scale := 1.0 ## finger travel on this screen compared with the reference phone
 var _dash_direction := Vector3.ZERO
 var _camera: Camera3D
@@ -1061,9 +1062,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_aim_held = event.pressed and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_apply_look(event.relative)
+	elif event is InputEventScreenTouch and not event.pressed and event.index == _look_finger:
+		_look_finger = -1
 	elif event is InputEventScreenDrag:
 		var viewport_size := get_viewport().get_visible_rect().size
-		if event.position.x > viewport_size.x * 0.38:
+		if event.position.x > viewport_size.x * 0.38 and _claim_look_finger(event.index):
 			apply_touch_drag(event.relative, event.velocity.length())
 	# Esc is handled by the HUD (pause menu), which also frees/captures the mouse.
 
@@ -1073,6 +1076,13 @@ func _apply_look(relative: Vector2) -> void:
 	# Mouse: the original path, now slowed down while zoomed in (ADS).
 	var ads := _ads_look_scale()
 	_turn_view(Vector2(-relative.x, -relative.y) * look_sensitivity * ads)
+
+## Only one finger turns the view. The first finger that drags in the look area owns it until it
+## lifts, so a second finger resting or sliding there cannot double the turn speed.
+func _claim_look_finger(index: int) -> bool:
+	if _look_finger == -1:
+		_look_finger = index
+	return _look_finger == index
 
 ## A finger drag on the right side of the screen. `speed` is the finger speed in viewport pixels per
 ## second (for the optional acceleration).
