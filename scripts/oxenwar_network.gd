@@ -436,7 +436,7 @@ func _process(delta: float) -> void:
 	_input_seq += 1
 	_seq_times[_input_seq] = now
 	_seq_times.erase(_input_seq - 120)
-	rpc_id(1, "_server_submit_input", move, local_player.rotation.y, _pending_jump, sprint, _pending_slide, _pending_dash, _input_seq)
+	rpc_id(1, "_server_submit_input", move, local_player.rotation.y, _pending_jump, sprint, _pending_slide, _pending_dash, _input_seq, float(local_player.get("pitch")))
 	_pending_jump = false
 	_pending_slide = false
 	_pending_dash = false
@@ -733,7 +733,7 @@ func _create_server_player(peer_id: int, profile: Dictionary, stats: Dictionary 
 	return player
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _server_submit_input(move: Vector2, yaw: float, jump: bool, sprint: bool, slide: bool, dash: bool, seq: int = 0) -> void:
+func _server_submit_input(move: Vector2, yaw: float, jump: bool, sprint: bool, slide: bool, dash: bool, seq: int = 0, pitch: float = 0.0) -> void:
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
@@ -755,6 +755,10 @@ func _server_submit_input(move: Vector2, yaw: float, jump: bool, sprint: bool, s
 		return
 	player.input_vector = move.limit_length(1.0) * (-1.0 if str(room_code) != "" and str(_rooms[room_code].event_id) == "REVERSE_PANIC" else 1.0)
 	player.look_yaw = wrapf(yaw, -PI, PI)
+	# Only used so other players see where this one aims; clamped to the camera limits, and a
+	# non-finite value (a bad client) leaves the previous pitch in place.
+	if is_finite(pitch):
+		player.look_pitch = clampf(pitch, deg_to_rad(-82.0), deg_to_rad(82.0))
 	player.jump_requested = player.jump_requested or jump
 	player.sprinting = sprint
 	player.slide_requested = player.slide_requested or slide
@@ -1715,7 +1719,7 @@ func _broadcast_snapshot(code: String) -> void:
 			"team_id": str(player.team_id), "emote_id": str(player.emote_id), "is_swimming": bool(player.is_swimming),
 			"score": player.score, "kills": player.kills, "deaths": player.deaths, "kill_streak": player.kill_streak,
 			"equipped_weapon_id": player.equipped_weapon_id, "shots_hit": player.shots_hit, "damage_received": player.damage_received,
-			"stamina": player.stamina, "sliding": player.sliding_active,
+			"stamina": player.stamina, "sliding": player.sliding_active, "pitch": player.look_pitch,
 			"health": player.health, "dead": player.is_dead, "respawn_left": player.respawn_left,
 			"input_seq": int(_last_input_seq.get(peer_id, 0)), "input_age_ms": maxi(0, now_ms - int(_last_input_ms.get(peer_id, now_ms)))
 		}

@@ -692,6 +692,7 @@ func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
 	)
 	remote.set_big_head(active_event == "BIG_HEAD")
 	remote.sync_weapon(str(state.get("equipped_weapon_id", "aether")), bool(state.get("grounded", true)))
+	remote.set_aim_pitch(float(state.get("pitch", 0.0)))
 	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)), bool(state.get("sliding", false)), float(state.get("health", 100.0)), bool(state.get("dead", false)), str(state.get("team_id", "")), str(state.get("emote_id", "")), bool(state.get("is_swimming", false)))
 	remote.set_result_pose(str(state.get("match_outcome", "")) if _round_finished else "")
 

@@ -213,11 +213,21 @@ func _test_remote() -> void:
 		_check((mount.global_transform * info.grip).distance_to(glove_world) < 0.005, "%s: remote grip sits in the glove" % weapon_id)
 		var box := _rig_space_box(mount, rig, info.aabb)
 		_check(_axis_distance(box) - HOLD.TORSO_RADIUS >= CLEARANCE or box.position.y > 0.325 or box.end.y < -0.325, "%s: remote weapon clears the torso" % weapon_id)
-		remote.set("aim_pitch", 0.5)
+		# The pitch arrives from the network through set_aim_pitch and eases in rather than snapping.
+		remote.call("set_aim_pitch", 0.5)
+		remote.call("_process", 1.0 / 60.0)
+		var first_step: float = remote.get("aim_pitch")
+		_check(first_step > 0.0 and first_step < 0.25, "%s: remote aim pitch eases in (first frame %f)" % [weapon_id, first_step])
 		for frame in range(40):
 			remote.call("_process", 1.0 / 60.0)
+		_check(absf(float(remote.get("aim_pitch")) - 0.5) < 0.02, "%s: remote aim pitch converges on the network value" % weapon_id)
 		var forward := -mount.global_transform.basis.z.normalized()
 		var level := -rig.global_transform.basis.orthonormalized().z
 		_check(forward.y > level.y + 0.3, "%s: raising aim pitch lifts the remote weapon" % weapon_id)
-		remote.set("aim_pitch", 0.0)
+		remote.call("set_aim_pitch", NAN)
+		remote.call("set_aim_pitch", 9.0)
+		_check(float(remote.get("_aim_pitch_target")) <= deg_to_rad(82.0) + 0.0001, "%s: a bad pitch is clamped and NaN is ignored" % weapon_id)
+		remote.call("set_aim_pitch", 0.0)
+		for frame in range(60):
+			remote.call("_process", 1.0 / 60.0)
 	host.free()

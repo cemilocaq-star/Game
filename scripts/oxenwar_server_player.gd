@@ -19,6 +19,7 @@ const SLIDE_STAMINA_COST := 12.0
 
 var input_vector := Vector2.ZERO
 var look_yaw := 0.0
+var look_pitch := 0.0 ## radians, positive looks up; shown on other players' weapons
 var jump_requested := false
 var sprinting := false
 var sliding := false

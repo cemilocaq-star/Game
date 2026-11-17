@@ -21,6 +21,7 @@ var _weapon_kick := 0.0
 var _weapon_info: Dictionary = {}
 ## Vertical aim of this player (radians, + = up). Not replicated yet, so weapons stay level.
 var aim_pitch := 0.0
+var _aim_pitch_target := 0.0
 var _fall_elapsed := 0.0
 const FALL_DURATION := 0.38
 var display_name := "Player"
@@ -136,6 +137,12 @@ func _rebuild_remote_detail() -> void:
 		_motion_rig = CharacterMotionRig.build(_visual, _base_color, _outfit_id)
 		_weapon_mount = null
 		_attach_weapon()
+
+
+## The pitch arrives with each snapshot; the weapon eases toward it so a 20 Hz update never snaps.
+func set_aim_pitch(pitch: float) -> void:
+	if is_finite(pitch):
+		_aim_pitch_target = clampf(pitch, deg_to_rad(-82.0), deg_to_rad(82.0))
 
 
 func sync_weapon(weapon_id: String, grounded: bool) -> void:
@@ -277,6 +284,7 @@ func _process(delta: float) -> void:
 	if not _dead and not _sliding and _emote_id == "":
 		_visual.position.y = 0.9 + (absf(sin(_motion_clock * 10.0)) * 0.035 if estimated_speed > 0.5 else sin(_motion_clock * 1.8) * 0.012)
 	var pose := _emote_id if _result_pose.is_empty() else ("wave" if _result_pose == "win" else "defeat")
+	aim_pitch = lerpf(aim_pitch, _aim_pitch_target, 1.0 - exp(-14.0 * delta))
 	var armed := is_instance_valid(_weapon_mount) and not _dead and pose.is_empty()
 	var hold: Dictionary = {}
 	if armed:

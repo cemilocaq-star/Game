@@ -15,6 +15,11 @@ func _check(condition: bool, message: String) -> void:
 		failures.append(message)
 
 
+## The server drops inputs closer than 15 ms together; make the next one count as a fresh frame.
+func last_input_reset(network: Node) -> void:
+	(network.get("_last_input_ms") as Dictionary).erase(0)
+
+
 func _run() -> void:
 	var network := Node.new()
 	network.set_script(NETWORK_SCRIPT)
@@ -66,6 +71,16 @@ func _run() -> void:
 	var still_spread: float = tracker.spread_deg(profile, WEAPON_FEEL.movement_multiplier(0.0, true, false, false))
 	var sprint_spread: float = tracker.spread_deg(profile, WEAPON_FEEL.movement_multiplier(9.0, true, false, false))
 	_check(sprint_spread > still_spread, "sprinting spreads wider than standing (model sanity)")
+
+	# Look pitch from the client is stored for other players' weapon poses, clamped, and a bad value is ignored.
+	network.call("_server_submit_input", Vector2.ZERO, 0.0, false, false, false, false, 1, 0.4)
+	_check(is_equal_approx(shooter.look_pitch, 0.4), "the server stores the client's look pitch (%f)" % shooter.look_pitch)
+	last_input_reset(network)
+	network.call("_server_submit_input", Vector2.ZERO, 0.0, false, false, false, false, 2, 6.0)
+	_check(is_equal_approx(shooter.look_pitch, deg_to_rad(82.0)), "an extreme pitch is clamped to the camera limit (%f)" % shooter.look_pitch)
+	last_input_reset(network)
+	network.call("_server_submit_input", Vector2.ZERO, 0.0, false, false, false, false, 3, NAN)
+	_check(is_equal_approx(shooter.look_pitch, deg_to_rad(82.0)), "a NaN pitch leaves the previous value")
 
 	# Cleanup on disconnect drops the tracker.
 	network.call("_on_peer_disconnected", 0)
