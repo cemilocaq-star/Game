@@ -17,10 +17,14 @@ const ICONS := preload("res://scripts/ui/ui_icons.gd")
 		queue_redraw()
 @export var maximum: float = 100.0:
 	set(value):
-		maximum = maxf(value, 1.0)
-		queue_redraw()
+		var clean := maxf(value, 1.0)
+		if not is_equal_approx(clean, maximum):
+			maximum = clean
+			queue_redraw()
 @export var segments: int = 10
 @export var show_number: bool = true
+## False for bars that are allowed to drop without a trail (XP at a level up).
+@export var trail_enabled: bool = true
 @export var low_fraction: float = 0.3
 
 var value: float = 100.0
@@ -38,11 +42,13 @@ func _init() -> void:
 
 func set_value(new_value: float) -> void:
 	var clamped := clampf(new_value, 0.0, maximum)
-	if clamped < value - 0.01:
+	if is_equal_approx(clamped, value):
+		return
+	if clamped < value and trail_enabled:
 		_trail = maxf(_trail, value)
 		_trail_hold = 0.45
-	elif clamped > value:
-		_trail = maxf(_trail, clamped) if _trail > clamped else clamped
+	else:
+		_trail = clamped
 	value = clamped
 	queue_redraw()
 	set_process(true)

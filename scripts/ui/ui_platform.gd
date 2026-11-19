@@ -14,8 +14,13 @@ const MAX_SCALE := 1.8
 const MAX_TARGET_PIXELS := 120.0
 
 
+## OXENWAR_FORCE_TOUCH=1 previews the phone layout on a PC (screenshots, layout checks).
+static func forced_touch() -> bool:
+	return OS.get_environment("OXENWAR_FORCE_TOUCH") == "1"
+
+
 static func is_touch() -> bool:
-	return OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
+	return forced_touch() or OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
 
 
 ## Inches covered by one viewport pixel for a window of `window_size` pixels at `dpi`.
@@ -52,6 +57,10 @@ static func current() -> Dictionary:
 	var touch := is_touch()
 	var dpi := float(DisplayServer.screen_get_dpi())
 	var window := Vector2(DisplayServer.window_get_size())
+	if forced_touch():
+		# A reference phone: 2400x1080 at 420 dpi.
+		dpi = 420.0
+		window = Vector2(2400.0, 1080.0)
 	return {
 		"touch": touch, "dpi": dpi, "window": window,
 		"scale": ui_scale(touch, dpi, window), "target": touch_target(44.0, touch, dpi, window),

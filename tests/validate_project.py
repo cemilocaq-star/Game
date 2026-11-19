@@ -6,7 +6,7 @@ errors = []
 
 required = [
     "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/arcade_weapon_visuals.gd", "scripts/character_visuals.gd", "scripts/character_motion_rig.gd", "scripts/map_world_builder.gd", "scripts/combat_fx.gd",
-    "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd", "supabase/migrations/20261115120000_oxenwar_server_directory.sql", "scripts/fps_ui.gd", "tests/test_menu_ui.gd", "scripts/net_sync.gd", "scripts/weapon_feel.gd", "tests/test_net_sync.gd", "tests/test_event_scheduling.gd", "tests/test_third_person_view.gd", "scripts/sfx_bank.gd", "scripts/sfx_director.gd", "tests/test_sfx_bank.gd", "scripts/weapon_audio.gd", "scripts/sound_occlusion.gd", "tests/test_weapon_audio.gd", "tests/test_weapon_feel.gd", "tests/test_server_spread.gd", "tests/test_ghost_rig_animation.gd", "scripts/sound_paths.gd", "scripts/world_audio.gd", "scripts/footstep_audio.gd", "scripts/audio_buses.gd", "scripts/room_acoustics.gd", "scripts/room_acoustics_driver.gd", "tests/test_sound_paths.gd", "tests/test_footsteps.gd", "tests/test_room_acoustics.gd", "scripts/ui/ui_theme.gd", "scripts/ui/ui_icons.gd", "scripts/ui/ui_platform.gd", "scripts/ui/scaled_root.gd", "scripts/ui/icon_button.gd", "scripts/ui/hud_plate.gd", "scripts/ui/stat_bar.gd", "tests/test_ui_foundation.gd", "assets/ui/ICON_CREDITS.md", "assets/ui/fonts/Rajdhani-Bold.ttf", "assets/ui/icons/jump.svg", "assets/ui/icons/w_aether.svg", "scripts/look_control.gd", "tests/test_look_control.gd", "tests/run_online_test.sh", "tests/online/online_server.gd", "tests/online/online_client.gd", "tests/online/network_under_test.gd", "tests/online/stub_player.gd", "scripts/weapon_viewmodel_anim.gd", "tests/test_weapon_viewmodel_anim.gd", "tests/test_weapon_view_integration.gd", "scripts/weapon_hold.gd", "tests/test_weapon_hold.gd", "scripts/map_flow_analysis.gd", "tests/test_map_flow_analysis.gd", "tests/test_map_flow.gd",
+    "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd", "supabase/migrations/20261115120000_oxenwar_server_directory.sql", "scripts/fps_ui.gd", "tests/test_menu_ui.gd", "scripts/net_sync.gd", "scripts/weapon_feel.gd", "tests/test_net_sync.gd", "tests/test_event_scheduling.gd", "tests/test_third_person_view.gd", "scripts/sfx_bank.gd", "scripts/sfx_director.gd", "tests/test_sfx_bank.gd", "scripts/weapon_audio.gd", "scripts/sound_occlusion.gd", "tests/test_weapon_audio.gd", "tests/test_weapon_feel.gd", "tests/test_server_spread.gd", "tests/test_ghost_rig_animation.gd", "scripts/sound_paths.gd", "scripts/world_audio.gd", "scripts/footstep_audio.gd", "scripts/audio_buses.gd", "scripts/room_acoustics.gd", "scripts/room_acoustics_driver.gd", "tests/test_sound_paths.gd", "tests/test_footsteps.gd", "tests/test_room_acoustics.gd", "scripts/ui/ui_theme.gd", "scripts/ui/ui_icons.gd", "scripts/ui/ui_platform.gd", "scripts/ui/scaled_root.gd", "scripts/ui/icon_button.gd", "scripts/ui/hud_plate.gd", "scripts/ui/stat_bar.gd", "scripts/ui/game_hud.gd", "scripts/ui/lobby_panel.gd", "scripts/ui/scoreboard_panel.gd", "scripts/ui/kill_feed_entry.gd", "tests/test_ui_foundation.gd", "tests/test_ui_hud.gd", "assets/ui/ICON_CREDITS.md", "assets/ui/fonts/Rajdhani-Bold.ttf", "assets/ui/icons/jump.svg", "assets/ui/icons/w_aether.svg", "scripts/look_control.gd", "tests/test_look_control.gd", "tests/run_online_test.sh", "tests/online/online_server.gd", "tests/online/online_client.gd", "tests/online/network_under_test.gd", "tests/online/stub_player.gd", "scripts/weapon_viewmodel_anim.gd", "tests/test_weapon_viewmodel_anim.gd", "tests/test_weapon_view_integration.gd", "scripts/weapon_hold.gd", "tests/test_weapon_hold.gd", "scripts/map_flow_analysis.gd", "tests/test_map_flow_analysis.gd", "tests/test_map_flow.gd",
     "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "scripts/oxenwar_server_player.gd", "server/README.md", "Dockerfile", "fly.toml", "render.yaml",
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
     "supabase/migrations/20261109114619_oxenwar_social_foundation.sql",
@@ -203,7 +203,7 @@ checks = [
     ("blaster_mastery_xp", read("scripts/oxenwar_server_player.gd"), "server-owned blaster mastery XP"),
     ("grenade_mastery_xp", read("scripts/oxenwar_server_player.gd"), "server-owned grenade mastery XP"),
     ("_award_weapon_mastery", read("scripts/oxenwar_network.gd"), "mastery XP awarded only from validated combat events"),
-    ("WEAPON MASTERY", read("scripts/main.gd"), "live weapon mastery HUD"),
+    ("weapon_mastery_label.text", read("scripts/main.gd"), "live weapon mastery HUD"),
     ("_weapon_mastery_rank", read("scripts/main.gd"), "mastery rank thresholds"),
     ("ARCADE_WEAPONS", read("scripts/oxenwar_network.gd"), "server-side arcade weapon registry"),
     ("_server_select_weapon", read("scripts/oxenwar_network.gd"), "server-validated weapon selection"),
@@ -241,7 +241,7 @@ checks = [
     ('"wave"', read("scripts/oxenwar_network.gd"), "server validates wave emote"),
     ('state["collections"] = player.collection_counts.duplicate(true)', read("scripts/oxenwar_network.gd"), "authoritative collectible count snapshot"),
     ('state["secret_404_found"] = player.secret_404_found', read("scripts/oxenwar_network.gd"), "authoritative secret discovery snapshot"),
-    ("GOLD ORBS (XP ONLY)", main, "clear non-currency orb counter"),
+    ("ORBS %d  •  404", main, "clear non-currency orb counter"),
     ("_server_throw_grenade", read("scripts/oxenwar_network.gd"), "server-validated grenade throw"),
     ("_server_detonate_grenade", read("scripts/oxenwar_network.gd"), "server-authoritative grenade blast"),
     ("_server_step_grenades", read("scripts/oxenwar_network.gd"), "server grenade fuse and movement"),
@@ -261,7 +261,7 @@ checks = [
     ("make_weapon_stream(weapon_id: String)", player, "original weapon-specific synthesized audio"),
     ("_fire_blaster", player, "local blaster firing"),
     ("MOUSE_BUTTON_LEFT", main, "desktop blaster input"),
-    ('"FIRE"', main, "mobile primary-action control"),
+    ('_add_touch_button(root, "fire"', main, "mobile primary-action control"),
     ("_server_blaster_fire", read("scripts/oxenwar_network.gd"), "server-validated blaster fire"),
     ("_client_blaster_fx", read("scripts/oxenwar_network.gd"), "multiplayer blaster visual replication"),
     ("_last_blaster_ms", read("scripts/oxenwar_network.gd"), "server fire-rate validation"),
@@ -411,11 +411,11 @@ checks.extend([
     ("ArmPivot_L", read("scripts/character_motion_rig.gd"), "left arm animation pivot"),
     ("LegPivot_R", read("scripts/character_motion_rig.gd"), "right leg animation pivot"),
     ("CharacterMotionRig.animate", player, "local procedural movement animation"),
-    ("CombatStatusPanel", main, "framed combat HUD panel"),
-    ("VitalsPanel", main, "framed health and stamina HUD panel"),
-    ("LobbyPanel", main, "framed lobby HUD panel"),
-    ("_style_progress_bar", main, "custom HUD progress bar styling"),
-    ("MATCH SCOREBOARD", main, "in-game match scoreboard"),
+    ("ScorePlate", read("scripts/ui/game_hud.gd"), "framed combat HUD panel"),
+    ("VitalsPanel", read("scripts/ui/game_hud.gd"), "framed health and stamina HUD panel"),
+    ("LobbyPanel", read("scripts/ui/lobby_panel.gd"), "framed lobby HUD panel"),
+    ("_trail_hold", read("scripts/ui/stat_bar.gd"), "custom HUD bar with damage trail"),
+    ("SCOREBOARD", read("scripts/ui/scoreboard_panel.gd"), "in-game match scoreboard"),
     ("_refresh_scoreboard", main, "live scoreboard refresh"),
     ("_on_kill_feed_received", main, "client kill feed display"),
     ("KEY_TAB", main, "desktop scoreboard toggle"),
@@ -454,7 +454,7 @@ checks.extend([
     ('"rubber_chicken": [390.0, 720.0, 1170.0, 0.42]', read("scripts/weapon_audio.gd"), "Rubber Chicken distinct audio profile"),
     ('"star_piercer": [780.0, 620.0, 1560.0, 0.08]', read("scripts/weapon_audio.gd"), "Star Piercer distinct audio profile"),
     ("KEY_H", main, "keyboard weapon inspect shortcut"),
-    ("ROTATE PREVIEW", main, "arsenal weapon inspect control"),
+    ("RotatePreview", main, "arsenal weapon inspect control"),
     ("_inspect_current_weapon", main, "inspect UI action routing"),
     ("func _animate_weapon_fire() -> void:", player, "weapon-family firing animation"),
     ("func _animate_weapon_details() -> void:", player, "idle weapon energy-detail animation"),
@@ -475,7 +475,7 @@ for weapon_id in new_weapon_ids:
     checks.append((f'"{weapon_id}"', read("scripts/oxenwar_network.gd"), f"server weapon registry: {weapon_id}"))
     checks.append((f'"{weapon_id}"', player, f"local weapon profile: {weapon_id}"))
     checks.append((f'"{weapon_id}"', read("scripts/arcade_weapon_visuals.gd"), f"procedural weapon silhouette: {weapon_id}"))
-if 'ARSENAL  •  %d" % WEAPON_ORDER.size()' not in main or "_build_arsenal_panel" not in main:
+if 'WEAPONS" % WEAPON_ORDER.size()' not in main or "_build_arsenal_panel" not in main:
     errors.append("arcade arsenal selection screen (weapon-count button) is missing")
 if "set_selected_weapon" not in player or "ARCADE_WEAPON_VISUALS.build_weapon" not in player:
     errors.append("weapon equip flow does not rebuild the selected first-person model")

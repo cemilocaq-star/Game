@@ -40,6 +40,10 @@ Regenerate with `python3 tools/build_ui_icons.py <clone of game-icons/icons>`.
 | e_reverse_panic | cycle | Lorc |
 | e_sunshine | sun | Lorc |
 | emote | party-hat | Delapouite |
+| emote_dance | jester-hat | Delapouite |
+| emote_goofy | clown | Delapouite |
+| emote_robot | robot-helmet | Delapouite |
+| emote_wave | high-five | Lorc |
 | globe | globe | Lorc |
 | graphics | cyber-eye | Delapouite |
 | grenade | grenade | Lorc |
@@ -64,6 +68,7 @@ Regenerate with `python3 tools/build_ui_icons.py <clone of game-icons/icons>`.
 | profile | person | Delapouite |
 | quick_match | rocket | Lorc |
 | reload | reload-gun-barrel | Delapouite |
+| rotate | cycle | Lorc |
 | scoreboard | podium | Delapouite |
 | settings | gears | Lorc |
 | shield | shield | Sbed |
@@ -72,9 +77,11 @@ Regenerate with `python3 tools/build_ui_icons.py <clone of game-icons/icons>`.
 | sprint | sprint | Lorc |
 | stamina | lungs | Delapouite |
 | streak | flame | Carl Olsen |
+| swap | switch-weapon | Delapouite |
 | team | shield | Sbed |
 | timer | stopwatch | Lorc |
 | trophy | trophy-cup | Delapouite |
+| view | video-camera | Delapouite |
 | w_aether | ray-gun | Lorc |
 | w_banana_boomerang | banana | Delapouite |
 | w_bubble_burst | bubbles | Lorc |
@@ -102,4 +109,6 @@ Regenerate with `python3 tools/build_ui_icons.py <clone of game-icons/icons>`.
 | w_star_piercer | north-star-shuriken | DarkZaitzev |
 | w_thunder_drum | drum | Delapouite |
 | w_vortex_orbiter | orbit | Skoll |
+| weapon_next | next-button | Delapouite |
+| weapon_prev | previous-button | Delapouite |
 | xp | star-formation | Delapouite |

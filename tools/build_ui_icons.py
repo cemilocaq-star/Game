@@ -25,7 +25,8 @@ ICONS = {
     "grenade": "grenade", "reload": "reload-gun-barrel", "aim": "crosshair", "hit": "bullseye", "ammo": "bullets",
     # movement and actions
     "jump": "jump-across", "sprint": "sprint", "slide": "skateboarding-01", "dash": "fire-dash", "interact": "click",
-    "emote": "party-hat",
+    "emote": "party-hat", "emote_dance": "jester-hat", "emote_goofy": "clown", "emote_robot": "robot-helmet", "emote_wave": "high-five",
+    "view": "video-camera", "weapon_prev": "previous-button", "weapon_next": "next-button", "swap": "switch-weapon", "rotate": "cycle",
     # navigation and system
     "settings": "gears", "inventory": "backpack", "customize": "shirt", "profile": "person", "scoreboard": "podium",
     "arsenal": "crossed-pistols", "admin": "key-card", "lobby": "three-friends", "play": "play-button", "quick_match": "rocket",
