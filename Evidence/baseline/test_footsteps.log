@@ -1,0 +1,5 @@
+Godot Engine v4.4.1.stable.official.49a5bc7b6 - https://godotengine.org
+
+PASS: footsteps (surfaces per map, wood by name, shared streams, remote players heard in the world)
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2378)

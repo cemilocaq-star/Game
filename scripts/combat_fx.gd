@@ -1,7 +1,14 @@
 extends RefCounted
 ## Lightweight client-only combat impact visuals. No collision or damage logic.
 
+const WORLD_AUDIO := preload("res://scripts/world_audio.gd")
+const SFX_BANK := preload("res://scripts/sfx_bank.gd")
+
+
 static func grenade_explosion(parent: Node3D, world_position: Vector3) -> void:
+	# The blast is heard through doors and around corners, muffled behind walls (WorldAudio).
+	var ears := WORLD_AUDIO.listener_position(parent, world_position + Vector3.UP * 3.0)
+	WORLD_AUDIO.play_at(parent, SFX_BANK.stream("explosion"), world_position, -2.0, 90.0, 16.0, ears, [], randf_range(0.95, 1.05), "GrenadeExplosionAudio")
 	var root := Node3D.new()
 	root.name = "GrenadeExplosionFX"
 	parent.add_child(root)

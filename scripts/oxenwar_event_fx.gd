@@ -2,6 +2,7 @@ extends Node3D
 ## Lightweight, original event visuals and synthesized ambience for OxenWar.
 ## Visuals are procedural; licensed CC0 audio is stored locally and never streamed.
 
+const AUDIO_BUSES := preload("res://scripts/audio_buses.gd")
 var _effect_root: Node3D
 var _music: AudioStreamPlayer
 var _ambience: AudioStreamPlayer
@@ -74,6 +75,7 @@ func _play_event_cue(filename: String) -> void:
 	_cue.name = "LicensedEventCue"
 	_cue.stream = stream
 	_cue.volume_db = -12.0
+	_cue.bus = AUDIO_BUSES.bus_or_master(AUDIO_BUSES.EVENTS)
 	_cue.finished.connect(_cue.queue_free)
 	add_child(_cue)
 	_cue.play()
@@ -88,6 +90,7 @@ func _start_licensed_loop() -> void:
 	_ambience.name = "LicensedEventMusicLoop"
 	_ambience.stream = stream
 	_ambience.volume_db = -31.0
+	_ambience.bus = AUDIO_BUSES.bus_or_master(AUDIO_BUSES.MUSIC)
 	add_child(_ambience)
 	_ambience.play()
 
@@ -457,5 +460,6 @@ func _start_synth_music(event_id: String) -> void:
 	_music.name = "OriginalEventSynth"
 	_music.stream = stream
 	_music.volume_db = -22.0
+	_music.bus = AUDIO_BUSES.bus_or_master(AUDIO_BUSES.MUSIC)
 	add_child(_music)
 	_music.play()

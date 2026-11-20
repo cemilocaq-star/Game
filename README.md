@@ -1,5 +1,7 @@
 # OxenWar
 
+Latest overhaul changes, evidence and limitations: [docs/OVERHAUL_REPORT.md](docs/OVERHAUL_REPORT.md). Historical Phase 2–4 reports describe earlier checkpoints.
+
 OxenWar is a free-to-play Godot 4.4.1 parkour arena project. Its visual direction uses a dark competitive-game layout with teal accents; it is inspired by modern shooter menus without copying another game's assets or interface.
 
 ## Current features
@@ -15,7 +17,7 @@ OxenWar is a free-to-play Godot 4.4.1 parkour arena project. Its visual directio
 - Event-specific procedural 3D centerpieces, animated particles, original synthesized motifs, and hash-verified CC0 event cues/music.
 - Local 3D footsteps with distinct generated sound profiles for stone, wood, metal, grass, dirt and ice; surfaces can be identified by `surface_type` metadata or `surface_<type>` groups.
 - Twenty-seven selectable weapon archetypes: the original 23 arcade props plus Ranger Rifle, Heavy Sidearm, Longshot and Rotary Arc. The four additions are original, non-functional first-person game props with separate silhouettes, colors, synthetic audio and cosmetic impact styles.
-- A scrollable 27-card Arsenal screen opens with V or the ARSENAL HUD button. Each of the 27 weapons has a dedicated procedural first-person 3D silhouette and color identity; E/R and mobile WEAPON + / WEAPON - cycle the full roster, while number keys 1–8 remain quick-select shortcuts. Equipping rebuilds the view model with a short transition; firing uses a weapon-specific synthetic pitch, and the server remains authoritative for selection, hit validation, cooldown, range and damage.
+- A scrollable 27-card Arsenal screen opens with V or the ARSENAL HUD button. Each of the 27 weapons has a dedicated 3D silhouette and color identity; Ranger Rifle, Heavy Sidearm and Longshot now combine CC0 authored bodies with the existing fictional energy attachments. E/R and mobile WEAPON + / WEAPON - cycle the full roster, while number keys 1–8 remain quick-select shortcuts. Equipping rebuilds the view model with a short transition; firing uses a weapon-specific synthetic pitch, and the server remains authoritative for selection, hit validation, cooldown, range and damage.
 - Server-authoritative health: players start with 100 HP, each confirmed pulse hit deals 34 damage, zero HP triggers a 4-second K.O. state, then automatic full-health respawn; a final hit grants a bonus score.
 - Consecutive-kill streaks are tracked by the server, reset when eliminated, and award milestone score bonuses at 3, 5, 7 and 10 kills with live HUD announcements.
 - Weapon mastery is awarded by the game server from accepted combat events. Match XP is synced through the authenticated server-sync function into `player_weapon_mastery`; the Career Stats page reads persistent Aether Blaster and Grenade totals and shows Recruit/Bronze/Silver/Gold progression (100/300/600 XP). The migration `20261109193000_oxenwar_weapon_mastery.sql` and updated `oxenwar-server-sync` Edge Function must be deployed before hosted persistence works. Weapon skin unlock/equip is not yet implemented.
@@ -40,12 +42,13 @@ Database schema source is in `supabase/migrations/`. Apply all new migrations, i
 ## Run locally
 
 1. Install Godot 4.4.1 Standard (not .NET) and Python 3.
-2. From the repository root, run `python3 tools/fetch_open_audio_assets.py` (on Windows, `py tools/fetch_open_audio_assets.py`). The script downloads the CC0 audio files and verifies each SHA-256 hash.
+2. The project archive includes the six checksum-verified CC0 event audio files. To restore the files from a checkout without them, run `python3 tools/fetch_open_audio_assets.py` (on Windows, `py tools/fetch_open_audio_assets.py`).
 3. Open `project.godot`.
 4. Run `main.tscn`.
 5. Register/sign in with an OxenWar username and password. Registration also asks for a display name; no email address is requested. Password recovery is not yet implemented, so players must keep their password safe.
 6. Run a dedicated server in another terminal: `godot --headless --path . -- --server`.
 7. In the game, enter the server's LAN address or public hostname and press **CONNECT**.
+   In the main menu the server is found automatically (see `server/README.md`, *Automatic server discovery*); a friend's room is joined with the room code only. **CUSTOM SERVER** in the lobby accepts a manual address. With no server online, **START** opens the offline training arena.
 8. Choose **FREE FOR ALL** or **TEAM DEATHMATCH** in the in-game mode selector. Use **CREATE ROOM** to make a private friend room, **JOIN** with its code, or **QUICK MATCH** to enter a public room of the selected mode. The default arena is Sunken Oasis; an authorized admin can cycle through the available themed arenas.
 
 For a private room, share its six-character code with an existing OxenWar friend. The server checks the friendship relationship before allowing entry. Public quick-match rooms are available to all authenticated players.
@@ -61,7 +64,7 @@ For a private room, share its six-character code with an existing OxenWar friend
 - Left mouse button / mobile PULSE: fire the selected arcade weapon
 - Number keys 1–8: select a weapon; E / R: cycle forward/backward (mobile has WEAPON + / WEAPON -)
 - G: throw a server-simulated grenade
-- Escape: release/capture mouse
+- Escape / Android Back / MENU button: pause menu (look sensitivity, master volume, controls help, leave match); it also frees the mouse
 
 Online clients send input only. The server runs CharacterBody3D movement and collision against its own arena, and sends authoritative snapshots back to clients.
 
@@ -160,6 +163,18 @@ The roster has 27 server-registered weapon archetypes plus the separate grenade 
 - Confirmed beam endpoints now receive a weapon-aware impact burst. Pixel/glitch, bubble/slime, heavy spark, disc/orbit and playful confetti families use different particle silhouettes and inherit the weapon palette.
 - These are client-side cosmetic effects only. They do not change server hit validation, cooldowns, range, damage, or match statistics.
 
+
+## HUD overlays and menu fixes
+- Crosshair with a hit marker (white for a confirmed hit, red when the same snapshot also contains a kill) and a red edge flash when health drops. These are client-only and derived from the authoritative snapshot (`shots_hit`, `kills`, `health`).
+- Pause menu (`scripts/pause_menu.gd`): resume, look-sensitivity and master-volume sliders saved to `user://game_settings.cfg` through `scripts/user_settings.gd`, controls help and **LEAVE MATCH**. The mouse is released while it is open and firing/looking are blocked (`ArcadePlayer.ui_blocked`). Android Back opens it instead of quitting (`application/config/quit_on_go_back=false`).
+- The match results overlay is modal: it frees the cursor, releases touch buttons, hides the scoreboard/arsenal/emote wheel, and its button is now labelled **BACK TO MENU** because it reloads the scene.
+- Clicking a HUD button no longer fires the weapon on desktop (firing requires a captured mouse); the HUD root no longer swallows mouse input.
+- Fixed: the kill feed froze the game when a sixth entry arrived (a freed child stays in the tree until the end of the frame); toasts now stack instead of overlapping and fade in; the scoreboard rebuilds only while visible.
+- Menu: tabs scroll on small screens, slow stats/friends requests can no longer append rows to a different tab, accepting/rejecting a request no longer duplicates the list, friend search results are replaced instead of piled up, the selected mode stays visible, Enter submits the login form, the language switch keeps typed credentials, and the character Save button no longer disappears when one cosmetic slot is empty.
+- In-game HUD text is still English-only; only the menu is localized.
+
+### Model fixes in this pass
+`DuckBeacon_Mascot.glb`, `GoldenOrb_Collectible.glb` and `CosmicHalo_Cosmetic.glb` were exported Z-up without normals or materials, so the duck lay on its side and shaded flat. They now have a Y-up root rotation, smooth vertex normals and a PBR material (vertex colours are kept). Knees now flex backwards in the run/slide/jump/emote animations, and the limb/torso primitives of the shared character rig use far lower sphere/capsule tessellation (Godot's 64-segment defaults were costly with several avatars on a phone). Characters, weapons and maps are still procedural primitive meshes, not imported production assets.
 
 ## Android phone testing
 

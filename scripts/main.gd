@@ -1,21 +1,54 @@
 extends Node3D
 
+const COMPETITIVE_THEME := preload("res://scripts/competitive_theme.gd")
+
 const GRENADE_PHYSICS := preload("res://scripts/grenade_physics.gd")
+const ARSENAL_PREVIEW := preload("res://scripts/arsenal_preview.gd")
 const PLAYER_SCRIPT = preload("res://scripts/player.gd")
+const SFX_DIRECTOR = preload("res://scripts/sfx_director.gd")
+const WEAPON_AUDIO = preload("res://scripts/weapon_audio.gd")
+const WORLD_AUDIO = preload("res://scripts/world_audio.gd")
 const BACKEND_SCRIPT = preload("res://scripts/oxenwar_supabase.gd")
 const MENU_SCRIPT = preload("res://scripts/oxenwar_menu.gd")
 const NETWORK_SCRIPT = preload("res://scripts/oxenwar_network.gd")
+const SUNSHINE_FX := preload("res://scripts/sunshine_fx.gd")
+var _sunshine_fx: Node3D
+var _sunshine_hit := false
 const EVENT_FX_SCRIPT = preload("res://scripts/oxenwar_event_fx.gd")
 const COMBAT_FX_SCRIPT = preload("res://scripts/combat_fx.gd")
+const CROSSHAIR_SCRIPT = preload("res://scripts/crosshair_overlay.gd")
+const PAUSE_MENU_SCRIPT = preload("res://scripts/pause_menu.gd")
+const USER_SETTINGS = preload("res://scripts/user_settings.gd")
 const MAP_WORLD_SCRIPT = preload("res://scripts/map_world_builder.gd")
+const FOOTSTEPS = preload("res://scripts/footstep_audio.gd")
+const AUDIO_BUSES = preload("res://scripts/audio_buses.gd")
+const ROOM_ACOUSTICS_DRIVER = preload("res://scripts/room_acoustics_driver.gd")
 const ARENA_LAYOUT := preload("res://scripts/arena_layout.gd")
 const MAP_NAMES := ARENA_LAYOUT.MAP_NAMES
 const REMOTE_PLAYER_SCRIPT = preload("res://scripts/oxenwar_remote_player.gd")
+const UI_THEME := preload("res://scripts/ui/ui_theme.gd")
+const UI_ICONS := preload("res://scripts/ui/ui_icons.gd")
+const SCALED_ROOT := preload("res://scripts/ui/scaled_root.gd")
+const GAME_HUD := preload("res://scripts/ui/game_hud.gd")
+const LOBBY_PANEL := preload("res://scripts/ui/lobby_panel.gd")
+const SCOREBOARD_PANEL := preload("res://scripts/ui/scoreboard_panel.gd")
+const HUD_PLATE := preload("res://scripts/ui/hud_plate.gd")
+const KILL_FEED_ENTRY := preload("res://scripts/ui/kill_feed_entry.gd")
+## Must match the server's grenade cooldown in oxenwar_network.gd (_server_throw_grenade).
+const GRENADE_COOLDOWN_MS := 5000
+const MAP_SKY_PALETTES := [
+	[Color("#263346"), Color("#5B7081")], [Color("#10143B"), Color("#512E6A")],
+	[Color("#07112F"), Color("#273D71")], [Color("#251A4B"), Color("#AD5983")],
+	[Color("#35668C"), Color("#BA8063")], [Color("#203F53"), Color("#607F65")],
+	[Color("#4D5874"), Color("#AD6951")]
+]
+var _arena_sky: ProceduralSkyMaterial
 var local_player_name := "Player"
 var local_admin_authorized := false
 var pending_launch_action := "quick_match"
 var pending_launch_room_code := ""
 var launch_server_host := ""
+var _connection_error_toast_shown := false
 var player_profile: Dictionary = {}
 var backend: Node
 const ROUND_SECONDS := 300.0
@@ -93,14 +126,15 @@ const EVENT_INTERVAL := 30.0
 const EVENT_DURATION := 12.0
 
 var player: ArcadePlayer
+var sfx
 var score_label: Label
 var event_label: Label
 var collectibles_label: Label
 var local_orb_collections := 0
 var online_orb_collections := 0
 var online_secret_found := false
-var stamina_bar: ProgressBar
-var health_bar: ProgressBar
+var stamina_bar: Control
+var health_bar: Control
 var health_label: Label
 var death_label: Label
 var status_label: Label
@@ -112,15 +146,17 @@ var orb_spawns: Array[Vector3] = []
 var rng := RandomNumberGenerator.new()
 var hud_layer: CanvasLayer
 var _round_finished := false
+var _active_bomb_fuse := -1.0
 var progression: ProgressionManager
 var graphics: GraphicsManager
 var level_label: Label
-var xp_bar: ProgressBar
+var xp_bar: Control
 var graphics_option: OptionButton
 var arena_meshes: Array[MeshInstance3D] = []
 var arena_colors: Array[Color] = []
 var map_extras: Array[Node3D] = []
 var arena_bodies: Array[Node] = []
+var _touch_aim_button: Button
 var arena_detail_root: Node3D
 var active_map_index := 4
 var selected_game_mode := "ffa"
@@ -140,10 +176,10 @@ var room_code_input: LineEdit
 var friend_name_input: LineEdit
 var room_status_label: Label
 var remote_players: Dictionary = {}
-var match_killboard: Dictionary = {}
+const LOCAL_MATCH_PLAYER := 0
 var match_stats: Dictionary = {}
 var kill_feed_container: VBoxContainer
-var scoreboard_panel: PanelContainer
+var scoreboard_panel: Control
 var scoreboard_rows: VBoxContainer
 var scoreboard_local_stats: Label
 var active_room_mode := "ffa"
@@ -155,9 +191,35 @@ var objective_label: Label
 var killstreak_label: Label
 var weapon_mastery_label: Label
 var equipped_weapon_label: Label
-var arsenal_panel: PanelContainer
+var arsenal_panel: Control
+var _arsenal_preview: SubViewportContainer
+var _arsenal_weapon_label: Label
+var _arsenal_choice := ""
+var _arsenal_equip: Button
 var emote_wheel: Control
+var toast_stack: VBoxContainer
+# Script-defined overlays (crosshair_overlay.gd / pause_menu.gd); left untyped so their
+# own methods and signals resolve at runtime without a class_name.
+var crosshair
+var pause_menu
+# -1 = no authoritative state seen yet (avoids a false hit marker on the first snapshot).
+var _prev_local_hits := -1
+var _prev_local_kills := -1
+var _prev_local_dead := false
+var _prev_local_health := -1.0
 var emote_wheel_button: Button
+var _ui_root: Control
+var team_label: Label
+var round_label: Label
+var event_icon: TextureRect
+var weapon_role_label: Label
+var weapon_icon: TextureRect
+var grenade_button: Button
+var lobby_button: Button
+var lobby_panel: Control
+var _arsenal_buttons: Dictionary = {}
+var _touch_use_button: Button
+var _grenade_used_ms := -100000
 const WEAPON_ORDER := ["aether", "minicore", "hand_cannon", "pulse_carbine", "star_piercer", "duck_launcher", "banana_boomerang", "confetti_cannon", "prism_scepter", "vortex_orbiter", "comet_bow", "bubble_burst", "glitch_ray", "meteor_mallet", "frost_wand", "solar_lance", "slime_slinger", "pixel_storm", "thunder_drum", "moon_disc", "jellyfish_staff", "portal_popper", "rubber_chicken", "ranger_rifle", "heavy_sidearm", "longshot", "rotary_arc"]
 const WEAPON_DISPLAY := {"aether":"AETHER BLASTER", "minicore":"MINICORE", "hand_cannon":"NOVA HAND CANNON", "pulse_carbine":"PULSE CARBINE", "star_piercer":"STAR PIERCER", "duck_launcher":"DUCK LAUNCHER", "banana_boomerang":"BANANA BOOMERANG", "confetti_cannon":"CONFETTI CANNON", "prism_scepter":"PRISM SCEPTER", "vortex_orbiter":"VORTEX ORBITER", "comet_bow":"COMET BOW", "bubble_burst":"BUBBLE BURST", "glitch_ray":"GLITCH RAY", "meteor_mallet":"METEOR MALLET", "frost_wand":"FROST WAND", "solar_lance":"SOLAR LANCE", "slime_slinger":"SLIME SLINGER", "pixel_storm":"PIXEL STORM", "thunder_drum":"THUNDER DRUM", "moon_disc":"MOON DISC", "jellyfish_staff":"JELLYFISH STAFF", "portal_popper":"PORTAL POPPER", "rubber_chicken":"RUBBER CHICKEN", "ranger_rifle":"RANGER RIFLE", "heavy_sidearm":"HEAVY SIDEARM", "longshot":"LONGSHOT", "rotary_arc":"ROTARY ARC"}
 const WEAPON_ROLE := {"aether":"Energy blaster", "minicore":"Rapid pulse", "hand_cannon":"Heavy pulse", "pulse_carbine":"Balanced burst", "star_piercer":"Long-range prism", "duck_launcher":"Duck gag", "banana_boomerang":"Ricochet gag", "confetti_cannon":"Party burst", "prism_scepter":"Crystal beam", "vortex_orbiter":"Orbiting energy", "comet_bow":"Charged comet", "bubble_burst":"Bubble spray", "glitch_ray":"Pixel beam", "meteor_mallet":"Meteor bonk", "frost_wand":"Frost pulse", "solar_lance":"Solar charge", "slime_slinger":"Slime glob", "pixel_storm":"Voxel burst", "thunder_drum":"Thunder beat", "moon_disc":"Lunar ring", "jellyfish_staff":"Floating glow", "portal_popper":"Portal pulse", "rubber_chicken":"Squeaky chaos", "ranger_rifle":"Balanced rifle prop", "heavy_sidearm":"Heavy pulse sidearm", "longshot":"Precision prism", "rotary_arc":"Rotating energy array"}
@@ -172,6 +234,9 @@ const RANK_THRESHOLDS := [
 ]
 
 const EVENT_NAMES := {
+	"SUNSHINE": "LEBRON JAMES: YOU ARE MY SUNSHINE",
+	"BIG_HEAD": "THE BIG HEAD INCIDENT",
+	"REVERSE_PANIC": "REVERSE CONTROLS PANIC",
 	"DUCK_PARADE": "DUCK PARADE!",
 	"PINK_SKY": "PINK SKY!",
 	"GOLDEN_ORB_RUSH": "GOLDEN ORB RUSH — 2X POINTS!",
@@ -200,6 +265,10 @@ func _ready() -> void:
 	graphics = GraphicsManager.new()
 	graphics.load_settings()
 	graphics.quality_changed.connect(_refresh_graphics_materials)
+	USER_SETTINGS.apply_master_volume(USER_SETTINGS.master_volume())
+	AUDIO_BUSES.ensure()
+	if not OS.get_cmdline_user_args().has("--server"):
+		add_child(ROOM_ACOUSTICS_DRIVER.new())
 	_setup_input()
 	_build_environment()
 	_build_arena()
@@ -207,6 +276,8 @@ func _ready() -> void:
 	event_fx.name = "OxenWarEventFX"
 	add_child(event_fx)
 	_spawn_player()
+	player.look_sensitivity = USER_SETTINGS.look_sensitivity()
+	player.load_input_settings()
 	_start_multiplayer_client()
 	_build_hud()
 	_build_collectibles()
@@ -285,13 +356,59 @@ func _start_multiplayer_client() -> void:
 	network.room_state_changed.connect(_on_network_room_state)
 	network.invite_received.connect(_on_room_invite_received)
 	network.set_local_player(player, local_player_name, player.cosmetic_color)
-	var host := _configured_server_host()
-	if host.is_empty():
-		_on_network_status_changed("Dedicated server not configured")
-	elif is_instance_valid(backend) and not str(backend.access_token).is_empty():
-		network.connect_to_server(host, str(backend.access_token))
-	else:
+	var host := await _resolve_server_host()
+	if not host.is_empty():
+		if is_instance_valid(network_host_input):
+			network_host_input.text = host
+		if is_instance_valid(backend) and not str(backend.access_token).is_empty():
+			network.connect_to_server(host, str(backend.access_token))
+		else:
+			_on_network_status_changed("Sign in required for multiplayer")
+	elif not is_instance_valid(backend) or str(backend.access_token).is_empty():
 		_on_network_status_changed("Sign in required for multiplayer")
+
+## A manual address (advanced menu box, OXENWAR_SERVER_HOST, project setting) wins. Otherwise the server
+## is found in the Supabase directory: the server that hosts the room code when joining, else the best
+## online server. With nothing online the player stays in the offline training arena.
+func _resolve_server_host() -> String:
+	var manual := _configured_server_host()
+	if not manual.is_empty():
+		return manual
+	if not is_instance_valid(backend) or str(backend.access_token).is_empty():
+		return ""
+	if pending_launch_action == "join_room":
+		var code := pending_launch_room_code.strip_edges().to_upper()
+		_on_network_status_changed("Looking for room %s..." % code)
+		var room_lookup: Dictionary = await backend.find_room_server(code)
+		if room_lookup.get("ok", false):
+			return str(room_lookup.get("host", ""))
+		_show_meme_toast("ROOM %s NOT FOUND • check the code; the room may have closed" % code)
+		_on_network_status_changed("Room %s not found" % code)
+		pending_launch_action = "practice"
+		return ""
+	_on_network_status_changed("Finding a server...")
+	var found: Dictionary = await backend.find_server()
+	if found.get("ok", false):
+		var found_host := str(found.get("host", ""))
+		if bool(found.get("stale", false)):
+			await _wake_server(found_host)
+		return found_host
+	_show_meme_toast("NO ONLINE SERVER • offline training arena")
+	_on_network_status_changed("No online server found")
+	pending_launch_action = "practice"
+	return ""
+
+## Free hosting plans put idle servers to sleep; one HTTP request wakes them (this can take a minute).
+func _wake_server(host: String) -> void:
+	if not host.begins_with("wss://"):
+		return
+	_on_network_status_changed("Waking the server (up to a minute)...")
+	var request := HTTPRequest.new()
+	request.timeout = 75.0
+	add_child(request)
+	if request.request("https://" + host.trim_prefix("wss://") + "/health") == OK:
+		await request.request_completed
+	request.queue_free()
 
 func _on_network_status_changed(message: String) -> void:
 	if is_instance_valid(network_status_label):
@@ -299,8 +416,10 @@ func _on_network_status_changed(message: String) -> void:
 
 func _on_network_authentication_changed(authenticated: bool, message: String) -> void:
 	if is_instance_valid(player) and authenticated:
-		# Online movement is simulated by the server; the client only sends input.
-		player.set_physics_process(false)
+		_connection_error_toast_shown = false
+		# Predict locally using the shared movement rules. Server snapshots reconcile
+		# the result and remain authoritative for health, rewards and room membership.
+		player.set_physics_process(true)
 		for area in get_tree().get_nodes_in_group("local_collectibles"):
 			if area is Area3D:
 				area.monitoring = false
@@ -321,6 +440,11 @@ func _on_network_authentication_changed(authenticated: bool, message: String) ->
 		_show_meme_toast("SERVER VERIFIED • " + message)
 	elif is_instance_valid(player) and not authenticated:
 		player.set_physics_process(false)
+		_release_all_touch_actions()
+		if not _connection_error_toast_shown:
+			# Without a hint the player just stands frozen; tell them how to change the server.
+			_connection_error_toast_shown = true
+			_show_meme_toast("CONNECTION PROBLEM • %s • open MENU > LEAVE MATCH to change the server" % message)
 
 func _on_authoritative_local_state(state: Dictionary) -> void:
 	if not is_instance_valid(player):
@@ -328,12 +452,11 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 	var synced_weapon := str(state.get("equipped_weapon_id", "aether"))
 	if WEAPON_ORDER.has(synced_weapon):
 		player.set_selected_weapon(synced_weapon)
-		if is_instance_valid(equipped_weapon_label):
-			equipped_weapon_label.text = "EQUIPPED  •  " + str(WEAPON_DISPLAY.get(synced_weapon, synced_weapon.to_upper())) + "   [V / E / R]"
-	var position_value: Variant = state.get("position", player.global_position)
-	if position_value is Vector3:
-		player.global_position = position_value
-	player.rotation.y = float(state.get("yaw", player.rotation.y))
+		_refresh_weapon_card(synced_weapon)
+	# The local player predicts its own movement; the server only corrects real disagreement
+	# (and never overwrites the camera yaw, which used to make mouse-look rubber-band).
+	if is_instance_valid(network):
+		network.reconcile_local_player(state)
 	player.score = int(state.get("score", player.score))
 	if is_instance_valid(killstreak_label):
 		var streak_now := int(state.get("kill_streak", 0))
@@ -342,18 +465,18 @@ func _on_authoritative_local_state(state: Dictionary) -> void:
 	if is_instance_valid(weapon_mastery_label):
 		var blaster_xp := int(state.get("blaster_mastery_xp", 0))
 		var grenade_xp := int(state.get("grenade_mastery_xp", 0))
-		weapon_mastery_label.text = "WEAPON MASTERY  •  BLASTER %s  •  GRENADE %s" % [_weapon_mastery_rank(blaster_xp), _weapon_mastery_rank(grenade_xp)]
-	match_killboard[local_player_name] = int(state.get("kills", 0))
+		weapon_mastery_label.text = "BLASTER %s  •  GRENADE %s" % [_weapon_mastery_rank(blaster_xp), _weapon_mastery_rank(grenade_xp)]
 	_update_player_match_stats(local_player_name, state)
+	_update_combat_feedback(state)
 	player.stamina = float(state.get("stamina", player.stamina))
 	player.health = float(state.get("health", player.health))
-	player.is_dead = bool(state.get("dead", false))
+	player.set_combat_dead(bool(state.get("dead", false)))
 	player.respawn_left = float(state.get("respawn_left", 0.0))
 	player.set_swimming(bool(state.get("is_swimming", false)))
 	player.apply_server_slide(bool(state.get("sliding", false)))
-	var team_label := hud_layer.get_node_or_null("Control/TeamLabel") if is_instance_valid(hud_layer) else null
-	if team_label:
-		team_label.text = "TEAM " + str(state.get("team_id", "FREE")).to_upper()
+	if is_instance_valid(team_label):
+		var team := str(state.get("team_id", "")).to_upper()
+		team_label.text = "TEAM " + ("FREE" if team.is_empty() else team)
 	var collections: Dictionary = state.get("collections", {})
 	online_orb_collections = 0
 	for collection_id in collections.keys():
@@ -375,6 +498,7 @@ func _on_network_room_state(state: Dictionary) -> void:
 				player.swim_map_index = active_map_index
 			_show_meme_toast("MAP: %s" % _map_name())
 	_update_objective_core(state)
+	_sync_sunshine(state.get("meme", {}))
 	if state.has("event_id"):
 		var next_event := str(state.get("event_id", ""))
 		if next_event != active_event:
@@ -382,6 +506,9 @@ func _on_network_room_state(state: Dictionary) -> void:
 			_on_server_event_changed(active_event)
 		event_left = float(state.get("event_left", 0.0))
 		round_left = float(state.get("round_left", ROUND_SECONDS))
+		_active_bomb_fuse = float(state.get("bomb_fuse", 0.0)) if bool(state.get("bomb_planted", false)) else -1.0
+		if is_instance_valid(sfx):
+			sfx.set_round_left(round_left)
 		active_room_mode = str(state.get("mode", active_room_mode))
 		hill_control = float(state.get("hill_control", hill_control))
 		hill_points_red = float(state.get("hill_points_red", hill_points_red))
@@ -393,9 +520,11 @@ func _on_network_room_state(state: Dictionary) -> void:
 				var action := str(state.get("objective_action", ""))
 				var progress := float(state.get("objective_progress", 0.0))
 				var result := str(state.get("objective_result", "RED: PLANT A/B  •  BLUE: DEFUSE"))
+				if is_instance_valid(sfx):
+					sfx.set_bomb_fuse(float(state.get("bomb_fuse", 0.0)) if planted else -1.0)
 				if result != _last_objective_result and result == "CORE DETONATED":
 					var blast_site := str(state.get("bomb_site", "A"))
-					COMBAT_FX_SCRIPT.grenade_explosion(self, Vector3(-9.0, 0.5, -8.0) if blast_site == "A" else Vector3(9.0, 0.5, 8.0))
+					COMBAT_FX_SCRIPT.grenade_explosion(self, MAP_WORLD_SCRIPT.objective_site(active_map_index, blast_site) + Vector3.UP * 0.5)
 				_last_objective_result = result
 				objective_label.text = result + ("  •  %d SEC" % int(ceil(float(state.get("bomb_fuse", 0.0)))) if planted else ("  •  %s %d%%" % [action.to_upper(), int(progress / 3.0 * 100.0)] if not action.is_empty() else "  •  PRESS F TO INTERACT"))
 			else:
@@ -435,7 +564,7 @@ func _update_objective_core(state: Dictionary) -> void:
 	_objective_core_site = site
 	_objective_core_visual = Node3D.new()
 	_objective_core_visual.name = "PlantedEnergyCore_" + site
-	_objective_core_visual.global_position = Vector3(-9.0, 0.25, -8.0) if site == "A" else Vector3(9.0, 0.25, 8.0)
+	_objective_core_visual.global_position = ARENA_LAYOUT.objective_site(active_map_index, "A" if site == "A" else "B") + Vector3(0.0, 0.25, 0.0)
 	add_child(_objective_core_visual)
 	var core := MeshInstance3D.new()
 	var core_mesh := SphereMesh.new()
@@ -472,11 +601,37 @@ func _update_objective_core(state: Dictionary) -> void:
 	var rotate_ring := create_tween().set_loops()
 	rotate_ring.tween_property(ring, "rotation:y", TAU, 2.0)
 
+func _sync_sunshine(state: Dictionary) -> void:
+	if state.is_empty():
+		if is_instance_valid(_sunshine_fx):
+			_sunshine_fx.queue_free()
+			_sunshine_fx = null
+		_sunshine_hit = false
+		return
+	if not is_instance_valid(_sunshine_fx):
+		_sunshine_fx = SUNSHINE_FX.new()
+		add_child(_sunshine_fx)
+	_sunshine_fx.sync_state(state)
+	if bool(state.impact) and not _sunshine_hit:
+		_sunshine_hit = true
+		if int(state.target) == multiplayer.get_unique_id():
+			_show_meme_toast("YOU GOT HAMMERED BY LEBRON JAMES")
+			if is_instance_valid(crosshair):
+				crosshair.flash_damage(100.0)
+
+
 func _on_server_event_changed(event_id: String) -> void:
 	if is_instance_valid(event_fx):
 		event_fx.set_event(event_id)
 	if is_instance_valid(player):
 		player.apply_event(event_id)
+	for remote in remote_players.values():
+		if is_instance_valid(remote):
+			remote.set_big_head(event_id == "BIG_HEAD")
+	if event_id == "REVERSE_PANIC":
+		_show_meme_toast("REVERSE CONTROLS PANIC • MOVEMENT REVERSED")
+	elif event_id == "SUNSHINE":
+		_show_meme_toast("LEBRON JAMES: YOU ARE MY SUNSHINE")
 	if event_id.is_empty():
 		RenderingServer.set_default_clear_color(Color(0.015, 0.025, 0.055))
 		return
@@ -553,48 +708,40 @@ func _on_invite_friend_pressed() -> void:
 
 func _on_remote_player_state(peer_id: int, state: Dictionary) -> void:
 	var remote_name := str(state.get("display_name", "Player"))
-	match_killboard[remote_name] = int(state.get("kills", 0))
-	_update_player_match_stats(remote_name, state)
+	_update_player_match_stats(remote_name, state, peer_id)
 	var remote = remote_players.get(peer_id)
 	if not is_instance_valid(remote):
 		remote = REMOTE_PLAYER_SCRIPT.new()
 		remote.name = "RemotePlayer_%d" % peer_id
 		add_child(remote)
 		remote_players[peer_id] = remote
-		remote.set_player_identity(str(state.get("display_name", "Player")), Color.from_string(str(state.get("color", "#27D7E7")), Color("#27D7E7")), str(state.get("outfit_id", "outfit_default")) )
+	remote.set_player_identity(
+		remote_name,
+		Color.from_string(str(state.get("color", "#27D7E7")), Color("#27D7E7")),
+		str(state.get("outfit_id", "outfit_default")),
+		state.get("accessory_id")
+	)
+	remote.set_big_head(active_event == "BIG_HEAD")
+	remote.sync_weapon(str(state.get("equipped_weapon_id", "aether")), bool(state.get("grounded", true)))
+	remote.set_aim_pitch(float(state.get("pitch", 0.0)))
+	remote.sync_reload(float(state.get("reload_left", 0.0)))
 	remote.apply_network_state(state.get("position", Vector3.ZERO), float(state.get("yaw", 0.0)), bool(state.get("sliding", false)), float(state.get("health", 100.0)), bool(state.get("dead", false)), str(state.get("team_id", "")), str(state.get("emote_id", "")), bool(state.get("is_swimming", false)))
+	remote.set_result_pose(str(state.get("match_outcome", "")) if _round_finished else "")
 
-func _make_remote_blaster_stream() -> AudioStreamWAV:
-	const sample_rate := 22050
-	const duration := 0.19
-	var count := int(sample_rate * duration)
-	var bytes := PackedByteArray()
-	bytes.resize(count * 2)
-	for i in range(count):
-		var t := float(i) / float(sample_rate)
-		var envelope := pow(maxf(0.0, 1.0 - float(i) / float(count)), 2.0)
-		var sweep := sin(TAU * (260.0 - 105.0 * t / duration) * t)
-		var overtone := sin(TAU * 520.0 * t) * 0.22
-		var sample := clampf((sweep * 0.58 + overtone) * envelope * 0.72, -1.0, 1.0)
-		bytes.encode_s16(i * 2, int(sample * 32767.0))
-	var stream := AudioStreamWAV.new()
-	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = sample_rate
-	stream.stereo = false
-	stream.data = bytes
-	return stream
+
 
 func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Vector3, weapon_id: String) -> void:
-	var remote_audio := AudioStreamPlayer3D.new()
-	remote_audio.name = "RemoteAetherPulseAudio"
-	remote_audio.stream = _make_remote_blaster_stream()
-	remote_audio.volume_db = -7.0
-	remote_audio.max_distance = 42.0
-	remote_audio.unit_size = 9.0
-	add_child(remote_audio)
-	remote_audio.global_position = origin
-	remote_audio.play()
-	remote_audio.finished.connect(remote_audio.queue_free)
+	var remote = remote_players.get(shooter_peer_id)
+	if is_instance_valid(remote):
+		remote.play_weapon_fire(weapon_id)
+	# Other players are heard in the simplified "far" layering, a different variant each shot. The shot
+	# is heard through doors and around corners, and muffled behind walls (see sound_paths.gd).
+	var own_body: Array[RID] = []
+	var ears := origin
+	if is_instance_valid(player) and player.is_inside_tree():
+		own_body.append(player.get_rid())
+		ears = player.global_position + Vector3.UP * 1.5
+	WORLD_AUDIO.play_at(self, WEAPON_AUDIO.stream(weapon_id, WEAPON_AUDIO.FAR, randi() % WEAPON_AUDIO.VARIANTS), origin, -7.0, 42.0, 9.0, ears, own_body, 1.0, "RemoteAetherPulseAudio", AUDIO_BUSES.WEAPONS)
 	var beam := MeshInstance3D.new()
 	beam.name = "RemoteAetherPulse"
 	var mesh := BoxMesh.new()
@@ -602,7 +749,7 @@ func _on_blaster_fx_received(shooter_peer_id: int, origin: Vector3, endpoint: Ve
 	beam.mesh = mesh
 	var material := StandardMaterial3D.new()
 	var beam_colors := {"aether":Color("#35EFFF"), "minicore":Color("#FF9B54"), "hand_cannon":Color("#F2D36D"), "pulse_carbine":Color("#76E6C5"), "star_piercer":Color("#C6A0FF"), "duck_launcher":Color("#FFE56B"), "banana_boomerang":Color("#E7F26C"), "confetti_cannon":Color("#FF83C8"), "prism_scepter":Color("#E98BFF"), "vortex_orbiter":Color("#7A9DFF"), "comet_bow":Color("#F7A8FF"), "bubble_burst":Color("#8EEAFF"), "glitch_ray":Color("#B6FF63"), "meteor_mallet":Color("#FF815D"), "frost_wand":Color("#8FCFFF"), "solar_lance":Color("#FFD46A"), "slime_slinger":Color("#B9F56E"), "pixel_storm":Color("#80F6DB"), "thunder_drum":Color("#7DC8FF"), "moon_disc":Color("#BCC7FF"), "jellyfish_staff":Color("#D39BFF"), "portal_popper":Color("#9C72FF"), "rubber_chicken":Color("#FFB56C")}
-	var beam_color: Color = beam_colors.get(weapon_id, Color("#35EFFF"))
+	var beam_color: Color = beam_colors.get(weapon_id, PLAYER_SCRIPT.ARCADE_WEAPON_LOCAL.get(weapon_id, {}).get("color", Color("#35EFFF")))
 	material.albedo_color = beam_color
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.emission_enabled = true
@@ -668,8 +815,9 @@ func _on_grenade_exploded_received(grenade_id: int, position_value: Vector3) -> 
 	_client_grenade_visuals.erase(grenade_id)
 	COMBAT_FX_SCRIPT.grenade_explosion(self, position_value)
 
-func _update_player_match_stats(player_name: String, state: Dictionary) -> void:
-	match_stats[player_name] = {
+func _update_player_match_stats(player_name: String, state: Dictionary, peer_id: int = LOCAL_MATCH_PLAYER) -> void:
+	match_stats[peer_id] = {
+		"name": player_name, "is_local": peer_id == LOCAL_MATCH_PLAYER,
 		"kills": int(state.get("kills", 0)), "deaths": int(state.get("deaths", 0)),
 		"score": int(state.get("score", 0)), "team_id": str(state.get("team_id", "")),
 		"shots_fired": int(state.get("shots_fired", 0)), "shots_hit": int(state.get("shots_hit", 0)),
@@ -677,31 +825,36 @@ func _update_player_match_stats(player_name: String, state: Dictionary) -> void:
 		"damage_received": float(state.get("damage_received", 0.0)),
 		"match_xp": maxi(0, int(state.get("match_xp", 0)))
 	}
-	_refresh_scoreboard()
+	_queue_scoreboard_refresh()
+
+func _queue_scoreboard_refresh() -> void:
+	# A snapshot updates several players in one frame. Rebuild the visible table once.
+	if is_instance_valid(scoreboard_panel) and scoreboard_panel.visible and not _scoreboard_refresh_queued:
+		_scoreboard_refresh_queued = true
+		_flush_scoreboard_refresh.call_deferred()
+
+var _scoreboard_refresh_queued := false
+
+func _flush_scoreboard_refresh() -> void:
+	_scoreboard_refresh_queued = false
+	if is_instance_valid(scoreboard_panel) and scoreboard_panel.visible:
+		_refresh_scoreboard()
 
 func _refresh_scoreboard() -> void:
 	if not is_instance_valid(scoreboard_rows):
 		return
-	for child in scoreboard_rows.get_children():
-		child.queue_free()
 	var entries: Array[Dictionary] = []
-	for player_name in match_stats.keys():
-		var stats: Dictionary = match_stats[player_name]
-		entries.append({"name": str(player_name), "kills": int(stats.get("kills", 0)), "deaths": int(stats.get("deaths", 0)), "score": int(stats.get("score", 0))})
+	for stats in match_stats.values():
+		entries.append(stats)
 	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if int(a.kills) == int(b.kills):
 			return int(a.score) > int(b.score)
 		return int(a.kills) > int(b.kills)
 	)
-	var local_stats: Dictionary = match_stats.get(local_player_name, {})
+	var local_stats: Dictionary = match_stats.get(LOCAL_MATCH_PLAYER, {})
 	if is_instance_valid(scoreboard_local_stats):
 		scoreboard_local_stats.text = "YOU  •  K %d   D %d   SCORE %d" % [int(local_stats.get("kills", 0)), int(local_stats.get("deaths", 0)), int(local_stats.get("score", 0))]
-	for index in range(mini(entries.size(), 8)):
-		var entry: Dictionary = entries[index]
-		var row := Label.new()
-		row.text = "%d. %-22s %3d   %3d   %6d" % [index + 1, str(entry.name).substr(0, 22), int(entry.kills), int(entry.deaths), int(entry.score)]
-		row.add_theme_color_override("font_color", Color("#E7F4FF") if str(entry.name) == local_player_name else Color("#AFC4D4"))
-		scoreboard_rows.add_child(row)
+	SCOREBOARD_PANEL.fill(scoreboard_rows, entries, local_player_name)
 
 func _toggle_scoreboard() -> void:
 	if is_instance_valid(scoreboard_panel):
@@ -712,20 +865,28 @@ func _toggle_scoreboard() -> void:
 func _on_kill_feed_received(killer_name: String, victim_name: String, weapon_name: String) -> void:
 	if not is_instance_valid(kill_feed_container):
 		return
-	var entry := Label.new()
-	entry.text = "%s   ▸   %s   [%s]" % [killer_name, victim_name, weapon_name]
-	entry.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	entry.add_theme_font_size_override("font_size", 15)
-	entry.add_theme_color_override("font_color", Color("#E9F8FF"))
+	var entry := KILL_FEED_ENTRY.build(killer_name, victim_name, _kill_feed_icon(weapon_name), local_player_name)
 	kill_feed_container.add_child(entry)
+	# queue_free() keeps the child in the tree until the end of the frame, so the
+	# loop must detach it first or the child count never drops and it never ends.
 	while kill_feed_container.get_child_count() > 5:
-		kill_feed_container.get_child(0).queue_free()
-	var fade := create_tween()
+		var oldest: Node = kill_feed_container.get_child(0)
+		kill_feed_container.remove_child(oldest)
+		oldest.queue_free()
+	# Bind the tween to the entry so it is cancelled if the entry is freed early.
+	var fade := entry.create_tween()
 	fade.tween_interval(5.0)
 	fade.tween_property(entry, "modulate:a", 0.0, 0.45)
 	fade.tween_callback(entry.queue_free)
 
-
+## The kill feed carries the weapon's display name ("AETHER BLASTER") or "GRENADE"; this finds its icon.
+func _kill_feed_icon(weapon_name: String) -> String:
+	if weapon_name.to_upper() == "GRENADE":
+		return "grenade"
+	for weapon_id: String in WEAPON_ORDER:
+		if str(WEAPON_DISPLAY.get(weapon_id, "")).to_upper() == weapon_name.to_upper():
+			return UI_ICONS.weapon_name(weapon_id)
+	return "kill"
 
 func _weapon_mastery_rank(xp_value: int) -> String:
 	if xp_value >= 600:
@@ -745,8 +906,12 @@ func _on_remote_player_left(peer_id: int) -> void:
 	if is_instance_valid(remote):
 		remote.queue_free()
 	remote_players.erase(peer_id)
+	if match_stats.erase(peer_id):
+		_queue_scoreboard_refresh()
 
 func _process(delta: float) -> void:
+	if is_instance_valid(crosshair) and is_instance_valid(player):
+		crosshair.visible = not player.ui_blocked and not player.arsenal_open and not player.is_dead and not _round_finished
 	if OS.get_cmdline_user_args().has("--server"):
 		return
 	for grenade_id in _client_grenade_visuals.keys():
@@ -785,8 +950,24 @@ func _process(delta: float) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		_release_all_touch_actions()
+	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		# Android back button: open/close the pause menu instead of quitting the game.
+		_toggle_pause_menu()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		if is_instance_valid(lobby_panel) and lobby_panel.visible:
+			_toggle_lobby()
+		elif is_instance_valid(arsenal_panel) and arsenal_panel.visible:
+			_toggle_arsenal()
+		else:
+			_toggle_pause_menu()
+		get_viewport().set_input_as_handled()
+		return
+	if _is_pause_open():
+		# Swallow gameplay keys while the pause menu is open.
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("weapon_next"):
 		_cycle_weapon(1)
 		get_viewport().set_input_as_handled()
@@ -810,7 +991,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("throw_grenade") and is_instance_valid(network) and network.is_authenticated and is_instance_valid(player):
-		network.request_grenade_throw(-player.global_basis.z + Vector3.UP * 0.12)
+		_request_grenade()
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("objective_interact") and is_instance_valid(network) and network.is_authenticated:
@@ -840,13 +1021,68 @@ func _select_weapon(weapon_id: String) -> void:
 	player.set_selected_weapon(weapon_id)
 	if is_instance_valid(network) and network.is_authenticated:
 		network.request_select_weapon(weapon_id)
-	if is_instance_valid(equipped_weapon_label):
-		equipped_weapon_label.text = "EQUIPPED  •  " + str(WEAPON_DISPLAY.get(weapon_id, weapon_id.to_upper())) + "   [V / E / R]"
+	_refresh_weapon_card(weapon_id)
 	if is_instance_valid(arsenal_panel) and arsenal_panel.visible:
 		arsenal_panel.visible = false
 		player.set_arsenal_open(false)
 		if not OS.has_feature("mobile") and not DisplayServer.is_touchscreen_available():
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _update_combat_feedback(state: Dictionary) -> void:
+	var hits := int(state.get("shots_hit", 0))
+	var kills := int(state.get("kills", 0))
+	var health_now := float(state.get("health", 100.0))
+	if is_instance_valid(crosshair):
+		if _prev_local_hits >= 0 and hits > _prev_local_hits:
+			crosshair.flash_hit(kills > _prev_local_kills)
+			if is_instance_valid(sfx):
+				sfx.play("kill" if kills > _prev_local_kills else "hit")
+		if _prev_local_health >= 0.0 and health_now < _prev_local_health - 0.5 and not bool(state.get("dead", false)):
+			crosshair.flash_damage(_prev_local_health - health_now)
+			if is_instance_valid(sfx):
+				sfx.play("damage")
+	if is_instance_valid(sfx):
+		sfx.set_low_health(health_now, not bool(state.get("dead", false)))
+	var dead_now := bool(state.get("dead", false))
+	if _prev_local_dead and not dead_now and is_instance_valid(sfx):
+		sfx.play_recorded("respawn", -8.0)
+	_prev_local_dead = dead_now
+	_prev_local_hits = hits
+	_prev_local_kills = kills
+	_prev_local_health = health_now
+
+func _is_pause_open() -> bool:
+	return is_instance_valid(pause_menu) and pause_menu.visible
+
+func _toggle_pause_menu() -> void:
+	if not is_instance_valid(pause_menu) or not is_instance_valid(player) or _round_finished:
+		return
+	var opening: bool = not pause_menu.visible
+	pause_menu.visible = opening
+	player.ui_blocked = opening
+	if opening:
+		_release_all_touch_actions()
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	elif not OS.has_feature("mobile") and not DisplayServer.is_touchscreen_available():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _on_leave_match_requested() -> void:
+	if is_instance_valid(network):
+		network.request_leave_room()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_release_all_touch_actions()
+	# Reloading the scene closes the network peer (see OxenWarNetwork._exit_tree) and
+	# returns to the main menu.
+	get_tree().reload_current_scene()
+
+func _on_sensitivity_changed(value: float) -> void:
+	if is_instance_valid(player):
+		player.look_sensitivity = value
+
+func _on_input_settings_changed() -> void:
+	# The pause menu has already saved the value; the player re-reads all touch, gyro and ADS settings.
+	if is_instance_valid(player):
+		player.load_input_settings()
 
 func _toggle_admin_panel() -> void:
 	if not admin_available or not is_instance_valid(admin_panel):
@@ -855,38 +1091,7 @@ func _toggle_admin_panel() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if admin_panel.visible else Input.MOUSE_MODE_CAPTURED
 
 func _setup_input() -> void:
-	_add_key_action("throw_grenade", KEY_G)
-	_add_key_action("objective_interact", KEY_F)
-	_add_key_action("weapon_next", KEY_E)
-	_add_key_action("weapon_prev", KEY_R)
-	_add_key_action("emote_griddy", KEY_B)
-	_add_key_action("emote_goofy", KEY_N)
-	_add_key_action("emote_robot", KEY_M)
-	_add_key_action("emote_wave", KEY_J)
-	_add_key_action("move_forward", KEY_W)
-	_add_key_action("move_back", KEY_S)
-	_add_key_action("move_left", KEY_A)
-	_add_key_action("move_right", KEY_D)
-	_add_key_action("jump", KEY_SPACE)
-	_add_key_action("sprint", KEY_SHIFT)
-	_add_key_action("slide", KEY_CTRL)
-	_add_key_action("dash", KEY_Q)
-	if not InputMap.has_action("fire"):
-		InputMap.add_action("fire")
-	var fire_mouse := InputEventMouseButton.new()
-	fire_mouse.button_index = MOUSE_BUTTON_LEFT
-	InputMap.action_add_event("fire", fire_mouse)
-	_add_key_action("move_forward", KEY_UP)
-	_add_key_action("move_back", KEY_DOWN)
-	_add_key_action("move_left", KEY_LEFT)
-	_add_key_action("move_right", KEY_RIGHT)
-
-func _add_key_action(action: String, keycode: Key) -> void:
-	if not InputMap.has_action(action):
-		InputMap.add_action(action)
-	var event := InputEventKey.new()
-	event.physical_keycode = keycode
-	InputMap.action_add_event(action, event)
+	preload("res://scripts/input_bindings.gd").ensure()
 
 func _build_environment() -> void:
 	var world := WorldEnvironment.new()
@@ -894,6 +1099,7 @@ func _build_environment() -> void:
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var sky_material := ProceduralSkyMaterial.new()
+	_arena_sky = sky_material
 	sky_material.sky_top_color = Color(0.015, 0.025, 0.08)
 	sky_material.sky_horizon_color = Color(0.18, 0.10, 0.25)
 	sky_material.ground_bottom_color = Color("#111827")
@@ -919,6 +1125,10 @@ func _build_environment() -> void:
 	graphics.configure(env, sun)
 
 func _build_arena() -> void:
+	if is_instance_valid(_arena_sky):
+		var sky_palette: Array = MAP_SKY_PALETTES[ARENA_LAYOUT.sanitize_map(active_map_index)]
+		_arena_sky.sky_top_color = sky_palette[0]
+		_arena_sky.sky_horizon_color = sky_palette[1]
 	var desert_palette := active_map_index in [4, 6]
 	var jungle_palette := active_map_index == 5
 	var role_colors := {
@@ -1042,6 +1252,10 @@ func _make_box(node_name: String, size: Vector3, position: Vector3, color: Color
 	arena_bodies.append(body)
 
 func _spawn_player() -> void:
+	if not is_instance_valid(sfx):
+		sfx = SFX_DIRECTOR.new()
+		sfx.name = "SfxDirector"
+		add_child(sfx)
 	player = PLAYER_SCRIPT.new()
 	player.name = "LocalPlayer"
 	player.player_name = local_player_name
@@ -1061,6 +1275,8 @@ func _spawn_player() -> void:
 	admin_available = player.is_admin
 	player.position = Vector3(0, 1.5, 6)
 	player.swim_map_index = active_map_index
+	player.reload_requested.connect(func(weapon_id: String):
+		if is_instance_valid(network): network.request_reload(weapon_id))
 	player.collected.connect(_on_collected)
 	add_child(player)
 
@@ -1185,302 +1401,191 @@ func _end_event() -> void:
 func _build_hud() -> void:
 	hud_layer = CanvasLayer.new()
 	add_child(hud_layer)
-	var root := Control.new()
-	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hud_layer.add_child(root)
-	_add_hud_panel(root, "CombatStatusPanel", Vector2(12, 8), Vector2(472, 112), Color(0.025, 0.055, 0.09, 0.84), Color("#27D7E7"))
-	_add_hud_panel(root, "VitalsPanel", Vector2(12, 112), Vector2(252, 122), Color(0.025, 0.055, 0.09, 0.88), Color("#3D8FA8"))
-	_add_hud_panel(root, "LobbyPanel", Vector2(12, 238), Vector2(472, 252), Color(0.025, 0.055, 0.09, 0.78), Color("#34566A"))
+	_ui_root = SCALED_ROOT.new()
+	_ui_root.theme = UI_THEME.make_theme()
+	hud_layer.add_child(_ui_root)
+	var root: Control = _ui_root.content
+	var touch: bool = _ui_root.is_touch
+	var row_height: float = maxf(_ui_root.touch_target, 44.0) if touch else 44.0
+	var parts: Dictionary = GAME_HUD.build(root, touch, _ui_root.touch_target, {"admin": admin_available})
+	score_label = parts.score_label
+	level_label = parts.level_label
+	xp_bar = parts.xp_bar
+	health_bar = parts.health_bar
+	stamina_bar = parts.stamina_bar
+	team_label = parts.team_label
+	collectibles_label = parts.collectibles_label
+	round_label = parts.round_label
+	event_label = parts.event_label
+	event_icon = parts.event_icon
+	status_label = parts.status_label
+	objective_label = parts.objective_label
+	killstreak_label = parts.killstreak_label
+	kill_feed_container = parts.kill_feed_container
+	equipped_weapon_label = parts.equipped_weapon_label
+	weapon_role_label = parts.weapon_role_label
+	weapon_mastery_label = parts.weapon_mastery_label
+	weapon_icon = parts.weapon_icon
+	grenade_button = parts.grenade_button
+	death_label = parts.death_label
+	lobby_button = parts.lobby_button
+	grenade_button.pressed.connect(_request_grenade)
+	grenade_button.disabled = true
+	_refresh_weapon_card(player.selected_weapon_id if is_instance_valid(player) else WEAPON_ORDER[0])
 
-	score_label = _make_label(root, "SCORE 0000", Vector2(22, 16), 26)
-	event_label = _make_label(root, "COLLECT THE ORBS • PARKOUR ARENA", Vector2(22, 52), 18)
-	collectibles_label = _make_label(root, "GOLD ORBS (XP ONLY): 0  •  404 SECRET: NOT FOUND", Vector2(500, 145), 14)
-	collectibles_label.add_theme_color_override("font_color", Color("#F5D27A"))
-	status_label = _make_label(root, "WASD move • Space jump • Shift sprint • Ctrl slide • Q dash • Esc mouse", Vector2(22, 84), 14)
 	var configured_server_host := _configured_server_host()
-	network_status_label = _make_label(root, "MULTIPLAYER • Connecting..." if not configured_server_host.is_empty() else "MULTIPLAYER • Server not configured", Vector2(22, 245), 14)
-	network_host_input = LineEdit.new()
-	network_host_input.position = Vector2(22, 273)
-	network_host_input.size = Vector2(240, 36)
-	network_host_input.placeholder_text = "Dedicated server host • UDP 2456"
+	var lobby: Dictionary = LOBBY_PANEL.build(root, row_height, {
+		"modes": [["FREE FOR ALL", "ffa"], ["TEAM DEATHMATCH", "team_deathmatch"], ["KING OF THE HILL", "king_of_the_hill"]],
+		"qualities": ["AUTO", "LOW", "MEDIUM", "HIGH", "ULTRA"],
+	})
+	lobby_panel = lobby.panel
+	network_status_label = lobby.network_status_label
+	network_status_label.text = "MULTIPLAYER • Connecting..." if not configured_server_host.is_empty() else "MULTIPLAYER • Finding a server..."
+	network_host_input = lobby.network_host_input
 	network_host_input.text = configured_server_host
-	root.add_child(network_host_input)
-	var connect_button := Button.new()
-	connect_button.text = "CONNECT"
-	connect_button.position = Vector2(270, 273)
-	connect_button.size = Vector2(112, 36)
-	connect_button.pressed.connect(_on_network_connect_pressed)
-	root.add_child(connect_button)
-	room_code_input = LineEdit.new()
-	room_code_input.position = Vector2(22, 319)
-	room_code_input.size = Vector2(128, 34)
-	room_code_input.placeholder_text = "ROOM CODE"
-	root.add_child(room_code_input)
-	var create_room_button := Button.new()
-	create_room_button.text = "CREATE ROOM"
-	create_room_button.position = Vector2(158, 319)
-	create_room_button.size = Vector2(112, 34)
-	create_room_button.pressed.connect(_on_create_room_pressed)
-	root.add_child(create_room_button)
-	var quick_match_button := Button.new()
-	quick_match_button.text = "QUICK MATCH"
-	quick_match_button.position = Vector2(278, 319)
-	quick_match_button.size = Vector2(112, 34)
-	quick_match_button.pressed.connect(_on_quick_match_pressed)
-	root.add_child(quick_match_button)
-	var join_room_button := Button.new()
-	join_room_button.text = "JOIN"
-	join_room_button.position = Vector2(398, 319)
-	join_room_button.size = Vector2(72, 34)
-	join_room_button.pressed.connect(_on_join_room_pressed)
-	root.add_child(join_room_button)
-	friend_name_input = LineEdit.new()
-	friend_name_input.position = Vector2(22, 359)
-	friend_name_input.size = Vector2(160, 34)
-	friend_name_input.placeholder_text = "Friend username"
-	root.add_child(friend_name_input)
-	var invite_friend_button := Button.new()
-	invite_friend_button.text = "INVITE FRIEND"
-	invite_friend_button.position = Vector2(190, 359)
-	invite_friend_button.size = Vector2(118, 34)
-	invite_friend_button.pressed.connect(_on_invite_friend_pressed)
-	root.add_child(invite_friend_button)
-	room_status_label = _make_label(root, "LOBBY • Sign in to play online", Vector2(22, 397), 13)
-	var mode_select := OptionButton.new()
-	mode_select.position = Vector2(22, 440)
-	mode_select.size = Vector2(220, 32)
-	mode_select.add_item("FREE FOR ALL")
-	mode_select.set_item_metadata(0, "ffa")
-	mode_select.add_item("TEAM DEATHMATCH")
-	mode_select.set_item_metadata(1, "team_deathmatch")
-	mode_select.add_item("KING OF THE HILL")
-	mode_select.set_item_metadata(2, "king_of_the_hill")
-	mode_select.item_selected.connect(func(index: int): selected_game_mode = str(mode_select.get_item_metadata(index)))
-	root.add_child(mode_select)
-	health_label = _make_label(root, "HEALTH 100 / 100", Vector2(22, 108), 14)
-	objective_label = _make_label(root, "HILL NEUTRAL", Vector2(500, 18), 17)
-	objective_label.visible = false
-	objective_label.add_theme_color_override("font_color", Color("#F5D27A"))
-	killstreak_label = _make_label(root, "", Vector2(500, 52), 21)
-	killstreak_label.visible = false
-	killstreak_label.add_theme_color_override("font_color", Color("#FFB84D"))
-	weapon_mastery_label = _make_label(root, "WEAPON MASTERY  •  BLASTER LEVEL 0  •  GRENADE LEVEL 0", Vector2(500, 84), 15)
-	weapon_mastery_label.add_theme_color_override("font_color", Color("#83D6FF"))
-	equipped_weapon_label = _make_label(root, "EQUIPPED  •  AETHER BLASTER   [1–8 / E / R]", Vector2(500, 112), 15)
-	equipped_weapon_label.add_theme_color_override("font_color", Color("#FFE6A1"))
-	var team_label := _make_label(root, "TEAM FREE", Vector2(22, 148), 14)
-	team_label.name = "TeamLabel"
-	health_bar = ProgressBar.new()
-	health_bar.position = Vector2(22, 128)
-	health_bar.size = Vector2(220, 16)
-	health_bar.max_value = 100
-	health_bar.show_percentage = false
-	root.add_child(health_bar)
-	death_label = _make_label(root, "", Vector2(0, 0), 34)
-	death_label.anchor_left = 0.5
-	death_label.anchor_right = 0.5
-	death_label.anchor_top = 0.5
-	death_label.anchor_bottom = 0.5
-	death_label.offset_left = -220
-	death_label.offset_right = 220
-	death_label.offset_top = -50
-	death_label.offset_bottom = 50
-	death_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	death_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	death_label.add_theme_color_override("font_color", Color("#FF667A"))
-	root.add_child(death_label)
-	stamina_bar = ProgressBar.new()
-	stamina_bar.position = Vector2(22, 152)
-	stamina_bar.size = Vector2(220, 20)
-	stamina_bar.max_value = 100
-	stamina_bar.show_percentage = false
-	root.add_child(stamina_bar)
-	level_label = _make_label(root, "LEVEL 1  •  0 / 100 XP", Vector2(22, 180), 17)
-	xp_bar = ProgressBar.new()
-	xp_bar.position = Vector2(22, 207)
-	xp_bar.size = Vector2(220, 13)
-	xp_bar.max_value = 100
-	xp_bar.show_percentage = false
-	root.add_child(xp_bar)
-
-	_style_progress_bar(health_bar, Color("#FF536B"), Color("#401C2B"))
-	_style_progress_bar(stamina_bar, Color("#39D9D0"), Color("#153C4B"))
-	_style_progress_bar(xp_bar, Color("#B18CFF"), Color("#2D244D"))
-
-	graphics_option = OptionButton.new()
-	graphics_option.anchor_left = 0.78
-	graphics_option.anchor_right = 0.98
-	graphics_option.anchor_top = 0.09
-	graphics_option.anchor_bottom = 0.09
-	graphics_option.offset_left = 0
-	graphics_option.offset_right = 0
-	graphics_option.offset_top = 0
-	graphics_option.offset_bottom = 38
-	for quality_name in ["AUTO", "LOW", "MEDIUM", "HIGH", "ULTRA"]:
-		graphics_option.add_item(quality_name)
+	room_code_input = lobby.room_code_input
+	friend_name_input = lobby.friend_name_input
+	room_status_label = lobby.room_status_label
+	graphics_option = lobby.graphics_option
 	graphics_option.select(["AUTO", "LOW", "MEDIUM", "HIGH", "ULTRA"].find(graphics.quality_setting))
 	graphics_option.item_selected.connect(_on_graphics_selected)
-	root.add_child(graphics_option)
+	var mode_select: OptionButton = lobby.mode_select
+	mode_select.item_selected.connect(func(index: int): selected_game_mode = str(mode_select.get_item_metadata(index)))
+	lobby.connect_button.pressed.connect(_on_network_connect_pressed)
+	lobby.create_room_button.pressed.connect(_on_create_room_pressed)
+	lobby.quick_match_button.pressed.connect(_on_quick_match_pressed)
+	lobby.join_button.pressed.connect(_on_join_room_pressed)
+	lobby.invite_button.pressed.connect(_on_invite_friend_pressed)
+	lobby.close_button.pressed.connect(_toggle_lobby)
+	lobby_button.pressed.connect(_toggle_lobby)
 
-	var round_label := _make_label(root, "", Vector2(0, 16), 20)
-	round_label.anchor_left = 0.78
-	round_label.anchor_right = 0.98
-	round_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	round_label.name = "RoundLabel"
-
-	kill_feed_container = VBoxContainer.new()
-	kill_feed_container.name = "KillFeed"
-	kill_feed_container.anchor_left = 0.68
-	kill_feed_container.anchor_right = 0.985
-	kill_feed_container.anchor_top = 0.17
-	kill_feed_container.anchor_bottom = 0.17
-	kill_feed_container.offset_left = 0
-	kill_feed_container.offset_right = 0
-	kill_feed_container.offset_top = 0
-	kill_feed_container.offset_bottom = 180
-	kill_feed_container.add_theme_constant_override("separation", 5)
-	root.add_child(kill_feed_container)
-
-	scoreboard_panel = PanelContainer.new()
-	scoreboard_panel.name = "MatchScoreboard"
-	scoreboard_panel.anchor_left = 0.5
-	scoreboard_panel.anchor_right = 0.5
-	scoreboard_panel.anchor_top = 0.16
-	scoreboard_panel.anchor_bottom = 0.16
-	scoreboard_panel.offset_left = -235
-	scoreboard_panel.offset_right = 235
-	scoreboard_panel.offset_top = 0
-	scoreboard_panel.offset_bottom = 340
-	scoreboard_panel.visible = false
-	var scoreboard_style := StyleBoxFlat.new()
-	scoreboard_style.bg_color = Color(0.018, 0.04, 0.07, 0.96)
-	scoreboard_style.border_color = Color("#27D7E7")
-	scoreboard_style.set_border_width_all(2)
-	scoreboard_style.set_corner_radius_all(12)
-	scoreboard_style.content_margin_left = 16
-	scoreboard_style.content_margin_right = 16
-	scoreboard_style.content_margin_top = 12
-	scoreboard_style.content_margin_bottom = 12
-	scoreboard_panel.add_theme_stylebox_override("panel", scoreboard_style)
-	root.add_child(scoreboard_panel)
-	var scoreboard_column := VBoxContainer.new()
-	scoreboard_column.add_theme_constant_override("separation", 8)
-	scoreboard_panel.add_child(scoreboard_column)
-	var scoreboard_title := Label.new()
-	scoreboard_title.text = "MATCH SCOREBOARD"
-	scoreboard_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	scoreboard_title.add_theme_font_size_override("font_size", 22)
-	scoreboard_title.add_theme_color_override("font_color", Color("#42E7F0"))
-	scoreboard_column.add_child(scoreboard_title)
-	scoreboard_local_stats = Label.new()
-	scoreboard_local_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	scoreboard_column.add_child(scoreboard_local_stats)
-	var scoreboard_header := Label.new()
-	scoreboard_header.text = "PLAYER                              K     D      SCORE"
-	scoreboard_header.add_theme_color_override("font_color", Color("#9CB8C9"))
-	scoreboard_column.add_child(scoreboard_header)
-	scoreboard_rows = VBoxContainer.new()
-	scoreboard_rows.add_theme_constant_override("separation", 4)
-	scoreboard_column.add_child(scoreboard_rows)
+	var board: Dictionary = SCOREBOARD_PANEL.build(root)
+	scoreboard_panel = board.panel
+	scoreboard_rows = board.rows
+	scoreboard_local_stats = board.local_stats
 	_refresh_scoreboard()
+	parts.ScoreboardButton.pressed.connect(_toggle_scoreboard)
 	_build_arsenal_panel(root)
-	var arsenal_button := Button.new()
-	arsenal_button.text = "ARSENAL  •  23"
-	arsenal_button.anchor_left = 0.78
-	arsenal_button.anchor_right = 0.98
-	arsenal_button.anchor_top = 0.23
-	arsenal_button.anchor_bottom = 0.23
-	arsenal_button.offset_bottom = 38
-	arsenal_button.pressed.connect(_toggle_arsenal)
-	root.add_child(arsenal_button)
+	parts.ArsenalButton.pressed.connect(_toggle_arsenal)
 
-	if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available():
+	crosshair = CROSSHAIR_SCRIPT.new()
+	crosshair.name = "Crosshair"
+	root.add_child(crosshair)
+	parts.PauseMenuButton.pressed.connect(_toggle_pause_menu)
+	pause_menu = PAUSE_MENU_SCRIPT.new()
+	pause_menu.resume_requested.connect(_toggle_pause_menu)
+	pause_menu.leave_requested.connect(_on_leave_match_requested)
+	pause_menu.sensitivity_changed.connect(_on_sensitivity_changed)
+	pause_menu.input_settings_changed.connect(_on_input_settings_changed)
+	hud_layer.add_child(pause_menu)
+	if touch:
 		_build_touch_controls(root)
-		var score_button := Button.new()
-		score_button.text = "SCOREBOARD"
-		score_button.anchor_left = 0.72
-		score_button.anchor_right = 0.98
-		score_button.anchor_top = 0.02
-		score_button.anchor_bottom = 0.02
-		score_button.offset_bottom = 42
-		score_button.pressed.connect(_toggle_scoreboard)
-		root.add_child(score_button)
 	if admin_available:
 		_build_admin_panel(root)
-		var admin_button := Button.new()
-		admin_button.text = "ADMIN"
-		admin_button.anchor_left = 0.78
-		admin_button.anchor_right = 0.98
-		admin_button.anchor_top = 0.16
-		admin_button.anchor_bottom = 0.16
-		admin_button.offset_top = 0
-		admin_button.offset_bottom = 38
-		admin_button.pressed.connect(_toggle_admin_panel)
-		root.add_child(admin_button)
+		parts.AdminButton.pressed.connect(_toggle_admin_panel)
 
 func _build_arsenal_panel(root: Control) -> void:
-	arsenal_panel = PanelContainer.new()
+	var touch: bool = is_instance_valid(_ui_root) and _ui_root.is_touch
+	var row_height: float = maxf(_ui_root.touch_target, 44.0) if touch else 44.0
+	arsenal_panel = HUD_PLATE.new()
 	arsenal_panel.name = "ArcadeArsenal"
-	arsenal_panel.anchor_left = 0.10
-	arsenal_panel.anchor_right = 0.90
-	arsenal_panel.anchor_top = 0.12
-	arsenal_panel.anchor_bottom = 0.88
+	arsenal_panel.accent = UI_THEME.WARM
+	arsenal_panel.fill = UI_THEME.PANEL_DEEP
+	arsenal_panel.anchor_left = 0.06
+	arsenal_panel.anchor_right = 0.94
+	arsenal_panel.anchor_top = 0.07
+	arsenal_panel.anchor_bottom = 0.93
+	arsenal_panel.offset_left = 0.0
+	arsenal_panel.offset_right = 0.0
+	arsenal_panel.offset_top = 0.0
+	arsenal_panel.offset_bottom = 0.0
 	arsenal_panel.visible = false
 	arsenal_panel.z_index = 20
-	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.012, 0.025, 0.05, 0.97)
-	panel_style.border_color = Color("#27D7E7")
-	panel_style.set_border_width_all(2)
-	panel_style.set_corner_radius_all(14)
-	panel_style.content_margin_left = 14
-	panel_style.content_margin_right = 14
-	panel_style.content_margin_top = 12
-	panel_style.content_margin_bottom = 12
-	arsenal_panel.add_theme_stylebox_override("panel", panel_style)
+	arsenal_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	root.add_child(arsenal_panel)
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 18)
+	margin.add_theme_constant_override("margin_right", 18)
+	margin.add_theme_constant_override("margin_top", 12)
+	margin.add_theme_constant_override("margin_bottom", 14)
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arsenal_panel.add_child(margin)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 8)
-	arsenal_panel.add_child(column)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_child(column)
 	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 10)
 	column.add_child(header)
-	var title := Label.new()
-	title.text = "OXENWAR  •  ARCADE ARSENAL"
-	title.add_theme_font_size_override("font_size", 22)
-	title.add_theme_color_override("font_color", Color("#6FEAF2"))
+	header.add_child(UI_ICONS.make("arsenal", 30.0, UI_THEME.WARM))
+	var title := GAME_HUD.label(header, "ARSENAL  •  %d WEAPONS" % WEAPON_ORDER.size(), UI_THEME.SIZE_L, UI_THEME.INK, "bold")
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
-	var inspect_button := Button.new()
-	inspect_button.text = "INSPECT  [H]"
-	inspect_button.pressed.connect(_inspect_current_weapon)
-	header.add_child(inspect_button)
-	var close_button := Button.new()
-	close_button.text = "CLOSE  [V]"
+	var inspect_button := GAME_HUD.button(header, "RotatePreview", "rotate", "", "", UI_THEME.ACCENT, Vector2(row_height, row_height))
+	inspect_button.tooltip_text = "Rotate preview"
+	inspect_button.pressed.connect(func():
+		if is_instance_valid(_arsenal_preview):
+			_arsenal_preview.rotate_model()
+	)
+	var close_button := GAME_HUD.button(header, "ArsenalClose", "close", "", "", UI_THEME.MUTED, Vector2(row_height, row_height))
+	close_button.tooltip_text = "Close"
 	close_button.pressed.connect(_toggle_arsenal)
-	header.add_child(close_button)
-	var note := Label.new()
-	note.text = "23 FICTIONAL WEAPON ARCHETYPES  •  E / R TO CYCLE  •  SELECT A CARD TO EQUIP"
-	note.add_theme_font_size_override("font_size", 12)
-	note.add_theme_color_override("font_color", Color("#A9C3D5"))
-	column.add_child(note)
+	var body := HBoxContainer.new()
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 16)
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(body)
 	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_stretch_ratio = 1.1
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	column.add_child(scroll)
+	body.add_child(scroll)
 	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 8)
+	grid.columns = 4
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
 	scroll.add_child(grid)
-	for index in range(WEAPON_ORDER.size()):
-		var weapon_id: String = WEAPON_ORDER[index]
-		var weapon_button := Button.new()
-		weapon_button.custom_minimum_size = Vector2(174, 60)
+	var cell := maxf(row_height + 10.0, 66.0)
+	_arsenal_buttons.clear()
+	for weapon_id: String in WEAPON_ORDER:
+		var weapon_button := GAME_HUD.button(grid, "Weapon_" + weapon_id, UI_ICONS.weapon_name(weapon_id), "", "", UI_THEME.INK, Vector2(cell, cell))
 		weapon_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		weapon_button.text = "%02d  %s\n%s" % [index + 1, str(WEAPON_DISPLAY[weapon_id]), str(WEAPON_ROLE.get(weapon_id, "Arcade energy"))]
-		weapon_button.add_theme_font_size_override("font_size", 12)
-		weapon_button.add_theme_color_override("font_color", Color("#EAF8FF"))
-		weapon_button.pressed.connect(_select_weapon.bind(weapon_id))
-		grid.add_child(weapon_button)
+		weapon_button.tooltip_text = str(WEAPON_DISPLAY[weapon_id])
+		weapon_button.pressed.connect(_preview_arsenal_weapon.bind(weapon_id))
+		_arsenal_buttons[weapon_id] = weapon_button
+	var detail := VBoxContainer.new()
+	detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	detail.size_flags_stretch_ratio = 1.3
+	detail.add_theme_constant_override("separation", 6)
+	detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(detail)
+	_arsenal_weapon_label = GAME_HUD.label(detail, "", UI_THEME.SIZE_M, UI_THEME.INK, "bold")
+	_arsenal_weapon_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_arsenal_preview = ARSENAL_PREVIEW.new()
+	_arsenal_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_arsenal_preview.custom_minimum_size.y = 100
+	detail.add_child(_arsenal_preview)
+	_arsenal_equip = GAME_HUD.button(detail, "EquipButton", "check", "Equip", "", UI_THEME.OK, Vector2(0.0, row_height + 4.0))
+	_arsenal_equip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_arsenal_equip.pressed.connect(func(): _select_weapon(_arsenal_choice))
+
+
+func _preview_arsenal_weapon(weapon_id: String) -> void:
+	_arsenal_choice = weapon_id
+	var stats: Dictionary = PLAYER_SCRIPT.ARCADE_WEAPON_LOCAL[weapon_id]
+	var current: bool = is_instance_valid(player) and player.selected_weapon_id == weapon_id
+	_arsenal_weapon_label.text = "%s\n%s  •  %.0f m  •  %.2f s" % [
+		WEAPON_DISPLAY[weapon_id], WEAPON_ROLE[weapon_id], stats.get("range", 65.0), stats.get("cooldown", 0.24)
+	]
+	_arsenal_equip.caption = "Equipped" if current else "Equip"
+	_arsenal_equip.disabled = current
+	for id in _arsenal_buttons.keys():
+		var weapon_button: Button = _arsenal_buttons[id]
+		weapon_button.selected = id == weapon_id
+		weapon_button.badge = UI_THEME.OK if is_instance_valid(player) and player.selected_weapon_id == id else Color.TRANSPARENT
+	_arsenal_preview.show_weapon(weapon_id, stats.get("color", Color.WHITE))
+
 
 func _inspect_current_weapon() -> void:
 	if is_instance_valid(player):
@@ -1493,41 +1598,10 @@ func _toggle_arsenal() -> void:
 	if is_instance_valid(player):
 		player.set_arsenal_open(arsenal_panel.visible)
 	if arsenal_panel.visible:
+		_preview_arsenal_weapon(player.selected_weapon_id if is_instance_valid(player) else WEAPON_ORDER[0])
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif not OS.has_feature("mobile") and not DisplayServer.is_touchscreen_available():
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-
-func _add_hud_panel(root: Control, panel_name: String, panel_position: Vector2, panel_size: Vector2, fill: Color, accent: Color) -> Panel:
-	var panel := Panel.new()
-	panel.name = panel_name
-	panel.position = panel_position
-	panel.size = panel_size
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill
-	style.border_color = accent
-	style.set_border_width_all(1)
-	style.border_width_left = 3
-	style.set_corner_radius_all(9)
-	style.content_margin_left = 10
-	style.content_margin_right = 10
-	style.content_margin_top = 8
-	style.content_margin_bottom = 8
-	panel.add_theme_stylebox_override("panel", style)
-	root.add_child(panel)
-	return panel
-
-func _style_progress_bar(bar: ProgressBar, fill: Color, background: Color) -> void:
-	if not is_instance_valid(bar):
-		return
-	var track := StyleBoxFlat.new()
-	track.bg_color = background
-	track.set_corner_radius_all(5)
-	var progress := StyleBoxFlat.new()
-	progress.bg_color = fill
-	progress.set_corner_radius_all(5)
-	bar.add_theme_stylebox_override("background", track)
-	bar.add_theme_stylebox_override("fill", progress)
 
 func _build_admin_panel(root: Control) -> void:
 	admin_hint = _make_label(root, "F8  •  FIXERPLY ADMIN", Vector2(22, 198), 13)
@@ -1765,6 +1839,13 @@ func _map_name() -> String:
 func _apply_map_variant() -> void:
 	var map_root: Node3D = MAP_WORLD_SCRIPT.build(self, active_map_index)
 	map_extras.append(map_root)
+	# Footsteps: the base boxes and the generated map each get the map's ground (wood by name).
+	for body in arena_bodies:
+		if is_instance_valid(body):
+			FOOTSTEPS.tag_tree(body, active_map_index)
+	FOOTSTEPS.tag_tree(map_root, active_map_index)
+	if not OS.get_cmdline_user_args().has("--server"):
+		preload("res://scripts/static_world_batcher.gd").batch_boxes(map_root)
 
 func _spawn_meteor_shower() -> void:
 	for i in range(7):
@@ -1799,33 +1880,66 @@ func _make_label(parent: Control, text_value: String, pos: Vector2, font_size: i
 	return label
 
 func _build_touch_controls(root: Control) -> void:
+	# Sizes come from the real screen: `m` is the smallest comfortable touch size (about 7.6 mm), the
+	# main actions are bigger. See scripts/ui/ui_platform.gd.
+	var m: float = maxf(_ui_root.touch_target, 56.0) if is_instance_valid(_ui_root) else 64.0
+	var primary := m * 1.2
+	var fire_size := m * 1.6
+	var gap := 8.0
+	var edge := 16.0
 	var joystick := MobileJoystick.new()
 	joystick.name = "StandoffStyleMovementJoystick"
-	joystick.anchor_left = 0.0
-	joystick.anchor_right = 0.0
-	joystick.anchor_top = 1.0
-	joystick.anchor_bottom = 1.0
-	joystick.offset_left = 22.0
-	joystick.offset_right = 186.0
-	joystick.offset_top = -190.0
-	joystick.offset_bottom = -26.0
+	var stick := m * 2.6
+	GAME_HUD.place(joystick, 0.0, 1.0, 20.0, -(stick + 20.0), stick, stick)
 	joystick.vector_changed.connect(_set_mobile_move_input)
 	root.add_child(joystick)
 
-	_add_touch_button(root, "JUMP", "jump", Vector2(-190, -184), Vector2(82, 62), false)
-	_add_touch_button(root, "DASH", "dash", Vector2(-98, -126), Vector2(76, 58), false)
-	_add_touch_button(root, "SPRINT", "sprint", Vector2(-190, -112), Vector2(82, 52), true)
-	_add_touch_button(root, "SLIDE", "slide", Vector2(-98, -58), Vector2(76, 52), true)
-	_add_touch_button(root, "FIRE", "fire", Vector2(-190, -260), Vector2(82, 62), true)
-	_add_touch_button(root, "GRENADE", "throw_grenade", Vector2(-98, -250), Vector2(76, 58), false)
-	_add_touch_button(root, "PLANT / DEFUSE", "objective_interact", Vector2(-98, -390), Vector2(112, 48), false)
-	_add_touch_button(root, "WEAPON +", "weapon_next", Vector2(-190, -330), Vector2(82, 48), false)
-	_add_touch_button(root, "WEAPON -", "weapon_prev", Vector2(-98, -316), Vector2(76, 48), false)
-	_build_emote_wheel(root)
+	var center_offset := (fire_size - primary) * 0.5
+	var second_column := edge + fire_size + gap
+	var third_column := second_column + primary + gap
+	_add_touch_button(root, "jump", "jump", "Jump", Vector2(edge, edge + fire_size + gap), Vector2(primary, primary), false, UI_THEME.ACCENT)
+	_add_touch_button(root, "fire", "hit", "Fire", Vector2(edge, edge), Vector2(fire_size, fire_size), true, UI_THEME.DANGER)
+	_add_touch_aim_button(root, Vector2(second_column, edge + center_offset), Vector2(primary, primary))
+	_add_touch_button(root, "reload", "reload", "Reload", Vector2(second_column, edge + center_offset + primary + gap), Vector2(primary, primary), false, UI_THEME.ACCENT)
+	_add_touch_button(root, "slide", "slide", "Slide", Vector2(third_column, edge), Vector2(m, m), true, UI_THEME.ACCENT)
+	_add_touch_button(root, "sprint", "sprint", "Sprint", Vector2(third_column, edge + m + gap), Vector2(m, m), true, UI_THEME.ACCENT)
+	_add_touch_button(root, "dash", "dash", "Dash", Vector2(third_column, edge + (m + gap) * 2.0), Vector2(m, m), false, UI_THEME.ACCENT)
+	# Plant/defuse only matters in objective modes, so it sits above the weapon card and is shown on demand.
+	_add_touch_button(root, "objective_interact", "interact", "Use", Vector2(0.0, 0.0), Vector2(m * 1.4, m), false, UI_THEME.WARM)
+	var use_button: Button = root.find_child("Touch_objective_interact", false, false)
+	GAME_HUD.place(use_button, 0.5, 1.0, -m * 0.7, -(96.0 + gap + m), m * 1.4, m)
+	use_button.visible = false
+	_touch_use_button = use_button
+	# A row of smaller switches under the system icons.
+	var row_top := m + 26.0
+	var row_x := 12.0
+	var secondary := [["weapon_next", "weapon_next", "Next"], ["weapon_prev", "weapon_prev", "Prev"], ["toggle_view", "view", "View"]]
+	for entry in secondary:
+		_add_touch_button(root, str(entry[0]), str(entry[1]), str(entry[2]), Vector2(row_x, row_top), Vector2(m, m), false, UI_THEME.ACCENT, true)
+		row_x += m + gap
+	_build_emote_wheel(root, Vector2(row_x, row_top), m)
+	if is_instance_valid(kill_feed_container):
+		GAME_HUD.place(kill_feed_container, 1.0, 0.0, -352.0, row_top + m + 8.0, 340.0, 4.0 * 24.0)
+		kill_feed_container.clip_contents = true
+
+## The AIM button is a toggle: touch has no right mouse button, and holding ADS would take a thumb
+## away from look or fire.
+func _add_touch_aim_button(root: Control, offset: Vector2, button_size: Vector2) -> void:
+	var button: Button = GAME_HUD.button(root, "TouchAimButton", "aim", "Aim", "", UI_THEME.ACCENT, button_size)
+	button.toggle_mode = true
+	GAME_HUD.place(button, 1.0, 1.0, -(offset.x + button_size.x), -(offset.y + button_size.y), button_size.x, button_size.y)
+	button.toggled.connect(func(on: bool):
+		button.selected = on
+		if is_instance_valid(player):
+			player.set_touch_aim(on))
+	_touch_aim_button = button
 
 func _release_all_touch_actions() -> void:
+	if is_instance_valid(_touch_aim_button) and _touch_aim_button.button_pressed:
+		_touch_aim_button.button_pressed = false
 	for action in ["move_left", "move_right", "move_forward", "move_back", "jump", "dash", "sprint", "slide", "fire", "throw_grenade", "objective_interact"]:
-		Input.action_release(action)
+		if InputMap.has_action(action):
+			Input.action_release(action)
 
 func _set_mobile_move_input(value: Vector2) -> void:
 	var x := clampf(value.x, -1.0, 1.0)
@@ -1852,17 +1966,11 @@ func _set_mobile_move_input(value: Vector2) -> void:
 		Input.action_release("move_forward")
 		Input.action_release("move_back")
 
-func _build_emote_wheel(root: Control) -> void:
+func _build_emote_wheel(root: Control, trigger_offset: Vector2, m: float) -> void:
+	var wheel_size := 276.0
 	emote_wheel = Control.new()
 	emote_wheel.name = "EmoteRadialWheel"
-	emote_wheel.anchor_left = 1.0
-	emote_wheel.anchor_right = 1.0
-	emote_wheel.anchor_top = 1.0
-	emote_wheel.anchor_bottom = 1.0
-	emote_wheel.offset_left = -292.0
-	emote_wheel.offset_right = -16.0
-	emote_wheel.offset_top = -584.0
-	emote_wheel.offset_bottom = -308.0
+	GAME_HUD.place(emote_wheel, 1.0, 0.5, -(wheel_size + 16.0), -wheel_size * 0.5, wheel_size, wheel_size)
 	emote_wheel.visible = false
 	emote_wheel.z_index = 30
 	root.add_child(emote_wheel)
@@ -1870,69 +1978,31 @@ func _build_emote_wheel(root: Control) -> void:
 	back.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var back_style := StyleBoxFlat.new()
 	back_style.bg_color = Color(0.012, 0.035, 0.06, 0.94)
-	back_style.border_color = Color("#35D8D0")
+	back_style.border_color = UI_THEME.ACCENT_DIM
 	back_style.set_border_width_all(2)
-	back_style.set_corner_radius_all(138)
+	back_style.set_corner_radius_all(int(wheel_size * 0.5))
 	back.add_theme_stylebox_override("panel", back_style)
 	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	emote_wheel.add_child(back)
 	var choices := [
-		{"id":"griddy", "label":"DANCE", "pos":Vector2(98, 8)},
-		{"id":"goofy", "label":"GOOFY", "pos":Vector2(178, 98)},
-		{"id":"robot", "label":"ROBOT", "pos":Vector2(98, 178)},
-		{"id":"wave", "label":"WAVE", "pos":Vector2(8, 98)}
+		{"id":"griddy", "label":"Dance", "icon":"emote_dance", "dir":Vector2(0, -1)},
+		{"id":"goofy", "label":"Goofy", "icon":"emote_goofy", "dir":Vector2(1, 0)},
+		{"id":"robot", "label":"Robot", "icon":"emote_robot", "dir":Vector2(0, 1)},
+		{"id":"wave", "label":"Wave", "icon":"emote_wave", "dir":Vector2(-1, 0)}
 	]
+	var center := Vector2(wheel_size, wheel_size) * 0.5
+	var button_size := maxf(m * 1.15, 72.0)
 	for choice in choices:
-		var button := Button.new()
-		button.text = str(choice.label)
-		button.position = choice.pos
-		button.size = Vector2(72, 72)
-		button.add_theme_font_size_override("font_size", 11)
-		button.add_theme_color_override("font_color", Color("#E8FFFF"))
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color("#12394A")
-		style.border_color = Color("#49E5D7")
-		style.set_border_width_all(2)
-		style.set_corner_radius_all(36)
-		button.add_theme_stylebox_override("normal", style)
-		var hover := style.duplicate()
-		hover.bg_color = Color("#1B6570")
-		button.add_theme_stylebox_override("hover", hover)
+		var button: Button = GAME_HUD.button(emote_wheel, "Emote_" + str(choice.id), str(choice.icon), str(choice.label), "", UI_THEME.ACCENT, Vector2(button_size, button_size))
+		button.position = center + (choice.dir as Vector2) * (wheel_size * 0.5 - button_size * 0.5 - 12.0) - Vector2(button_size, button_size) * 0.5
 		button.pressed.connect(_select_mobile_emote.bind(str(choice.id)))
-		emote_wheel.add_child(button)
-	var close := Button.new()
-	close.text = "×"
-	close.position = Vector2(104, 104)
-	close.size = Vector2(68, 68)
-	close.add_theme_font_size_override("font_size", 28)
-	var close_style := StyleBoxFlat.new()
-	close_style.bg_color = Color("#0B1C2B")
-	close_style.border_color = Color("#6B8797")
-	close_style.set_border_width_all(1)
-	close_style.set_corner_radius_all(34)
-	close.add_theme_stylebox_override("normal", close_style)
+	var close: Button = GAME_HUD.button(emote_wheel, "EmoteClose", "close", "", "", UI_THEME.MUTED, Vector2(m, m))
+	close.position = center - Vector2(m, m) * 0.5
 	close.pressed.connect(_toggle_emote_wheel)
-	emote_wheel.add_child(close)
 
-	emote_wheel_button = Button.new()
-	emote_wheel_button.text = "EMOTE"
-	emote_wheel_button.anchor_left = 1.0
-	emote_wheel_button.anchor_right = 1.0
-	emote_wheel_button.anchor_top = 1.0
-	emote_wheel_button.anchor_bottom = 1.0
-	emote_wheel_button.offset_left = -104.0
-	emote_wheel_button.offset_right = -20.0
-	emote_wheel_button.offset_top = -410.0
-	emote_wheel_button.offset_bottom = -326.0
-	emote_wheel_button.add_theme_font_size_override("font_size", 12)
-	var trigger_style := StyleBoxFlat.new()
-	trigger_style.bg_color = Color("#12394A")
-	trigger_style.border_color = Color("#49E5D7")
-	trigger_style.set_border_width_all(2)
-	trigger_style.set_corner_radius_all(42)
-	emote_wheel_button.add_theme_stylebox_override("normal", trigger_style)
+	emote_wheel_button = GAME_HUD.button(root, "EmoteButton", "emote", "Emote", "", UI_THEME.ACCENT, Vector2(m, m))
+	GAME_HUD.place(emote_wheel_button, 1.0, 0.0, -(trigger_offset.x + m), trigger_offset.y, m, m)
 	emote_wheel_button.pressed.connect(_toggle_emote_wheel)
-	root.add_child(emote_wheel_button)
 
 func _toggle_emote_wheel() -> void:
 	if is_instance_valid(emote_wheel):
@@ -1944,41 +2014,59 @@ func _select_mobile_emote(emote_id: String) -> void:
 	if is_instance_valid(emote_wheel):
 		emote_wheel.visible = false
 
-func _add_touch_button(root: Control, text_value: String, action: String, offset: Vector2, button_size: Vector2, hold_action: bool) -> void:
-	var button := Button.new()
-	button.text = text_value
-	button.size = button_size
-	button.anchor_left = 1.0
-	button.anchor_right = 1.0
-	button.anchor_top = 1.0
-	button.anchor_bottom = 1.0
-	button.position = offset
-	button.add_theme_font_size_override("font_size", 13)
-	button.modulate = Color(0.86, 0.97, 1.0, 0.90)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.035, 0.105, 0.15, 0.88)
-	style.border_color = Color("#3BA8B4")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(14)
-	button.add_theme_stylebox_override("normal", style)
-	var pressed_style := style.duplicate()
-	pressed_style.bg_color = Color("#176C70")
-	button.add_theme_stylebox_override("pressed", pressed_style)
-	root.add_child(button)
+func _add_touch_button(root: Control, action: String, icon: String, caption: String, offset: Vector2, button_size: Vector2, hold_action: bool, tint: Color, top_right: bool = false) -> void:
+	var button: Button = GAME_HUD.button(root, "Touch_" + action, icon, caption, "", tint, button_size)
+	if top_right:
+		# offset.x is the distance from the right edge, offset.y the distance from the top.
+		GAME_HUD.place(button, 1.0, 0.0, -(offset.x + button_size.x), offset.y, button_size.x, button_size.y)
+	else:
+		# offset is the distance from the bottom-right corner.
+		GAME_HUD.place(button, 1.0, 1.0, -(offset.x + button_size.x), -(offset.y + button_size.y), button_size.x, button_size.y)
 	if action == "weapon_next":
 		button.pressed.connect(_cycle_weapon.bind(1))
 	elif action == "weapon_prev":
 		button.pressed.connect(_cycle_weapon.bind(-1))
-	elif action == "throw_grenade":
-		button.pressed.connect(_throw_grenade_from_touch)
+	elif action == "toggle_view":
+		button.pressed.connect(func(): if is_instance_valid(player): player.toggle_third_person())
 	else:
+		# Held actions (fire, sprint, slide) and taps (jump, dash, reload) both follow the finger.
 		button.button_down.connect(func(): Input.action_press(action))
 		button.button_up.connect(func(): Input.action_release(action))
 		button.tree_exiting.connect(func(): Input.action_release(action))
 
-func _throw_grenade_from_touch() -> void:
-	if is_instance_valid(network) and network.is_authenticated and is_instance_valid(player):
-		network.request_grenade_throw(-player.global_basis.z + Vector3.UP * 0.12)
+## One path for the keyboard (G), the HUD chip and touch. The server decides whether the throw
+## happens (5 s cooldown per player); the client only mirrors that cooldown on the chip.
+func _request_grenade() -> void:
+	if not is_instance_valid(network) or not network.is_authenticated or not is_instance_valid(player):
+		return
+	network.request_grenade_throw(-player.global_basis.z + Vector3.UP * 0.12)
+	var now := Time.get_ticks_msec()
+	if now - _grenade_used_ms >= GRENADE_COOLDOWN_MS:
+		_grenade_used_ms = now
+	if is_instance_valid(sfx):
+		sfx.play_recorded("throw", -8.0)
+
+func _refresh_weapon_card(weapon_id: String) -> void:
+	if is_instance_valid(equipped_weapon_label):
+		equipped_weapon_label.text = str(WEAPON_DISPLAY.get(weapon_id, weapon_id.to_upper()))
+	if is_instance_valid(weapon_role_label):
+		weapon_role_label.text = str(WEAPON_ROLE.get(weapon_id, "")).to_upper()
+	if is_instance_valid(weapon_icon) and UI_ICONS.has(UI_ICONS.weapon_name(weapon_id)):
+		weapon_icon.texture = UI_ICONS.texture(UI_ICONS.weapon_name(weapon_id))
+
+func _toggle_lobby() -> void:
+	if not is_instance_valid(lobby_panel):
+		return
+	var opening: bool = not lobby_panel.visible
+	lobby_panel.visible = opening
+	var arsenal_open: bool = is_instance_valid(arsenal_panel) and arsenal_panel.visible
+	if is_instance_valid(player):
+		player.set_arsenal_open(opening or arsenal_open)
+	if opening:
+		_release_all_touch_actions()
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	elif not arsenal_open and not OS.has_feature("mobile") and not DisplayServer.is_touchscreen_available():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 func _finish_round() -> void:
@@ -1987,10 +2075,9 @@ func _finish_round() -> void:
 	_round_finished = true
 	var standings: Array[Dictionary] = []
 	var team_totals := {"red": 0, "blue": 0}
-	for player_name in match_stats.keys():
-		var stats: Dictionary = match_stats[player_name]
+	for stats in match_stats.values():
 		var row := {
-			"name": str(player_name), "kills": int(stats.get("kills", 0)),
+			"name": str(stats.name), "is_local": bool(stats.is_local), "kills": int(stats.get("kills", 0)),
 			"deaths": int(stats.get("deaths", 0)), "score": int(stats.get("score", 0)),
 			"team_id": str(stats.get("team_id", "")),
 			"shots_fired": int(stats.get("shots_fired", 0)), "shots_hit": int(stats.get("shots_hit", 0)),
@@ -2012,6 +2099,7 @@ func _finish_round() -> void:
 			return int(a.kills) > int(b.kills)
 		return int(a.score) > int(b.score)
 	)
+	var tied: bool = standings.size() > 1 and standings[0].kills == standings[1].kills and standings[0].score == standings[1].score
 	var winner_name := str(standings[0].name) if not standings.is_empty() else local_player_name
 	var winner_kills := int(standings[0].kills) if not standings.is_empty() else 0
 	var mvp_name := str(mvp_rows[0].name) if not mvp_rows.is_empty() else local_player_name
@@ -2019,21 +2107,39 @@ func _finish_round() -> void:
 	if active_room_mode == "king_of_the_hill":
 		team_totals.red = int(round(hill_points_red))
 		team_totals.blue = int(round(hill_points_blue))
-	if active_room_mode in ["team_deathmatch", "king_of_the_hill"]:
+	if active_room_mode == "demolition":
+		team_winner = _last_objective_result if not _last_objective_result.is_empty() else "ROUND COMPLETE"
+	elif active_room_mode in ["team_deathmatch", "king_of_the_hill"]:
 		if int(team_totals.red) > int(team_totals.blue):
 			team_winner = "RED TEAM WINS  •  %d - %d" % [int(team_totals.red), int(team_totals.blue)]
 		elif int(team_totals.blue) > int(team_totals.red):
 			team_winner = "BLUE TEAM WINS  •  %d - %d" % [int(team_totals.blue), int(team_totals.red)]
 		else:
 			team_winner = "TEAM DRAW  •  %d - %d" % [int(team_totals.red), int(team_totals.blue)]
+	# Results are a modal screen: free the cursor, drop held touch buttons and hide
+	# panels that would otherwise stay clickable behind the overlay.
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_release_all_touch_actions()
+	if is_instance_valid(player):
+		player.ui_blocked = true
+	for panel_node in [scoreboard_panel, arsenal_panel, emote_wheel]:
+		if is_instance_valid(panel_node):
+			panel_node.visible = false
 	var overlay := Control.new()
 	overlay.name = "MatchResultsOverlay"
+	overlay.z_index = 70
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	hud_layer.add_child(overlay)
+	overlay.theme = COMPETITIVE_THEME.create()
+	var scroll := ScrollContainer.new()
+	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	overlay.add_child(scroll)
 	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(center)
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.add_child(center)
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(580, 440)
 	var panel_style := StyleBoxFlat.new()
@@ -2058,17 +2164,25 @@ func _finish_round() -> void:
 	title.add_theme_color_override("font_color", Color(0.45, 1.0, 0.86))
 	column.add_child(title)
 	var winner := Label.new()
-	winner.text = team_winner if not team_winner.is_empty() else "WINNER  %s  •  %d KILLS" % [winner_name, winner_kills]
+	if not team_winner.is_empty():
+		winner.text = team_winner
+	elif tied:
+		winner.text = "DRAW  •  %d KILLS" % winner_kills
+	else:
+		winner.text = "WINNER  %s  •  %d KILLS" % [winner_name, winner_kills]
 	winner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	winner.add_theme_font_size_override("font_size", 20)
 	winner.add_theme_color_override("font_color", Color(0.94, 0.98, 1.0))
 	column.add_child(winner)
+	var result_reveal := create_tween()
+	column.modulate.a = 0.0
+	result_reveal.tween_property(column, "modulate:a", 1.0, 0.24)
 	var mvp := Label.new()
 	mvp.text = "MVP  •  %s" % mvp_name
 	mvp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mvp.add_theme_color_override("font_color", Color("#FFD47A"))
 	column.add_child(mvp)
-	var local_stats: Dictionary = match_stats.get(local_player_name, {})
+	var local_stats: Dictionary = match_stats.get(LOCAL_MATCH_PLAYER, {})
 	var shots := int(local_stats.get("shots_fired", 0))
 	var hits := int(local_stats.get("shots_hit", 0))
 	var accuracy := 100.0 * float(hits) / float(shots) if shots > 0 else 0.0
@@ -2099,7 +2213,7 @@ func _finish_round() -> void:
 			index + 1, str(entry.name).substr(0, 20), int(entry.kills), int(entry.deaths),
 			int(entry.score), float(entry.damage_dealt)
 		]
-		row_label.add_theme_color_override("font_color", Color("#FFFFFF") if str(entry.name) == local_player_name else Color("#AFC4D4"))
+		row_label.add_theme_color_override("font_color", Color("#FFFFFF") if bool(entry.is_local) else Color("#AFC4D4"))
 		board.add_child(row_label)
 	if active_room_mode in ["team_deathmatch", "king_of_the_hill"]:
 		var teams := Label.new()
@@ -2108,7 +2222,7 @@ func _finish_round() -> void:
 		teams.add_theme_color_override("font_color", Color("#F0B8C0"))
 		column.add_child(teams)
 	var restart := Button.new()
-	restart.text = "PLAY AGAIN"
+	restart.text = "BACK TO MENU"
 	restart.custom_minimum_size = Vector2(180, 42)
 	restart.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	restart.pressed.connect(func(): get_tree().reload_current_scene())
@@ -2199,26 +2313,45 @@ func _add_match_xp_card(parent: VBoxContainer, earned_xp: int, total_xp: int, pr
 		tween.tween_property(card, "modulate:a", 1.0, 0.25)
 
 func _on_level_up(new_level: int, reward: String) -> void:
-	_show_meme_toast("LEVEL UP!  LEVEL %d  •  UNLOCKED: %s" % [new_level, reward])
+	if reward.is_empty() or reward == "NEW LEVEL":
+		_show_meme_toast("LEVEL UP!  LEVEL %d" % new_level)
+	else:
+		_show_meme_toast("LEVEL UP!  LEVEL %d  •  UNLOCKED: %s" % [new_level, reward])
 	_update_hud()
 
 func _show_meme_toast(message: String) -> void:
 	if not is_instance_valid(hud_layer):
 		return
+	# Toasts stack in one column so simultaneous messages (server verified + map name,
+	# kill streak + level up) no longer draw on top of each other.
+	if not is_instance_valid(toast_stack):
+		toast_stack = VBoxContainer.new()
+		toast_stack.name = "ToastStack"
+		toast_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		toast_stack.anchor_left = 0.12
+		toast_stack.anchor_right = 0.88
+		toast_stack.anchor_top = 0.30
+		toast_stack.anchor_bottom = 0.30
+		toast_stack.alignment = BoxContainer.ALIGNMENT_BEGIN
+		toast_stack.add_theme_constant_override("separation", 4)
+		hud_layer.add_child(toast_stack)
+	while toast_stack.get_child_count() >= 3:
+		var oldest: Node = toast_stack.get_child(0)
+		toast_stack.remove_child(oldest)
+		oldest.queue_free()
 	var toast := Label.new()
 	toast.text = message
+	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	toast.anchor_left = 0.12
-	toast.anchor_right = 0.88
-	toast.anchor_top = 0.34
-	toast.anchor_bottom = 0.34
+	toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	toast.modulate.a = 0.0
 	toast.add_theme_font_size_override("font_size", 23)
 	toast.add_theme_color_override("font_color", Color(1.0, 0.82, 0.25))
 	toast.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.95))
 	toast.add_theme_constant_override("shadow_offset_x", 2)
 	toast.add_theme_constant_override("shadow_offset_y", 2)
-	hud_layer.add_child(toast)
-	var tween := create_tween()
+	toast_stack.add_child(toast)
+	var tween := toast.create_tween()
 	tween.tween_property(toast, "modulate:a", 1.0, 0.12)
 	tween.tween_interval(2.0)
 	tween.tween_property(toast, "modulate:a", 0.0, 0.55)
@@ -2243,7 +2376,7 @@ func _update_collectibles_hud() -> void:
 	var is_online: bool = is_instance_valid(network) and bool(network.get("is_authenticated"))
 	var orb_count: int = online_orb_collections if is_online else local_orb_collections
 	var secret_found: bool = online_secret_found if is_online else (is_instance_valid(progression) and progression.secret_404_found)
-	collectibles_label.text = "GOLD ORBS (XP ONLY): %d  •  404 SECRET: %s" % [orb_count, "FOUND" if secret_found else "NOT FOUND"]
+	collectibles_label.text = "ORBS %d  •  404 %s" % [orb_count, "FOUND" if secret_found else "HIDDEN"]
 
 func _update_hud() -> void:
 	if not is_instance_valid(player) or not is_instance_valid(score_label):
@@ -2251,24 +2384,35 @@ func _update_hud() -> void:
 	score_label.text = "SCORE %04d" % player.score
 	if is_instance_valid(progression) and is_instance_valid(level_label):
 		level_label.text = "LEVEL %d  •  %d / %d XP" % [progression.level, progression.xp, progression.xp_for_next_level()]
-		xp_bar.max_value = progression.xp_for_next_level()
-		xp_bar.value = progression.xp
-	stamina_bar.value = player.stamina
+		xp_bar.maximum = float(progression.xp_for_next_level())
+		xp_bar.set_value(float(progression.xp))
+	stamina_bar.set_value(player.stamina)
 	if is_instance_valid(health_bar):
-		health_bar.value = player.health
-	if is_instance_valid(health_label):
-		health_label.text = "HEALTH %d / 100" % int(ceil(player.health))
-		health_label.add_theme_color_override("font_color", Color("#FF7285") if player.health <= 30.0 else Color("#E8F8FF"))
+		health_bar.set_value(player.health)
 	if is_instance_valid(death_label):
 		death_label.visible = player.is_dead
 		death_label.text = "K.O.  •  RESPAWNING IN %d" % ceili(player.respawn_left) if player.is_dead else ""
 	if active_event.is_empty():
-		event_label.text = "COLLECT THE ORBS • NEXT EVENT %02d" % ceili(event_clock)
+		var event_countdown := ceili(event_clock)
+		event_label.text = "ORBS  •  EVENT %02ds" % event_countdown if is_instance_valid(_ui_root) and _ui_root.is_touch else "COLLECT THE ORBS  •  NEXT EVENT %02d" % event_countdown
+		event_icon.texture = UI_ICONS.texture("e_golden_orb_rush")
 	else:
 		event_label.text = "%s  %02d" % [EVENT_NAMES.get(active_event, active_event), ceili(event_left)]
-	var round_label := hud_layer.get_node_or_null("Control/RoundLabel")
-	if round_label:
-		round_label.text = "ROUND %02d:%02d" % [int(int(round_left) / 60), int(round_left) % 60]
+		var event_texture := UI_ICONS.texture(UI_ICONS.event_name(active_event))
+		if event_texture != null:
+			event_icon.texture = event_texture
+	if is_instance_valid(round_label):
+		var seconds := ceili(_active_bomb_fuse if _active_bomb_fuse >= 0.0 else round_left)
+		round_label.text = "%02d:%02d" % [int(seconds / 60), seconds % 60]
 	if status_label:
-		status_label.text = "STAMINA %d%%  •  %s" % [int(player.stamina), "LOW GRAVITY ACTIVE" if active_event == "LOW_GRAVITY" else "PARKOUR ARENA"]
+		status_label.text = "LOW GRAVITY ACTIVE" if active_event == "LOW_GRAVITY" else "PARKOUR ARENA"
+	if is_instance_valid(grenade_button):
+		var online: bool = is_instance_valid(network) and network.is_authenticated
+		grenade_button.disabled = not online
+		var remaining := GRENADE_COOLDOWN_MS - (Time.get_ticks_msec() - _grenade_used_ms)
+		grenade_button.cooldown = clampf(float(remaining) / float(GRENADE_COOLDOWN_MS), 0.0, 1.0) if online else 0.0
+	if is_instance_valid(_touch_use_button) and is_instance_valid(objective_label):
+		_touch_use_button.visible = objective_label.visible
+	if is_instance_valid(lobby_button):
+		lobby_button.badge = UI_THEME.OK if is_instance_valid(network) and network.is_authenticated else UI_THEME.WARM
 	_update_collectibles_hud()

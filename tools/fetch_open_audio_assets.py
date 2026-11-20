@@ -17,6 +17,15 @@ AUDIO = {
     "event-bonk.ogg": ("sfx/item-spawn.ogg", "2379b58f953e3d86982aa8cddcae763022c6258e9820171bf905ce58b4e97766"),
     "event-end.ogg": ("sfx/game-set.ogg", "889d4c2b76c7edd63138b3a976c3f7337aaba3de90019d19bca70ec958c93014"),
     "event-music-loop.ogg": ("music/battle-loop.ogg", "5323dfe7f172e6b85870790f60027a533bd87bfd233e6c99cab0caf923f68f3f"),
+    "sfx/hit-light.ogg": ("sfx/hit-light.ogg", "d0bf60905b59ff630ffe01eb0edeeacd2504eaa8fb6523aeef7d2458b78264d3"),
+    "sfx/hit-medium.ogg": ("sfx/hit-medium.ogg", "6492f9ccbc8d24dcef607bb1b48790b7870961474561f7fe5601e1c73a3018ef"),
+    "sfx/hit-heavy.ogg": ("sfx/hit-heavy.ogg", "4ab53b26f4ea575120dcc1348526c9e0db2afc6af7a442aa0489bdead2ca80b6"),
+    "sfx/land.ogg": ("sfx/land.ogg", "8b513c2f0316324060b9174b8f28df6c2147418c506e6a53b77f18e149a5547b"),
+    "sfx/menu-move.ogg": ("sfx/menu-move.ogg", "ad09146e4ea33b931b2f5dfb4051a4f1fe4a36f1a48c42c5e9269c292ae21214"),
+    "sfx/menu-confirm.ogg": ("sfx/menu-confirm.ogg", "33b17a9a9a2397c62b285c52c33a907fdffb476909c99e42dde603f6a7a8b12c"),
+    "sfx/menu-back.ogg": ("sfx/menu-back.ogg", "61581c58194e3f19f531072edabbc344204c7e0a2887b8ededce4357bcf09195"),
+    "sfx/respawn.ogg": ("sfx/respawn.ogg", "bcdca6b5c9c33aa15ca3fb18a1fa8d98a01b528b85be08c5a610e57c75fc022d"),
+    "sfx/throw.ogg": ("sfx/throw.ogg", "9b1c35820fba507081261f19ab5f461f69a5e2627a7d91acdb73ca3cfc997979"),
 }
 LICENSES = {
     "KENNEY_IMPACT_SOUNDS.txt": "licenses/KENNEY_IMPACT_SOUNDS.txt",

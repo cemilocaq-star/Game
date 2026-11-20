@@ -1,0 +1,1 @@
+PASS: Render /health endpoint bidirectional WebSocket tunnel and unavailable-backend response

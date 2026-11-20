@@ -1,0 +1,80 @@
+extends RefCounted
+class_name UserSettings
+## Small persisted settings store shared by the pause menu, graphics and input code.
+## Everything lives in the same ConfigFile as GraphicsManager so a write never discards
+## another section: values are always loaded first, changed, then saved.
+
+const PATH := "user://game_settings.cfg"
+const DEFAULT_LOOK_SENSITIVITY := 0.0022
+const MIN_LOOK_SENSITIVITY := 0.0008
+const MAX_LOOK_SENSITIVITY := 0.0060
+const LOOK := preload("res://scripts/look_control.gd")
+
+static func read_value(section: String, key: String, fallback: Variant) -> Variant:
+	var config := ConfigFile.new()
+	if config.load(PATH) != OK:
+		return fallback
+	return config.get_value(section, key, fallback)
+
+static func write_value(section: String, key: String, value: Variant) -> void:
+	var config := ConfigFile.new()
+	# A missing/corrupt file is fine: we simply start a fresh one.
+	config.load(PATH)
+	config.set_value(section, key, value)
+	config.save(PATH)
+
+static func look_sensitivity() -> float:
+	return clampf(float(read_value("input", "look_sensitivity", DEFAULT_LOOK_SENSITIVITY)), MIN_LOOK_SENSITIVITY, MAX_LOOK_SENSITIVITY)
+
+## Touch, gyro and aiming-down-sights settings (section "input"). Defaults keep the original feel.
+static func touch_sensitivity() -> float:
+	return clampf(float(read_value("input", "touch_sensitivity", LOOK.DEFAULT_TOUCH_SENSITIVITY)), LOOK.MIN_TOUCH_SENSITIVITY, LOOK.MAX_TOUCH_SENSITIVITY)
+
+static func touch_acceleration() -> float:
+	return clampf(float(read_value("input", "touch_acceleration", LOOK.DEFAULT_TOUCH_ACCELERATION)), 0.0, 1.0)
+
+static func ads_sensitivity() -> float:
+	return clampf(float(read_value("input", "ads_sensitivity", LOOK.DEFAULT_ADS_SENSITIVITY)), LOOK.MIN_ADS_SENSITIVITY, 1.0)
+
+static func gyro_enabled() -> bool:
+	return bool(read_value("input", "gyro_enabled", true))
+
+static func gyro_sensitivity() -> float:
+	return clampf(float(read_value("input", "gyro_sensitivity", LOOK.DEFAULT_GYRO_SENSITIVITY)), LOOK.MIN_GYRO_SENSITIVITY, LOOK.MAX_GYRO_SENSITIVITY)
+
+static func gyro_invert_yaw() -> bool:
+	return bool(read_value("input", "gyro_invert_yaw", false))
+
+static func gyro_invert_pitch() -> bool:
+	return bool(read_value("input", "gyro_invert_pitch", false))
+
+static func master_volume() -> float:
+	return clampf(float(read_value("audio", "master_volume", 1.0)), 0.0, 1.0)
+
+## Applies the master volume to the default audio bus (linear 0..1).
+static func apply_master_volume(linear: float) -> void:
+	var value := clampf(linear, 0.0, 1.0)
+	var bus := AudioServer.get_bus_index("Master")
+	if bus < 0:
+		return
+	AudioServer.set_bus_mute(bus, value <= 0.001)
+	AudioServer.set_bus_volume_db(bus, linear_to_db(maxf(value, 0.001)))
+
+
+static func gyro_bias() -> Vector3:
+	var value: Variant = read_value("input", "gyro_bias", Vector3.ZERO)
+	return value if value is Vector3 and value.is_finite() else Vector3.ZERO
+
+
+static func bus_volume(bus_name: String) -> float:
+	var value := float(read_value("audio", "volume_" + bus_name.to_lower(), 1.0))
+	return clampf(value, 0.0, 1.0) if is_finite(value) else 1.0
+
+
+static func apply_bus_volume(bus_name: String, linear: float) -> void:
+	var index := AudioServer.get_bus_index(bus_name)
+	if index < 0 or not is_finite(linear):
+		return
+	var value := clampf(linear, 0.0, 1.0)
+	AudioServer.set_bus_mute(index, value <= 0.001)
+	AudioServer.set_bus_volume_db(index, linear_to_db(maxf(value, 0.001)))

@@ -27,7 +27,9 @@ func set_quality(value: String) -> void:
 	if quality_setting not in ["AUTO", "LOW", "MEDIUM", "HIGH", "ULTRA"]:
 		quality_setting = "AUTO"
 	_resolve_quality()
+	# Load first so other sections (input sensitivity, audio volume) are preserved.
 	var config := ConfigFile.new()
+	config.load(SETTINGS_PATH)
 	config.set_value("graphics", "quality", quality_setting)
 	config.save(SETTINGS_PATH)
 	_apply_quality()
@@ -94,19 +96,19 @@ func update_performance(delta: float) -> void:
 func _apply_quality() -> void:
 	if is_instance_valid(sunlight):
 		sunlight.shadow_enabled = resolved_quality in ["HIGH", "ULTRA"]
-		sunlight.light_energy = 1.25 if resolved_quality in ["HIGH", "ULTRA"] else 1.0
+		sunlight.light_energy = 0.9 if resolved_quality in ["HIGH", "ULTRA"] else 0.85
 	if is_instance_valid(environment):
 		var high_quality := resolved_quality in ["HIGH", "ULTRA"]
-		environment.ambient_light_energy = 0.82 if high_quality else (0.68 if resolved_quality == "MEDIUM" else 0.58)
+		environment.ambient_light_energy = 0.48 if high_quality else (0.48 if resolved_quality == "MEDIUM" else 0.48)
 		environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 		environment.glow_enabled = high_quality
 		environment.glow_intensity = 0.72 if resolved_quality == "ULTRA" else 0.52
 		environment.glow_bloom = 0.12
 		environment.glow_hdr_threshold = 1.15
 		environment.adjustment_enabled = true
-		environment.adjustment_brightness = 1.02
-		environment.adjustment_contrast = 1.07 if high_quality else 1.03
-		environment.adjustment_saturation = 1.10 if high_quality else 1.04
+		environment.adjustment_brightness = 1.0
+		environment.adjustment_contrast = 1.07 if high_quality else 0.853
+		environment.adjustment_saturation = 1.10 if high_quality else 0.854
 		environment.fog_enabled = resolved_quality == "ULTRA"
 		environment.fog_light_color = Color("#8298B8")
 		environment.fog_density = 0.004
@@ -125,13 +127,13 @@ func make_material(color: Color) -> Material:
 	var material := ShaderMaterial.new()
 	material.shader = shader
 	material.set_shader_parameter("base_color", color)
-	var strength := 0.22
+	var strength := 0.06
 	match resolved_quality:
 		"HIGH":
-			strength = 0.48
+			strength = 0.09
 		"ULTRA":
-			strength = 0.75
+			strength = 0.12
 		_:
-			strength = 0.22
+			strength = 0.06
 	material.set_shader_parameter("effect_strength", strength)
 	return material

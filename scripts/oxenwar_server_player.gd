@@ -19,6 +19,7 @@ const SLIDE_STAMINA_COST := 12.0
 
 var input_vector := Vector2.ZERO
 var look_yaw := 0.0
+var look_pitch := 0.0 ## radians, positive looks up; shown on other players' weapons
 var jump_requested := false
 var sprinting := false
 var sliding := false
@@ -37,6 +38,7 @@ var best_kill_streak := 0
 var blaster_mastery_xp := 0
 var grenade_mastery_xp := 0
 var equipped_weapon_id := "aether"
+var reload_until_ms := 0
 var shots_fired := 0
 var shots_hit := 0
 var damage_dealt := 0.0
@@ -150,6 +152,7 @@ func apply_damage(amount: float) -> bool:
 	health = maxf(0.0, health - amount)
 	if health <= 0.0:
 		is_dead = true
+		reload_until_ms = 0
 		respawn_left = RESPAWN_SECONDS
 		input_vector = Vector2.ZERO
 		velocity = Vector3.ZERO
@@ -165,12 +168,21 @@ func respawn_at(spawn_position: Vector3) -> void:
 	velocity = Vector3.ZERO
 	health = MAX_HEALTH
 	is_dead = false
+	reload_until_ms = 0
 	respawn_left = 0.0
 	stamina = MAX_STAMINA
 	input_vector = Vector2.ZERO
 	jump_requested = false
 	dash_requested = false
 	slide_requested = false
+	sprinting = false
+	_dash_left = 0.0
+	_dash_cooldown = 0.0
+	_dash_direction = Vector3.ZERO
+	_slide_left = 0.0
+	_jump_buffer_left = 0.0
+	_coyote_left = 0.0
+	is_swimming = MapWorldBuilder.in_swim_zone(swim_map_index, spawn_position)
 	_set_sliding(false)
 
 func _set_sliding(enabled: bool) -> void:

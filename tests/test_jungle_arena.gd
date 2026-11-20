@@ -165,15 +165,21 @@ func _test_spawn_points_are_free() -> void:
 	var capsule := CapsuleShape3D.new()
 	capsule.radius = 0.38
 	capsule.height = 1.8
-	for x in [-2.4, -0.8, 0.8, 2.4]:
-		for z in [6.0, 7.6]:
+	var arena_layout := preload("res://scripts/arena_layout.gd")
+	for team in ["red", "blue"]:
+		for slot in range(8):
+			var spawn: Vector3 = arena_layout.spawn_position(JUNGLE, team, slot)
+			var ground := _ground_y(spawn.x, spawn.z)
 			var query := PhysicsShapeQueryParameters3D.new()
 			query.shape = capsule
 			query.collision_mask = 1
-			query.transform = Transform3D(Basis.IDENTITY, Vector3(x, 0.5 + 0.9 + 0.05, z))
+			query.transform = Transform3D(Basis.IDENTITY, Vector3(spawn.x, ground + 0.9 + 0.05, spawn.z))
 			var hits := space.intersect_shape(query, 4)
-			_assert_equal("spawn (%.1f, %.1f) is free" % [x, z], hits.size(), 0)
-			_assert_near("spawn (%.1f, %.1f) lands on the causeway" % [x, z], _ground_y(x, z), 0.5, 0.06)
+			_assert_equal("%s spawn %d (%.1f, %.1f) is free" % [team, slot, spawn.x, spawn.z], hits.size(), 0)
+			_assert_near("%s spawn %d stands on the bank" % [team, slot], ground, 0.0, 0.06)
+	var red_spawn: Vector3 = arena_layout.spawn_position(JUNGLE, "red", 0)
+	var blue_spawn: Vector3 = arena_layout.spawn_position(JUNGLE, "blue", 0)
+	_assert_true("the teams spawn on opposite banks, far apart (%.1f m)" % red_spawn.distance_to(blue_spawn), red_spawn.x * blue_spawn.x < 0.0 and red_spawn.distance_to(blue_spawn) > 15.0)
 
 
 func _make_player(position: Vector3, yaw: float = 0.0) -> CharacterBody3D:
@@ -229,12 +235,13 @@ func _test_climb_out_of_river() -> void:
 
 
 func _test_spawn_landing_and_swim_flag() -> void:
-	var player := _make_player(Vector3(0.0, 1.5, 6.0), 0.0)
+	var spawn_point: Vector3 = preload("res://scripts/arena_layout.gd").spawn_position(JUNGLE, "blue", 0)
+	var player := _make_player(spawn_point, 0.0)
 	player.set("swim_map_index", JUNGLE)
 	for i in range(60):
 		await physics_frame
-	_assert_true("spawn lands on the causeway (y %.2f)" % player.global_position.y, absf(player.global_position.y - 0.5) < 0.08 and player.is_on_floor())
-	_assert_true("a player on the causeway is not swimming", not bool(player.get("is_swimming")))
+	_assert_true("spawn lands on the bank (y %.2f)" % player.global_position.y, absf(player.global_position.y) < 0.08 and player.is_on_floor())
+	_assert_true("a player on the bank is not swimming", not bool(player.get("is_swimming")))
 	player.global_position = Vector3(0.0, -1.1, 0.0)
 	player.velocity = Vector3.ZERO
 	for i in range(10):

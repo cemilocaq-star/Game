@@ -1,0 +1,11 @@
+Godot Engine v4.4.1.stable.official.49a5bc7b6 - https://godotengine.org
+
+NOT VERIFIED in this run: GPU transform readback (dummy renderer); run this test with a display for that assertion
+BATCH map=0 groups=0 instances=0 saved_draws=0 colliders=13
+BATCH map=1 groups=2 instances=11 saved_draws=9 colliders=11
+BATCH map=2 groups=1 instances=5 saved_draws=4 colliders=12
+BATCH map=3 groups=0 instances=0 saved_draws=0 colliders=9
+BATCH map=4 groups=2 instances=21 saved_draws=19 colliders=35
+BATCH map=5 groups=9 instances=95 saved_draws=86 colliders=102
+BATCH map=6 groups=2 instances=15 saved_draws=13 colliders=35
+PASS: static batching preserves transforms, collisions, and idempotence on seven maps

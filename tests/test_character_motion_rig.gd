@@ -77,7 +77,7 @@ func _run_tests() -> void:
 	var remote_rig := remote.get("_motion_rig") as Node3D
 	_assert_true("remote motion rig created", is_instance_valid(remote_rig))
 	var remote_arm := remote_rig.get_node("ArmPivot_R") as Node3D if is_instance_valid(remote_rig) else null
-	_assert_true("remote wave pose begins", is_instance_valid(remote_arm) and remote_arm.rotation.x < -0.05)
+	_assert_true("remote wave pose begins", is_instance_valid(remote_arm) and remote_arm.rotation.x > 0.05)
 
 	# The default character must not pick up any signature-troll footwear or gear.
 	_assert_false("default outfit has no costume profile", CHARACTER_VISUALS.has_character_profile("outfit_default"))
@@ -120,7 +120,11 @@ func _run_signature_troll_tests() -> void:
 		root.add_child(troll_host)
 		var details := CHARACTER_VISUALS.build(troll_host, outfit, Color("#27D7E7"))
 		for node_path in signature[outfit]:
-			_assert_true("%s has signature part %s" % [outfit, node_path], details.get_node_or_null(node_path) is MeshInstance3D)
+			var part := details.get_node_or_null(node_path)
+			if node_path == "RiotShield":
+				_assert_true("imported riot shield has render meshes", part != null and not part.find_children("*", "MeshInstance3D", true, false).is_empty())
+			else:
+				_assert_true("%s has signature part %s" % [outfit, node_path], part is MeshInstance3D)
 		_assert_false("%s uses only rounded meshes" % outfit, _contains_box_mesh(details))
 
 		var head_mesh := details.get_node_or_null("HeadPivot/TrollHead") as MeshInstance3D
@@ -260,7 +264,11 @@ func _run_hero_skin_tests() -> void:
 	var remote := Node3D.new()
 	remote.set_script(REMOTE_PLAYER)
 	root.add_child(remote)
-	remote.call("set_player_identity", "Hero", Color("#27D7E7"), "outfit_iron_vanguard")
+	remote.call("set_player_identity", "Hero", Color("#27D7E7"), "outfit_iron_vanguard", "accessory_headphones")
+	var accessory := remote.find_child("FreeCosmeticAccessory", true, false)
+	_assert_true("remote headphones follow selected accessory", accessory != null and accessory.has_node("AccessoryEar_L"))
+	remote.call("set_player_identity", "Hero", Color("#27D7E7"), "outfit_iron_vanguard", "accessory_headphones")
+	_assert_true("same remote identity reuses accessory", accessory == remote.find_child("FreeCosmeticAccessory", true, false))
 	var visual := remote.get("_visual") as MeshInstance3D
 	_assert_true("remote hero shows armor on its body", is_instance_valid(visual) and visual.get_node_or_null("HeroArmor") != null)
 	var remote_capsule := visual.mesh as CapsuleMesh if is_instance_valid(visual) else null

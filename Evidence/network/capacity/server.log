@@ -1,0 +1,17 @@
+Godot Engine v4.4.1.stable.official.49a5bc7b6 - https://godotengine.org
+
+OxenWar authoritative server listening on UDP 2456
+WARNING: OXENWAR_PUBLIC_HOST is not set and no hosting platform was detected: this server will not appear in the automatic server list.
+     at: push_warning (core/variant/variant_utility.cpp:1118)
+ONLINE_SERVER_READY
+OxenWar incoming peer: 1281211158
+WARNING: Sending 1417 bytes unreliably which is above the MTU (1392), this will result in higher packet loss
+     at: put_packet (modules/enet/enet_multiplayer_peer.cpp:363)
+OxenWar incoming peer: 1400121778
+OxenWar incoming peer: 688151775
+OxenWar incoming peer: 289524414
+OxenWar incoming peer: 2090376481
+OxenWar incoming peer: 1269229891
+OxenWar incoming peer: 858948705
+OxenWar incoming peer: 845313757
+OxenWar incoming peer: 39640656

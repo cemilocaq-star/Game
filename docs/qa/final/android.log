@@ -1,0 +1,8 @@
+test_rejects_invalid_version_codes (__main__.AndroidVersionTests.test_rejects_invalid_version_codes) ... ok
+test_requires_android_preset (__main__.AndroidVersionTests.test_requires_android_preset) ... ok
+test_updates_only_android_preset_and_is_idempotent (__main__.AndroidVersionTests.test_updates_only_android_preset_and_is_idempotent) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.002s
+
+OK
