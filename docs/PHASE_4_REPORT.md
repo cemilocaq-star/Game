@@ -282,3 +282,23 @@ What the audit found before the change: touch had no way to aim down sights at a
 ## Exports and checks
 
 The ZIP contains Windows x86-64 EXE/PCK and a signed ARM64 Android debug APK, plus build logs and APK signature/package checks. See `docs/qa/phase4`. To repeat the new regression after importing the project, run `godot --headless --path . --script tests/test_meme_events.gd`.
+
+## UI: pause menu and main menu on the new foundation
+
+Code: `scripts/pause_menu.gd`, `scripts/oxenwar_menu.gd`. Tests: `tests/test_pause_menu_layout.gd`, `tests/test_menu_phone_layout.gd`.
+
+- **Pause menu** is built from the shared theme, icons, plate and scaled root. RESUME and LEAVE MATCH are pinned above and below the scrolling settings; on a short screen (under 520 logical px) the title row is dropped so the settings keep room. The touch rows now follow the layout profile instead of a separate device check. Signals, slider names and saved settings are unchanged.
+- **Main menu** is laid out inside the scaled root (1.0 on PC, larger on a phone). On a narrow screen (under 1100 logical px) the top bar drops the player chip and tightens its buttons, and the Play tab drops the decorative character column so the mode list and the start controls fit. The menu rebuilds if the window changes between the wide and the compact layout.
+
+### IMPLEMENTED AND VERIFIED (headless Godot 4.4.1, local run of all 35 CI test scripts, then CI run 44691451307 on Phase4)
+- Pause menu: card fits the screen on PC and on the reference phone profile and on a 640x330 screen; RESUME above and LEAVE MATCH below the settings, both inside the card; touch buttons, sliders and switches at least the checked physical size; signals and saved settings.
+- Main menu: scale 1.0 on PC and above 1.2 on the phone profile; top bar and every tab's content fit the narrower screen; every tab opens; every visible button at least 0.26 inch tall on the phone profile.
+- Mutation checks: dropping the pause menu's compact mode and the main menu's compact layout each made the new tests fail.
+
+### IMPLEMENTED BUT NOT VERIFIED
+- How either menu looks and feels on a real phone (the checks use the 2400x1080 / 420 dpi reference profile, not a device).
+- The phone Play tab has no character preview; the Character tab still has it.
+- The player name chip is hidden on phones.
+
+### NOT IMPLEMENTED
+- Icons on the main menu tabs and mode cards, the end-of-match screen, and the login screen on the new look.
