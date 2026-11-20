@@ -1,9 +1,12 @@
 extends Control
-
-const COMPETITIVE_THEME := preload("res://scripts/competitive_theme.gd")
 ## In-game pause/settings overlay: resume, look sensitivity, master volume, controls help
 ## and leaving the match. It only changes client-side settings; the server keeps running
 ## the player's authoritative state while this is open.
+##
+## Built from the shared UI foundation (theme, icons, plates, scaled root), so it has the same look as
+## the HUD and is scaled for the device: on a phone every button is at least the comfortable touch size.
+## RESUME and LEAVE MATCH are pinned above and below the scrolling settings, so a small landscape
+## screen never hides them.
 
 signal resume_requested
 signal leave_requested
@@ -12,9 +15,14 @@ signal input_settings_changed
 
 const USER_SETTINGS := preload("res://scripts/user_settings.gd")
 const LOOK := preload("res://scripts/look_control.gd")
-const FPS_UI := preload("res://scripts/fps_ui.gd")
-const ACCENT := Color("#25D7C2")
-const MUTED := Color("#91A5B8")
+const THEME := preload("res://scripts/ui/ui_theme.gd")
+const ICONS := preload("res://scripts/ui/ui_icons.gd")
+const PLATE := preload("res://scripts/ui/hud_plate.gd")
+const BUTTON := preload("res://scripts/ui/icon_button.gd")
+const SCALED_ROOT := preload("res://scripts/ui/scaled_root.gd")
+
+const CARD_WIDTH := 560.0
+const CARD_MARGIN := 24.0
 
 const CONTROLS_TEXT := """WASD / left stick: move      Space: jump      Shift: sprint
 Ctrl: slide      Q: dash      Mouse / right-side drag: look
@@ -23,8 +31,17 @@ V: arsenal      H: inspect weapon      Tab: scoreboard      F: plant / defuse
 C / VIEW: first / third person camera
 B N M J: emotes      Esc / Back: this menu"""
 
+var _ui_root: Control
+var _card: Control
+var _margin: MarginContainer
+var _header: Control
+var _touch_target: float = 44.0
+## Below this visible height (logical px) the title row is dropped so the settings keep room to scroll.
+const COMPACT_HEIGHT := 520.0
+
+
 func _ready() -> void:
-	theme = COMPETITIVE_THEME.create()
+	theme = THEME.make_theme()
 	name = "PauseMenu"
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -32,118 +49,159 @@ func _ready() -> void:
 	z_index = 60
 	_build()
 
+
 func _build() -> void:
+	_ui_root = SCALED_ROOT.new()
+	add_child(_ui_root)
+	var content: Control = _ui_root.content
+	_touch_target = maxf(48.0, float(_ui_root.touch_target))
+
 	var dim := ColorRect.new()
-	dim.color = Color(0.0, 0.02, 0.05, 0.72)
+	dim.name = "Dim"
+	dim.color = Color(0.0, 0.02, 0.05, 0.74)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(dim)
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(520, 0)
-	var style := FPS_UI.panel_style(0.98)
-	style.border_color = ACCENT
-	style.set_border_width_all(2)
-	style.content_margin_left = 24
-	style.content_margin_right = 24
-	style.content_margin_top = 18
-	style.content_margin_bottom = 18
-	panel.add_theme_stylebox_override("panel", style)
-	center.add_child(panel)
-	# Phones in landscape only give ~720 px of height: let the content scroll if it must.
+	content.add_child(dim)
+
+	_card = Control.new()
+	_card.name = "Card"
+	_card.mouse_filter = Control.MOUSE_FILTER_STOP
+	content.add_child(_card)
+
+	var plate: Control = PLATE.new()
+	plate.name = "Plate"
+	plate.fill = THEME.PANEL_DEEP
+	plate.edge = THEME.ACCENT
+	plate.accent = THEME.ACCENT
+	plate.cut = 14.0
+	plate.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_card.add_child(plate)
+
+	var margin := MarginContainer.new()
+	_margin = margin
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", int(CARD_MARGIN))
+	margin.add_theme_constant_override("margin_right", int(CARD_MARGIN))
+	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_bottom", 16)
+	_card.add_child(margin)
+
+	var frame := VBoxContainer.new()
+	frame.add_theme_constant_override("separation", THEME.SPACE_M)
+	margin.add_child(frame)
+
+	_header = _build_header()
+	frame.add_child(_header)
+
+	var resume := _action_button("RESUME", "play", THEME.ACCENT)
+	resume.name = "ResumeButton"
+	resume.pressed.connect(func(): resume_requested.emit())
+	frame.add_child(resume)
+
+	# Phones in landscape only give ~720 px of height: the settings scroll, the two buttons stay.
 	var scroll := ScrollContainer.new()
+	scroll.name = "SettingsScroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(0, 360)
-	panel.add_child(scroll)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	frame.add_child(scroll)
 	var column := VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	column.add_theme_constant_override("separation", 10)
+	column.add_theme_constant_override("separation", THEME.SPACE_S)
 	scroll.add_child(column)
 
-	var title := Label.new()
-	title.text = "PAUSED"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 28)
-	title.add_theme_color_override("font_color", ACCENT)
-	column.add_child(title)
-
-	var resume := _button("RESUME", "primary")
-	resume.pressed.connect(func(): resume_requested.emit())
-	column.add_child(resume)
-
-	column.add_child(_section_label("LOOK SENSITIVITY"))
-	var sensitivity_row := HBoxContainer.new()
-	column.add_child(sensitivity_row)
-	var sensitivity_slider := HSlider.new()
-	sensitivity_slider.min_value = USER_SETTINGS.MIN_LOOK_SENSITIVITY
-	sensitivity_slider.max_value = USER_SETTINGS.MAX_LOOK_SENSITIVITY
-	sensitivity_slider.step = 0.0001
-	sensitivity_slider.value = USER_SETTINGS.look_sensitivity()
-	sensitivity_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sensitivity_slider.custom_minimum_size = Vector2(0, 32)
-	sensitivity_row.add_child(sensitivity_slider)
-	var sensitivity_value := Label.new()
-	sensitivity_value.custom_minimum_size = Vector2(56, 0)
-	sensitivity_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	sensitivity_value.text = _sensitivity_text(sensitivity_slider.value)
-	sensitivity_row.add_child(sensitivity_value)
+	column.add_child(_section("LOOK SENSITIVITY", "aim"))
+	var sensitivity_slider := _add_slider_row(column, "look_sensitivity", USER_SETTINGS.MIN_LOOK_SENSITIVITY, USER_SETTINGS.MAX_LOOK_SENSITIVITY, 0.0001, USER_SETTINGS.look_sensitivity(), "", 1.0, true)
 	sensitivity_slider.value_changed.connect(func(value: float):
-		sensitivity_value.text = _sensitivity_text(value)
 		USER_SETTINGS.write_value("input", "look_sensitivity", value)
 		sensitivity_changed.emit(value)
 	)
 
-	_add_input_rows(column, OS.has_feature("mobile") or DisplayServer.is_touchscreen_available())
+	_add_input_rows(column, bool(_ui_root.is_touch))
 
-	column.add_child(_section_label("MASTER VOLUME"))
-	var volume_row := HBoxContainer.new()
-	column.add_child(volume_row)
-	var volume_slider := HSlider.new()
-	volume_slider.min_value = 0.0
-	volume_slider.max_value = 1.0
-	volume_slider.step = 0.05
-	volume_slider.value = USER_SETTINGS.master_volume()
-	volume_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	volume_slider.custom_minimum_size = Vector2(0, 32)
-	volume_row.add_child(volume_slider)
-	var volume_value := Label.new()
-	volume_value.custom_minimum_size = Vector2(56, 0)
-	volume_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	volume_value.text = "%d%%" % int(round(volume_slider.value * 100.0))
-	volume_row.add_child(volume_value)
+	column.add_child(_section("MASTER VOLUME", "sound"))
+	var volume_slider := _add_slider_row(column, "master_volume", 0.0, 1.0, 0.05, USER_SETTINGS.master_volume(), "%d%%", 100.0, false, "audio")
 	volume_slider.value_changed.connect(func(value: float):
-		volume_value.text = "%d%%" % int(round(value * 100.0))
-		USER_SETTINGS.write_value("audio", "master_volume", value)
 		USER_SETTINGS.apply_master_volume(value)
 	)
 
-	column.add_child(_section_label("CONTROLS"))
+	column.add_child(_section("CONTROLS", "info"))
 	var help := Label.new()
+	help.name = "ControlsHelp"
 	help.text = CONTROLS_TEXT
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	help.add_theme_font_size_override("font_size", 14)
-	help.add_theme_color_override("font_color", Color("#C9DAE8"))
+	help.add_theme_font_size_override("font_size", THEME.SIZE_S)
+	help.add_theme_color_override("font_color", THEME.MUTED)
 	column.add_child(help)
 
-	var leave := _button("LEAVE MATCH", "danger")
+	var leave := _action_button("LEAVE MATCH", "leave", THEME.DANGER)
+	leave.name = "LeaveButton"
 	leave.pressed.connect(func(): leave_requested.emit())
-	column.add_child(leave)
+	frame.add_child(leave)
+
+	_ui_root.layout_changed.connect(func(_size: Vector2, _scale: float): _fit_card())
+	_fit_card()
+
+
+## Sizes the card to the visible area: a fixed width on a wide screen, nearly the full height on a phone.
+func _fit_card() -> void:
+	if _card == null or _ui_root == null:
+		return
+	var area: Vector2 = _ui_root.content.size
+	if area.x < 1.0 or area.y < 1.0:
+		area = get_viewport_rect().size
+	var compact := area.y < COMPACT_HEIGHT
+	_header.visible = not compact
+	var pad := 10 if compact else 16
+	_margin.add_theme_constant_override("margin_top", pad)
+	_margin.add_theme_constant_override("margin_bottom", pad)
+	var width := minf(CARD_WIDTH, maxf(area.x - 32.0, 260.0))
+	var height := clampf(area.y - 32.0, 240.0, 640.0)
+	_card.size = Vector2(width, height)
+	_card.position = ((area - _card.size) * 0.5).round()
+
+
+func _build_header() -> Control:
+	var row := HBoxContainer.new()
+	row.name = "Header"
+	row.add_theme_constant_override("separation", THEME.SPACE_M)
+	row.add_child(ICONS.make("menu", 34.0, THEME.ACCENT))
+	var title := Label.new()
+	title.text = "PAUSED"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_theme_font_override("font", THEME.font("bold"))
+	title.add_theme_font_size_override("font_size", THEME.SIZE_XL)
+	title.add_theme_color_override("font_color", THEME.INK)
+	row.add_child(title)
+	return row
+
+
+## A full-width plate button: icon on the left, label next to it. The label is also the Button text.
+func _action_button(label_text: String, icon: String, tint: Color) -> Button:
+	var button: Button = BUTTON.new()
+	button.text = label_text
+	button.icon_name = icon
+	button.tint = tint
+	button.custom_minimum_size = Vector2(0.0, maxf(52.0, _touch_target))
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return button
+
 
 ## Aiming-down-sights sensitivity for everyone; touch and gyro rows only on touch devices.
 func _add_input_rows(column: VBoxContainer, touch_device: bool) -> void:
-	column.add_child(_section_label("AIMING DOWN SIGHTS (x of normal)"))
+	column.add_child(_section("AIMING DOWN SIGHTS (x of normal)", "aim"))
 	_add_slider_row(column, "ads_sensitivity", LOOK.MIN_ADS_SENSITIVITY, 1.0, 0.01, USER_SETTINGS.ads_sensitivity(), "%.2fx")
 	if not touch_device:
 		return
-	column.add_child(_section_label("TOUCH LOOK SPEED"))
+	column.add_child(_section("TOUCH LOOK SPEED", "view"))
 	_add_slider_row(column, "touch_sensitivity", LOOK.MIN_TOUCH_SENSITIVITY, LOOK.MAX_TOUCH_SENSITIVITY, 0.05, USER_SETTINGS.touch_sensitivity(), "%.2fx")
-	column.add_child(_section_label("TOUCH ACCELERATION (faster swipes turn further)"))
+	column.add_child(_section("TOUCH ACCELERATION (faster swipes turn further)", "dash"))
 	_add_slider_row(column, "touch_acceleration", 0.0, 1.0, 0.05, USER_SETTINGS.touch_acceleration(), "%d%%", 100.0)
+	column.add_child(_section("GYRO", "rotate"))
 	var gyro_check := CheckBox.new()
 	gyro_check.text = "GYRO AIMING"
 	gyro_check.button_pressed = USER_SETTINGS.gyro_enabled()
+	gyro_check.custom_minimum_size = Vector2(0.0, _touch_target)
 	gyro_check.toggled.connect(func(on: bool):
 		USER_SETTINGS.write_value("input", "gyro_enabled", on)
 		input_settings_changed.emit()
@@ -154,6 +212,7 @@ func _add_input_rows(column: VBoxContainer, touch_device: bool) -> void:
 		var invert := CheckBox.new()
 		invert.text = str(entry[1])
 		invert.button_pressed = bool(entry[2])
+		invert.custom_minimum_size = Vector2(0.0, _touch_target)
 		var key := str(entry[0])
 		invert.toggled.connect(func(on: bool):
 			USER_SETTINGS.write_value("input", key, on)
@@ -161,8 +220,13 @@ func _add_input_rows(column: VBoxContainer, touch_device: bool) -> void:
 		)
 		column.add_child(invert)
 
-func _add_slider_row(column: VBoxContainer, key: String, min_value: float, max_value: float, step: float, value: float, format: String, display_scale: float = 1.0) -> HSlider:
+
+## One labelled slider: the value is saved when it moves, `input_settings_changed` tells the game.
+## `friendly` shows the look sensitivity as a multiple of the default; `section_name` is the settings
+## section the key is saved in.
+func _add_slider_row(column: VBoxContainer, key: String, min_value: float, max_value: float, step: float, value: float, format: String, display_scale: float = 1.0, friendly: bool = false, section_name: String = "input") -> HSlider:
 	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", THEME.SPACE_M)
 	column.add_child(row)
 	var slider := HSlider.new()
 	slider.name = "Slider_" + key
@@ -171,30 +235,41 @@ func _add_slider_row(column: VBoxContainer, key: String, min_value: float, max_v
 	slider.step = step
 	slider.value = value
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	slider.custom_minimum_size = Vector2(0, 32)
+	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	slider.custom_minimum_size = Vector2(0.0, maxf(32.0, _touch_target * 0.8))
 	row.add_child(slider)
 	var label := Label.new()
-	label.custom_minimum_size = Vector2(56, 0)
+	label.custom_minimum_size = Vector2(64.0, 0.0)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	label.text = format % (value * display_scale)
+	label.add_theme_font_override("font", THEME.font("bold"))
+	label.add_theme_color_override("font_color", THEME.ACCENT)
+	label.text = _sensitivity_text(value) if friendly else format % (value * display_scale)
 	row.add_child(label)
 	slider.value_changed.connect(func(new_value: float):
-		label.text = format % (new_value * display_scale)
-		USER_SETTINGS.write_value("input", key, new_value)
-		input_settings_changed.emit()
+		label.text = _sensitivity_text(new_value) if friendly else format % (new_value * display_scale)
+		if section_name == "input" and not friendly:
+			USER_SETTINGS.write_value("input", key, new_value)
+			input_settings_changed.emit()
+		elif section_name != "input":
+			USER_SETTINGS.write_value(section_name, key, new_value)
 	)
 	return slider
+
 
 func _sensitivity_text(value: float) -> String:
 	# Shown as a friendly multiple of the default (1.00x = original feel).
 	return "%.2fx" % (value / USER_SETTINGS.DEFAULT_LOOK_SENSITIVITY)
 
-func _section_label(text_value: String) -> Label:
+
+## A small icon and an uppercase caption above a group of settings.
+func _section(text_value: String, icon: String) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", THEME.SPACE_S)
+	row.add_child(ICONS.make(icon, 18.0, THEME.ACCENT_DIM))
 	var label := Label.new()
 	label.text = text_value
-	label.add_theme_font_size_override("font_size", 14)
-	label.add_theme_color_override("font_color", MUTED)
-	return label
-
-func _button(text_value: String, kind: String = "secondary") -> Button:
-	return FPS_UI.button(text_value, kind, 46.0, 17)
+	label.add_theme_font_override("font", THEME.font("bold"))
+	label.add_theme_font_size_override("font_size", THEME.SIZE_S)
+	label.add_theme_color_override("font_color", THEME.MUTED)
+	row.add_child(label)
+	return row

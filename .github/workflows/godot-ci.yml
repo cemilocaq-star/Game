@@ -252,6 +252,9 @@ jobs:
       - name: Test HUD (PC and phone layouts, every button wired, touch sizes)
         run: timeout 120s godot --headless --path . --script tests/test_ui_hud.gd
 
+      - name: Test pause menu (PC and phone layouts, pinned buttons, small screens, saved settings)
+        run: timeout 90s godot --headless --path . --script tests/test_pause_menu_layout.gd
+
       - name: Test first-person weapon animation (sway, bob, ADS, recoil, reload, switch)
         run: timeout 60s godot --headless --path . --script tests/test_weapon_viewmodel_anim.gd
 
