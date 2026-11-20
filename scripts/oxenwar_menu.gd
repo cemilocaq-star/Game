@@ -3,6 +3,7 @@ extends CanvasLayer
 const COMPETITIVE_THEME := preload("res://scripts/competitive_theme.gd")
 const FPS_UI := preload("res://scripts/fps_ui.gd")
 const USER_SETTINGS := preload("res://scripts/user_settings.gd")
+const SCALED_ROOT := preload("res://scripts/ui/scaled_root.gd")
 signal play_requested(identity: Dictionary)
 
 const I18N = preload("res://scripts/oxenwar_i18n.gd")
@@ -38,6 +39,11 @@ var room_code_text := ""
 var server_host_field: LineEdit
 var lobby_notice_label: Label
 var nav_box: HBoxContainer
+## Scales the whole menu for the device (phone or PC).
+var scaled_root: Control
+## True on a narrow screen (a phone): the top bar drops the player chip and tightens its buttons.
+var compact_layout := false
+const COMPACT_WIDTH := 1100.0
 var notice_panel: PanelContainer
 var notice_label: Label
 var _notice_tween: Tween
@@ -102,11 +108,17 @@ func _build() -> void:
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
+	# The whole menu is laid out in logical pixels inside a scaled root: 1.0 on PC, larger on a phone so
+	# text is readable and every button is a comfortable touch target (see scripts/ui/ui_platform.gd).
+	scaled_root = SCALED_ROOT.new()
+	add_child(scaled_root)
+	compact_layout = scaled_root.content.size.x < COMPACT_WIDTH
+	scaled_root.layout_changed.connect(_on_layout_changed)
 	var root_control := Control.new()
 	root_control.name = "MenuRoot"
 	root_control.theme = COMPETITIVE_THEME.create()
 	root_control.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(root_control)
+	scaled_root.content.add_child(root_control)
 	var base := ColorRect.new()
 	base.color = BG
 	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -133,8 +145,8 @@ func _build() -> void:
 	top_bar.add_theme_stylebox_override("panel", _top_bar_style())
 	outer.add_child(top_bar)
 	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 18)
 	top_bar.add_child(header)
+	header.add_theme_constant_override("separation", 10 if compact_layout else 18)
 	header.add_child(_build_brand())
 	if authenticated:
 		nav_box = HBoxContainer.new()
@@ -146,13 +158,16 @@ func _build() -> void:
 	header_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(header_spacer)
 	if authenticated:
-		header.add_child(_build_player_chip())
+		if not compact_layout:
+			header.add_child(_build_player_chip())
 		var sign_out := FPS_UI.button(_t("logout"), "ghost", 40, 14)
 		sign_out.name = "SignOutButton"
+		if compact_layout:
+			_tighten_button(sign_out, 14, 8)
 		sign_out.pressed.connect(_on_logout)
 		header.add_child(sign_out)
 	var language := OptionButton.new()
-	language.custom_minimum_size = Vector2(84, 40)
+	language.custom_minimum_size = Vector2(70 if compact_layout else 84, 40)
 	for item in [["AZ","az"],["EN","en"],["TR","tr"],["RU","ru"]]:
 		language.add_item(item[0])
 		language.set_item_metadata(language.item_count - 1, item[1])
@@ -220,17 +235,37 @@ func _top_bar_style() -> StyleBoxFlat:
 	style.content_margin_bottom = 4
 	return style
 
+## Smaller type and side padding for a button, for a narrow screen. The styles are per-button copies.
+func _tighten_button(button: Button, font_size: int, side_padding: float) -> void:
+	button.add_theme_font_size_override("font_size", font_size)
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		var style := button.get_theme_stylebox(state) as StyleBoxFlat
+		if style != null and button.has_theme_stylebox_override(state):
+			style.content_margin_left = side_padding
+			style.content_margin_right = side_padding
+
+## The window or device changed shape (rotation, a resized window): rebuild only if the top bar
+## has to switch between the wide and the compact layout.
+func _on_layout_changed(content_size: Vector2, _ui_scale: float) -> void:
+	var compact := content_size.x < COMPACT_WIDTH
+	if compact != compact_layout and is_inside_tree():
+		call_deferred("_rebuild_for_layout")
+
+func _rebuild_for_layout() -> void:
+	if is_instance_valid(scaled_root) and (scaled_root.content.size.x < COMPACT_WIDTH) != compact_layout:
+		_build()
+
 func _build_brand() -> Control:
 	var brand := HBoxContainer.new()
 	brand.add_theme_constant_override("separation", 0)
 	var first := Label.new()
 	first.text = "OXEN"
-	first.add_theme_font_size_override("font_size", 34)
+	first.add_theme_font_size_override("font_size", 26 if compact_layout else 34)
 	first.add_theme_color_override("font_color", FPS_UI.TEXT)
 	brand.add_child(first)
 	var second := Label.new()
 	second.text = "WAR"
-	second.add_theme_font_size_override("font_size", 34)
+	second.add_theme_font_size_override("font_size", 26 if compact_layout else 34)
 	second.add_theme_color_override("font_color", ACCENT)
 	brand.add_child(second)
 	return brand
@@ -267,6 +302,8 @@ func _refresh_nav() -> void:
 	for tab in ["play", "stats", "friends", "character"]:
 		var button := FPS_UI.nav_button(_t(tab), tab == active_tab)
 		button.name = "Nav_" + tab
+		if compact_layout:
+			_tighten_button(button, 16, 10)
 		button.pressed.connect(_on_tab_pressed.bind(tab))
 		nav_box.add_child(button)
 
@@ -522,26 +559,30 @@ func _render_play_tab() -> void:
 	# Left: game mode cards (like the queue list in most competitive shooters).
 	var left := VBoxContainer.new()
 	left.name = "ModeColumn"
-	left.custom_minimum_size = Vector2(300, 0)
+	left.custom_minimum_size = Vector2(270 if compact_layout else 300, 0)
+	if compact_layout:
+		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.add_theme_constant_override("separation", 10)
 	columns.add_child(left)
 	left.add_child(FPS_UI.section_header(_t("game_mode")))
 	for mode_id in MODE_IDS:
 		left.add_child(_build_mode_card(mode_id))
 
-	# Middle: the player's own character on a rotating stage.
-	var middle := VBoxContainer.new()
-	middle.name = "HeroColumn"
-	middle.custom_minimum_size = Vector2(240, 0)
-	middle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	middle.add_theme_constant_override("separation", 8)
-	columns.add_child(middle)
-	_build_hero(middle)
+	# Middle: the player's own character on a rotating stage. A phone has no room for it next to the
+	# mode list and the start controls; the Character tab still shows the full preview.
+	if not compact_layout:
+		var middle := VBoxContainer.new()
+		middle.name = "HeroColumn"
+		middle.custom_minimum_size = Vector2(240, 0)
+		middle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		middle.add_theme_constant_override("separation", 8)
+		columns.add_child(middle)
+		_build_hero(middle)
 
 	# Right: map picker, server, one large START button and the room controls.
 	var right := VBoxContainer.new()
 	right.name = "StartColumn"
-	right.custom_minimum_size = Vector2(390, 0)
+	right.custom_minimum_size = Vector2(360 if compact_layout else 390, 0)
 	right.add_theme_constant_override("separation", 10)
 	columns.add_child(right)
 	_build_play_controls(right)
