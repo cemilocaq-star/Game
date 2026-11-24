@@ -30,6 +30,8 @@ required = [
     "scripts/progression.gd", "scripts/graphics_manager.gd", "scripts/oxenwar_event_fx.gd", "shaders/neon_surface.gdshader",
     "tools/set_android_version.py", "tests/test_android_version.py",
     "tests/test_live_websocket_proxy.py", "tests/test_character_motion_rig.gd",
+    "scripts/lan_discovery.gd", "scripts/lan_host.gd", "tests/test_lan_discovery.gd", "tests/test_open_host.gd",
+    "tests/test_guest_menu.gd", "tests/run_open_server_test.sh", "tests/online/open_client.gd",
 ]
 for rel in required:
     if not (ROOT / rel).is_file():
@@ -531,7 +533,8 @@ for disabled_button in ("start.disabled", "create.disabled", "join.disabled", "s
         errors.append(f"lobby button is disabled again: {disabled_button}")
 for needle, label in (
     ("auto_server_state", "automatic server lookup in the lobby"),
-    ("_show_notice(_t(\"need_server_room\")", "visible hint when creating a room without a server"),
+    ("LAN_DISCOVERY.scan", "lobby looks for open servers on the local network"),
+    ("_on_guest_play", "guest entry without an account"),
     ("FPS_UI.MenuBackdrop", "FPS-style animated menu backdrop"),
     ("_build_hero", "3D hero character in the play lobby"),
 ):

@@ -32,6 +32,12 @@ const EVENT_DURATION := 12.0
 const SUPABASE_URL := "https://lznnfwhlsquiitkhjzlc.supabase.co"
 const SUPABASE_KEY := "sb_publishable_z7UuZtF9NQwox1Ae0droQA_mxpD-P7L"
 const SERVER_PLAYER_SCRIPT := preload("res://scripts/oxenwar_server_player.gd")
+const LAN_DISCOVERY := preload("res://scripts/lan_discovery.gd")
+## Open servers accept guests: a display name is the whole identity, nothing is saved to an account.
+const GUEST_TICKET_PREFIX := "GUEST-"
+const GUEST_USER_PREFIX := "guest-"
+## An open server started from the game ("host a room on this PC") closes itself after this long without players.
+const OPEN_IDLE_QUIT_SECONDS := 600.0
 const GRENADE_PHYSICS := preload("res://scripts/grenade_physics.gd")
 const ARENA_LAYOUT := preload("res://scripts/arena_layout.gd")
 const EVENTS := ["DUCK_PARADE", "PINK_SKY", "GOLDEN_ORB_RUSH", "CONFETTI_STORM", "LOW_GRAVITY", "BONK_MODE", "NPC_MODE", "DUCK_EXE", "METEOR_SHOWER", "ICE_WORLD", "FREEZE_FRAME", "DOUBLE_XP"]
@@ -66,6 +72,13 @@ const ARCADE_WEAPONS := {
 }
 
 var is_dedicated_server := false
+## Open server: no Supabase account, secret or ticket is needed; guests join with a name and a room code.
+var open_mode := false
+var _lan_responder: RefCounted
+var _idle_quit_after := 0.0
+var _idle_seconds := 0.0
+var _is_guest := false
+var _guest_name := ""
 var is_authenticated := false
 var local_player: Node3D
 var local_player_name := "Player"
@@ -117,11 +130,12 @@ var _directory_signature := ""
 var _directory_busy := false
 var _directory_warned := false
 
-func start_server() -> bool:
+func start_server(open_server: bool = false) -> bool:
 	is_dedicated_server = true
 	_rng.randomize()
+	open_mode = open_server or OS.get_environment("OXENWAR_OPEN_MODE").strip_edges() == "1"
 	_server_secret = OS.get_environment("OXENWAR_SERVER_SECRET").strip_edges()
-	if _server_secret.is_empty():
+	if _server_secret.is_empty() and not open_mode:
 		push_error("OXENWAR_SERVER_SECRET is required; refusing to start dedicated server.")
 		return false
 
@@ -157,21 +171,88 @@ func start_server() -> bool:
 	multiplayer.multiplayer_peer = peer
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
-	_directory_host = _detect_public_host()
-	if _directory_host.is_empty():
-		push_warning("OXENWAR_PUBLIC_HOST is not set and no hosting platform was detected: this server will not appear in the automatic server list.")
-	else:
-		print("OxenWar server directory address: %s" % _directory_host)
+	if open_mode:
+		print("OxenWar open mode: guests may join with a name and a room code, no account needed")
+		if transport != "websocket":
+			_start_lan_responder()
+		if OS.get_cmdline_user_args().has("--idle-quit"):
+			_idle_quit_after = OPEN_IDLE_QUIT_SECONDS
+	# Without a secret there is no way to talk to the Supabase directory or save results.
+	if not _server_secret.is_empty():
+		_directory_host = _detect_public_host()
+		if _directory_host.is_empty():
+			push_warning("OXENWAR_PUBLIC_HOST is not set and no hosting platform was detected: this server will not appear in the automatic server list.")
+		else:
+			print("OxenWar server directory address: %s" % _directory_host)
 	return true
 
+func _start_lan_responder() -> void:
+	_lan_responder = LAN_DISCOVERY.Responder.new()
+	var error: Error = _lan_responder.start()
+	if error != OK:
+		push_warning("OxenWar LAN discovery could not bind UDP %d (%s); another server may already be running on this device." % [LAN_DISCOVERY.PORT, error_string(error)])
+		_lan_responder = null
+	else:
+		print("OxenWar LAN discovery listening on UDP %d" % LAN_DISCOVERY.PORT)
+
+func _poll_lan_responder() -> void:
+	if _lan_responder != null:
+		var codes: Array = []
+		for code in _rooms.keys():
+			codes.append(str(code))
+		_lan_responder.poll({"port": PORT, "players": _server_players.size(), "max": MAX_CLIENTS, "rooms": codes})
+
+func _check_idle_quit(delta: float) -> void:
+	if _idle_quit_after <= 0.0:
+		return
+	if _server_players.is_empty() and _rooms.is_empty():
+		_idle_seconds += delta
+		if _idle_seconds >= _idle_quit_after:
+			print("OxenWar open server closing after %d idle seconds" % int(_idle_quit_after))
+			get_tree().quit()
+	else:
+		_idle_seconds = 0.0
+
 func connect_to_server(host: String, access_token: String) -> void:
+	_is_guest = false
 	_access_token = access_token
 	_last_host = host.strip_edges()
 	_reconnect_attempts = 0
 	_request_ticket_and_connect()
 
+## Joins an open server with only a display name. No account, no Supabase.
+func connect_as_guest(host: String, display_name: String) -> void:
+	_is_guest = true
+	_guest_name = _clean_guest_name(display_name)
+	_access_token = ""
+	_last_host = host.strip_edges()
+	_reconnect_attempts = 0
+	_request_ticket_and_connect()
+
+func is_guest_connection() -> bool:
+	return _is_guest
+
+func current_host() -> String:
+	return _last_host
+
+static func _clean_guest_name(value: String) -> String:
+	var cleaned := ""
+	for index in range(value.length()):
+		var character := value.substr(index, 1)
+		if character != "-" and character.unicode_at(0) >= 32:
+			cleaned += character
+	cleaned = cleaned.strip_edges().substr(0, 20)
+	return cleaned if not cleaned.is_empty() else "Guest"
+
 func _request_ticket_and_connect() -> void:
 	if is_dedicated_server or _ticket_request_in_progress:
+		return
+	if _is_guest:
+		if _last_host.is_empty():
+			connection_status_changed.emit("No server found.")
+			return
+		_game_ticket = GUEST_TICKET_PREFIX + _guest_name
+		_connect_now()
 		return
 	if _last_host.is_empty() or _access_token.is_empty():
 		connection_status_changed.emit("Sign in and enter a server address.")
@@ -210,7 +291,12 @@ func _connect_now() -> void:
 		peer = websocket_peer
 	else:
 		var enet_peer := ENetMultiplayerPeer.new()
-		error = enet_peer.create_client(_last_host, PORT)
+		var enet_host := _last_host
+		var enet_port := PORT
+		if _last_host.count(":") == 1:
+			enet_host = _last_host.get_slice(":", 0)
+			enet_port = int(_last_host.get_slice(":", 1))
+		error = enet_peer.create_client(enet_host, enet_port)
 		peer = enet_peer
 	if error != OK:
 		connection_status_changed.emit("Connection failed: " + error_string(error))
@@ -223,7 +309,7 @@ func _connect_now() -> void:
 		multiplayer.connection_failed.connect(_on_connection_failed)
 	if not multiplayer.server_disconnected.is_connected(_on_server_disconnected):
 		multiplayer.server_disconnected.connect(_on_server_disconnected)
-	connection_status_changed.emit("Connecting securely to " + _last_host if _last_host.begins_with("wss://") else ("Connecting to " + _last_host if websocket_url else "Connecting to " + _last_host + ":" + str(PORT)))
+	connection_status_changed.emit("Connecting securely to " + _last_host if _last_host.begins_with("wss://") else ("Connecting to " + _last_host if websocket_url or _last_host.count(":") == 1 else "Connecting to " + _last_host + ":" + str(PORT)))
 
 func update_access_token(token: String) -> void:
 	if not token.is_empty():
@@ -414,6 +500,8 @@ func _process(delta: float) -> void:
 	if is_dedicated_server:
 		_server_process_rooms(delta)
 		_server_process_directory(delta)
+		_poll_lan_responder()
+		_check_idle_quit(delta)
 		return
 	if not is_authenticated or local_player == null or multiplayer.multiplayer_peer == null:
 		return
@@ -491,7 +579,7 @@ func reconcile_local_player(state: Dictionary) -> void:
 
 func _on_connected_to_server() -> void:
 	_reconnect_attempts = 0
-	connection_status_changed.emit("Connected • verifying Supabase account")
+	connection_status_changed.emit("Connected • joining as guest" if _is_guest else "Connected • verifying Supabase account")
 	rpc_id(1, "_server_authenticate", _game_ticket)
 
 func _on_connection_failed() -> void:
@@ -526,7 +614,7 @@ func _forget_client_peer(peer_id: int) -> void:
 
 
 func _schedule_reconnect() -> void:
-	if is_dedicated_server or _access_token.is_empty() or _last_host.is_empty():
+	if is_dedicated_server or (_access_token.is_empty() and not _is_guest) or _last_host.is_empty():
 		return
 	if _reconnect_timer == null:
 		_reconnect_timer = Timer.new()
@@ -625,10 +713,17 @@ func _server_authenticate(ticket: String) -> void:
 	if not multiplayer.is_server():
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
-	if ticket.length() < 40 or ticket.length() > 8192:
+	var identity: Dictionary
+	if ticket.begins_with(GUEST_TICKET_PREFIX):
+		if not open_mode:
+			rpc_id(peer_id, "_client_auth_result", false, "This server needs an account. Sign in, or pick an open server.")
+			return
+		identity = _guest_identity(ticket.trim_prefix(GUEST_TICKET_PREFIX))
+	elif ticket.length() < 40 or ticket.length() > 8192:
 		rpc_id(peer_id, "_client_auth_result", false, "Invalid game ticket")
 		return
-	var identity := await _redeem_game_ticket(ticket)
+	else:
+		identity = await _redeem_game_ticket(ticket)
 	if not identity.get("ok", false):
 		rpc_id(peer_id, "_client_auth_result", false, "Game ticket invalid, expired or already used")
 		return
@@ -694,6 +789,21 @@ func _server_authenticate(ticket: String) -> void:
 	# Do not auto-create a quick-match room here: that would race CREATE/JOIN
 	# and persist a false "abandoned" match before the player has entered one.
 	rpc_id(peer_id, "_client_auth_result", true, "Authenticated", user_id, str(profile.get("display_name", "Player")), str(profile.get("avatar_color_id", "color_cyan")), can_restore)
+
+## Identity of a guest on an open server: a random id (so two guests never collide), the chosen name, no stats.
+func _guest_identity(raw_name: String) -> Dictionary:
+	var suffix := ""
+	for i in range(10):
+		suffix += "abcdefghijklmnopqrstuvwxyz0123456789".substr(_rng.randi_range(0, 35), 1)
+	var colors := ["color_cyan", "color_violet", "color_orange", "color_lime"]
+	return {
+		"ok": true, "user_id": GUEST_USER_PREFIX + suffix,
+		"profile": {"display_name": _clean_guest_name(raw_name), "avatar_color_id": colors[_rng.randi_range(0, colors.size() - 1)]},
+		"stats": {}, "session_token": ""
+	}
+
+func _is_guest_user(user_id: String) -> bool:
+	return user_id.begins_with(GUEST_USER_PREFIX)
 
 func _redeem_game_ticket(ticket: String) -> Dictionary:
 	if _server_secret.is_empty():
@@ -1166,7 +1276,8 @@ func _server_join_room(code: String) -> void:
 	if str(_user_rooms.get(user_id, "")) == code:
 		_broadcast_room_state(code)
 		return
-	if not bool(room.is_public) and str(room.owner_uid) != user_id:
+	var guest_involved := open_mode and (_is_guest_user(user_id) or _is_guest_user(str(room.owner_uid)))
+	if not bool(room.is_public) and str(room.owner_uid) != user_id and not guest_involved:
 		var source_code := str(_user_rooms.get(user_id, ""))
 		var friends := await _server_are_friends(user_id, str(room.owner_uid), str(_session_tokens.get(user_id, "")))
 		if str(_peer_users.get(peer_id, "")) != user_id or str(_user_rooms.get(user_id, "")) != source_code:
@@ -1736,7 +1847,7 @@ func _persist_user_result(user_id: String, player) -> bool:
 	)
 
 func _persist_result_values(user_id: String, session_token: String, score: int, xp: int, collections: Array, kills: int, deaths: int, damage_dealt: float, shots_fired: int, shots_hit: int, playtime_seconds: int, outcome: String, mastery_blaster_xp: int, mastery_grenade_xp: int) -> bool:
-	if user_id.is_empty():
+	if user_id.is_empty() or _is_guest_user(user_id):
 		return true
 	if session_token.is_empty() or _server_secret.is_empty():
 		push_warning("OXENWAR_SERVER_SECRET or server session is missing; match results cannot be persisted.")

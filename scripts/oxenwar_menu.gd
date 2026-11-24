@@ -8,12 +8,18 @@ signal play_requested(identity: Dictionary)
 
 const I18N = preload("res://scripts/oxenwar_i18n.gd")
 const ARENA_LAYOUT = preload("res://scripts/arena_layout.gd")
+const LAN_DISCOVERY := preload("res://scripts/lan_discovery.gd")
 const CHARACTER_VISUALS = preload("res://scripts/character_visuals.gd")
 const CHARACTER_MOTION_RIG = preload("res://scripts/character_motion_rig.gd")
 var backend: Node
 var locale := "az"
 var profile: Dictionary = {}
 var authenticated := false
+## Guest: signed in with a name only. No account tabs, nothing is saved online.
+var is_guest := false
+var guest_input: LineEdit
+## Looks for open servers on the local network. Off in headless runs (tests, dedicated servers).
+var lan_scan_enabled := DisplayServer.get_name() != "headless"
 var is_admin := false
 var active_tab := "play"
 var registration_mode := false
@@ -148,7 +154,7 @@ func _build() -> void:
 	top_bar.add_child(header)
 	header.add_theme_constant_override("separation", 10 if compact_layout else 18)
 	header.add_child(_build_brand())
-	if authenticated:
+	if authenticated and not is_guest:
 		nav_box = HBoxContainer.new()
 		nav_box.name = "MainNav"
 		nav_box.add_theme_constant_override("separation", 4)
@@ -160,7 +166,7 @@ func _build() -> void:
 	if authenticated:
 		if not compact_layout:
 			header.add_child(_build_player_chip())
-		var sign_out := FPS_UI.button(_t("logout"), "ghost", 40, 14)
+		var sign_out := FPS_UI.button(_t("guest_sign_in") if is_guest else _t("logout"), "ghost", 40, 14)
 		sign_out.name = "SignOutButton"
 		if compact_layout:
 			_tighten_button(sign_out, 14, 8)
@@ -212,13 +218,14 @@ func _build() -> void:
 	content.add_theme_constant_override("separation", 12)
 	content_scroll.add_child(content)
 	_add_footer(outer)
-	var heartbeat := Timer.new()
-	heartbeat.name = "MenuPresenceHeartbeat"
-	heartbeat.wait_time = 30.0
-	heartbeat.autostart = true
-	heartbeat.timeout.connect(_send_presence_heartbeat)
-	add_child(heartbeat)
-	_send_presence_heartbeat()
+	if not is_guest:
+		var heartbeat := Timer.new()
+		heartbeat.name = "MenuPresenceHeartbeat"
+		heartbeat.wait_time = 30.0
+		heartbeat.autostart = true
+		heartbeat.timeout.connect(_send_presence_heartbeat)
+		add_child(heartbeat)
+		_send_presence_heartbeat()
 	_render_tab()
 	if not registration_notice.is_empty():
 		content.add_child(_paragraph(registration_notice))
@@ -287,7 +294,7 @@ func _build_player_chip() -> Control:
 	name_label.add_theme_color_override("font_color", FPS_UI.TEXT)
 	stack.add_child(name_label)
 	var role_label := Label.new()
-	role_label.text = "ADMIN" if is_admin else "PLAYER"
+	role_label.text = "ADMIN" if is_admin else (_t("guest_badge") if is_guest else "PLAYER")
 	role_label.add_theme_font_size_override("font_size", 12)
 	role_label.add_theme_color_override("font_color", FPS_UI.GOLD if is_admin else MUTED)
 	stack.add_child(role_label)
@@ -347,9 +354,15 @@ func _show_notice(text: String, kind: String = "error") -> void:
 func _build_auth(parent: VBoxContainer) -> void:
 	# The form is rebuilt on logout/language change with the display-name field hidden.
 	registration_mode = false
+	var scroll := ScrollContainer.new()
+	scroll.name = "AuthScroll"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	parent.add_child(scroll)
 	var center := CenterContainer.new()
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	parent.add_child(center)
+	scroll.add_child(center)
 	var card := PanelContainer.new()
 	card.custom_minimum_size = Vector2(420, 0)
 	card.add_theme_stylebox_override("panel", FPS_UI.panel_style(0.95))
@@ -357,11 +370,34 @@ func _build_auth(parent: VBoxContainer) -> void:
 	var form := VBoxContainer.new()
 	form.add_theme_constant_override("separation", 12)
 	card.add_child(form)
+	# The quickest way in is first: a name and one button, no account.
+	var guest_title := Label.new()
+	guest_title.text = _t("guest_play")
+	guest_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	guest_title.add_theme_font_size_override("font_size", 22)
+	guest_title.add_theme_color_override("font_color", FPS_UI.TEXT)
+	form.add_child(guest_title)
+	var guest_hint := _paragraph(_t("guest_hint"))
+	guest_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	guest_hint.add_theme_color_override("font_color", MUTED)
+	form.add_child(guest_hint)
+	guest_input = _field(_t("guest_name"), "Player")
+	guest_input.name = "GuestNameField"
+	guest_input.max_length = 20
+	guest_input.text = str(USER_SETTINGS.read_value("guest", "name", ""))
+	guest_input.text_submitted.connect(func(_value: String): _on_guest_play())
+	form.add_child(guest_input)
+	var guest_button := _button(_t("guest_play"), true)
+	guest_button.name = "GuestPlayButton"
+	guest_button.custom_minimum_size.y = 56
+	guest_button.pressed.connect(_on_guest_play)
+	form.add_child(guest_button)
+	form.add_child(HSeparator.new())
 	var title := Label.new()
 	title.text = _t("login_title")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 22)
-	title.add_theme_color_override("font_color", FPS_UI.TEXT)
+	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_color_override("font_color", MUTED)
 	form.add_child(title)
 	var heading := _paragraph(_t("auth_hint"))
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -413,6 +449,23 @@ func _panel_style() -> StyleBoxFlat:
 func _input_style(focused: bool = false) -> StyleBoxFlat:
 	return FPS_UI.input_style(focused)
 
+## Play with only a name: no account, no Supabase, nothing saved online.
+func _on_guest_play() -> void:
+	var chosen := guest_input.text.strip_edges() if is_instance_valid(guest_input) else ""
+	if chosen.is_empty():
+		chosen = "Player%d" % randi_range(100, 999)
+	USER_SETTINGS.write_value("guest", "name", chosen)
+	is_guest = true
+	is_admin = false
+	cosmetics = {}
+	profile = {
+		"username": chosen, "display_name": chosen, "locale": locale, "guest": true,
+		"avatar_color_id": "color_cyan", "outfit_id": "outfit_default", "accessory_id": "accessory_cap"
+	}
+	authenticated = true
+	active_tab = "play"
+	_build()
+
 func _on_auth_submitted(_text: String) -> void:
 	if registration_mode:
 		_on_register()
@@ -429,7 +482,7 @@ func _on_language_selected(index: int) -> void:
 	var was_registering := registration_mode
 	if is_instance_valid(server_host_field):
 		server_host = server_host_field.text.strip_edges()
-	if authenticated:
+	if authenticated and not is_guest:
 		await backend.update_profile({"locale": locale})
 	_build()
 	if not authenticated and is_instance_valid(username_input):
@@ -492,7 +545,7 @@ func _load_account() -> void:
 	await backend.update_presence()
 
 func _send_presence_heartbeat() -> void:
-	if is_instance_valid(backend) and authenticated:
+	if is_instance_valid(backend) and authenticated and not is_guest:
 		await backend.update_presence()
 
 func _on_tab_pressed(tab: String) -> void:
@@ -662,60 +715,6 @@ func _build_hero(parent: VBoxContainer) -> void:
 	parent.add_child(plate)
 
 func _build_play_controls(right: VBoxContainer) -> void:
-	right.add_child(FPS_UI.section_header(_t("map")))
-	var grid := GridContainer.new()
-	grid.name = "MapGrid"
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 8)
-	right.add_child(grid)
-	for map_index in range(ARENA_LAYOUT.MAP_COUNT):
-		var tile := Button.new()
-		tile.name = "Map_%d" % map_index
-		tile.text = ARENA_LAYOUT.map_name(map_index)
-		tile.custom_minimum_size = Vector2(0, 52)
-		tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tile.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		tile.clip_text = true
-		tile.focus_mode = Control.FOCUS_ALL
-		tile.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		tile.add_theme_font_size_override("font_size", 15)
-		tile.add_theme_color_override("font_color", FPS_UI.TEXT)
-		tile.pressed.connect(_on_map_selected.bind(map_index))
-		map_buttons[map_index] = tile
-		grid.add_child(tile)
-
-	right.add_child(FPS_UI.section_header(_t("server_title")))
-	var server_panel := PanelContainer.new()
-	server_panel.add_theme_stylebox_override("panel", _panel_style())
-	right.add_child(server_panel)
-	var server_stack := VBoxContainer.new()
-	server_stack.add_theme_constant_override("separation", 8)
-	server_panel.add_child(server_stack)
-	var status_row := HBoxContainer.new()
-	status_row.add_theme_constant_override("separation", 8)
-	server_stack.add_child(status_row)
-	server_dot = FPS_UI.status_dot(MUTED)
-	status_row.add_child(server_dot)
-	server_status_label = Label.new()
-	server_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	server_status_label.add_theme_font_size_override("font_size", 14)
-	status_row.add_child(server_status_label)
-	# The server is found automatically. A custom address (own server, LAN test) is an advanced option.
-	advanced_button = FPS_UI.button(_t("custom_server"), "ghost", 32.0, 12)
-	advanced_button.name = "CustomServerToggle"
-	advanced_button.pressed.connect(_on_custom_server_toggled)
-	status_row.add_child(advanced_button)
-	server_host_field = _field(_t("server_address"), _t("server_hint"))
-	server_host_field.name = "ServerAddressField"
-	server_host_field.text = server_host
-	server_host_field.visible = not server_host.is_empty()
-	server_host_field.text_changed.connect(_refresh_server_state)
-	server_stack.add_child(server_host_field)
-	lobby_notice_label = _paragraph("")
-	lobby_notice_label.add_theme_font_size_override("font_size", 13)
-	server_stack.add_child(lobby_notice_label)
-
 	# The action buttons are never disabled: pressing one with a missing server explains what to do.
 	start_button = FPS_UI.button(_t("start_match"), "primary", 68.0, 22)
 	start_button.name = "StartButton"
@@ -748,6 +747,59 @@ func _build_play_controls(right: VBoxContainer) -> void:
 	join_button.custom_minimum_size = Vector2(140, 46)
 	join_button.pressed.connect(_launch_game.bind("join_room"))
 	join_row.add_child(join_button)
+
+	var server_panel := PanelContainer.new()
+	server_panel.add_theme_stylebox_override("panel", _panel_style())
+	right.add_child(server_panel)
+	var server_stack := VBoxContainer.new()
+	server_stack.add_theme_constant_override("separation", 8)
+	server_panel.add_child(server_stack)
+	var status_row := HBoxContainer.new()
+	status_row.add_theme_constant_override("separation", 8)
+	server_stack.add_child(status_row)
+	server_dot = FPS_UI.status_dot(MUTED)
+	status_row.add_child(server_dot)
+	server_status_label = Label.new()
+	server_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	server_status_label.add_theme_font_size_override("font_size", 14)
+	status_row.add_child(server_status_label)
+	# The server is found automatically. A custom address (own server, LAN test) is an advanced option.
+	advanced_button = FPS_UI.button(_t("custom_server"), "ghost", 32.0, 12)
+	advanced_button.name = "CustomServerToggle"
+	advanced_button.pressed.connect(_on_custom_server_toggled)
+	status_row.add_child(advanced_button)
+	server_host_field = _field(_t("server_address"), _t("server_hint"))
+	server_host_field.name = "ServerAddressField"
+	server_host_field.text = server_host
+	server_host_field.visible = not server_host.is_empty()
+	server_host_field.text_changed.connect(_refresh_server_state)
+	server_stack.add_child(server_host_field)
+	lobby_notice_label = _paragraph("")
+	lobby_notice_label.add_theme_font_size_override("font_size", 13)
+	server_stack.add_child(lobby_notice_label)
+
+	right.add_child(FPS_UI.section_header(_t("map")))
+	var grid := GridContainer.new()
+	grid.name = "MapGrid"
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	right.add_child(grid)
+	for map_index in range(ARENA_LAYOUT.MAP_COUNT):
+		var tile := Button.new()
+		tile.name = "Map_%d" % map_index
+		tile.text = ARENA_LAYOUT.map_name(map_index)
+		tile.custom_minimum_size = Vector2(0, 52)
+		tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tile.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		tile.clip_text = true
+		tile.focus_mode = Control.FOCUS_ALL
+		tile.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		tile.add_theme_font_size_override("font_size", 15)
+		tile.add_theme_color_override("font_color", FPS_UI.TEXT)
+		tile.pressed.connect(_on_map_selected.bind(map_index))
+		map_buttons[map_index] = tile
+		grid.add_child(tile)
 
 func _on_mode_selected(mode_id: String) -> void:
 	selected_game_mode = mode_id
@@ -782,24 +834,37 @@ func _on_custom_server_toggled() -> void:
 	if server_host_field.visible:
 		server_host_field.grab_focus()
 
-## Asks the Supabase directory whether any dedicated server is online. Runs every time the play tab is shown.
+## Looks for a server without any typed address: the Supabase directory (signed-in players), then open
+## servers on this network. Runs every time the play tab is shown.
 func _check_auto_server() -> void:
-	if backend == null or not backend.has_method("find_server"):
-		return
 	var render_token := _render_id
 	if auto_server_state == "unknown":
 		auto_server_state = "checking"
 		_refresh_server_state(server_host)
-	var found: Dictionary = await backend.find_server()
-	if render_token != _render_id or not is_instance_valid(server_dot):
-		return
+	var found: Dictionary = {}
+	if not is_guest and backend != null and backend.has_method("find_server"):
+		found = await backend.find_server()
+		if render_token != _render_id or not is_instance_valid(server_dot):
+			return
 	if found.get("ok", false):
 		auto_server_state = "online"
 		auto_server_players = int(found.get("player_count", 0))
 		auto_server_capacity = int(found.get("max_players", 0))
-	else:
-		auto_server_state = "none"
+		_refresh_server_state(server_host)
+		return
+	auto_server_state = "none"
 	_refresh_server_state(server_host)
+	if not lan_scan_enabled or not is_inside_tree():
+		return
+	var servers: Array = await LAN_DISCOVERY.scan(get_tree(), 1.0)
+	if render_token != _render_id or not is_instance_valid(server_dot):
+		return
+	if not servers.is_empty():
+		var best: Dictionary = LAN_DISCOVERY.best_server(servers)
+		auto_server_state = "lan"
+		auto_server_players = int(best.get("players", 0))
+		auto_server_capacity = int(best.get("max", 0))
+		_refresh_server_state(server_host)
 
 ## Updates the status light, helper text and START label from the custom address or the automatic lookup.
 func _refresh_server_state(value: String) -> void:
@@ -820,6 +885,12 @@ func _refresh_server_state(value: String) -> void:
 	elif auto_server_state == "online":
 		state_color = ACCENT
 		status_text = _t("server_auto_online")
+		if auto_server_capacity > 0:
+			status_text += "  •  %d/%d" % [auto_server_players, auto_server_capacity]
+		hint_text = _t("auto_hint")
+	elif auto_server_state == "lan":
+		state_color = ACCENT
+		status_text = _t("server_lan_online")
 		if auto_server_capacity > 0:
 			status_text += "  •  %d/%d" % [auto_server_players, auto_server_capacity]
 		hint_text = _t("auto_hint")
@@ -883,9 +954,8 @@ func _launch_game(action: String) -> void:
 		_show_notice(_t("room_code_invalid"), "error")
 		_focus_field(room_code_field)
 		return
-	if host.is_empty() and auto_server_state == "none" and action != "quick_match":
-		_show_notice(_t("need_server_room") if action == "create_room" else _t("need_server_join"), "warn")
-		return
+	# Nothing blocks CREATE ROOM or JOIN any more: the game looks for a server itself, finds an open one on
+	# this network by room code, and CREATE ROOM hosts the room on this device when nothing else exists.
 	# An empty value clears an old custom address so the automatic lookup is used again.
 	USER_SETTINGS.write_value("network", "server_host", host)
 	play_requested.emit({
@@ -896,7 +966,8 @@ func _launch_game(action: String) -> void:
 		"game_mode": selected_game_mode,
 		"map_index": selected_map_index,
 		"room_code": room_code,
-		"server_host": host
+		"server_host": host,
+		"guest": is_guest
 	})
 
 func _render_weapon_mastery() -> void:
@@ -1447,7 +1518,9 @@ func _preview_material(color: Color) -> StandardMaterial3D:
 	return material
 
 func _on_logout() -> void:
-	await backend.sign_out()
+	if not is_guest:
+		await backend.sign_out()
+	is_guest = false
 	authenticated = false
 	profile.clear()
 	is_admin = false

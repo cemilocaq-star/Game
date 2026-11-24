@@ -69,8 +69,14 @@ const EXTRA := {
 		"server_auto_none":"ONLAYN SERVER YOXDUR",
 		"server_auto_checking":"SERVER AXTARILIR...",
 		"auto_hint":"Server avtomatik tapılır. Dostun otağına qoşulmaq üçün yalnız otaq kodunu yaz.",
-		"auto_none_hint":"Hazırda onlayn server tapılmadı. BAŞLA oflayn təlim arenasını açır, otaqlar server qalxanda işləyəcək.",
-		"custom_server":"ÖZ SERVERİM"
+		"auto_none_hint":"Hazırda hazır server tapılmadı. OTAQ YARAT otağı bu cihazda açır: eyni Wi-Fi-dakı dostların yalnız otaq kodunu yazır. BAŞLA oflayn təlim arenasını açır.",
+		"custom_server":"ÖZ SERVERİM",
+		"guest_play":"QONAQ KİMİ OYNA",
+		"guest_hint":"Hesab lazım deyil. Yalnız adını yaz.",
+		"guest_name":"Adın",
+		"guest_badge":"QONAQ",
+		"guest_sign_in":"HESABA GİR",
+		"server_lan_online":"BU ŞƏBƏKƏDƏ SERVER TAPILDI"
 	},
 	"en": {
 		"map":"MAP", "mode_bomb":"BOMB RUSH • PLANT / DEFUSE",
@@ -91,8 +97,14 @@ const EXTRA := {
 		"server_auto_none":"NO ONLINE SERVER",
 		"server_auto_checking":"SEARCHING FOR A SERVER...",
 		"auto_hint":"The server is found automatically. To join a friend, just enter the room code.",
-		"auto_none_hint":"No online server found. START opens the offline training arena; rooms work once a server is online.",
-		"custom_server":"CUSTOM SERVER"
+		"auto_none_hint":"No ready server found. CREATE ROOM opens the room on this device: friends on the same Wi-Fi only type the room code. START opens the offline training arena.",
+		"custom_server":"CUSTOM SERVER",
+		"guest_play":"PLAY AS GUEST",
+		"guest_hint":"No account needed. Just type a name.",
+		"guest_name":"Your name",
+		"guest_badge":"GUEST",
+		"guest_sign_in":"SIGN IN",
+		"server_lan_online":"SERVER FOUND ON THIS NETWORK"
 	},
 	"tr": {
 		"map":"HARİTA", "mode_bomb":"BOMBA HÜCUMU • KUR / ETKİSİZLEŞTİR",
@@ -113,8 +125,14 @@ const EXTRA := {
 		"server_auto_none":"ÇEVRİMİÇİ SUNUCU YOK",
 		"server_auto_checking":"SUNUCU ARANIYOR...",
 		"auto_hint":"Sunucu otomatik bulunur. Arkadaşının odasına katılmak için sadece oda kodunu yaz.",
-		"auto_none_hint":"Çevrimiçi sunucu bulunamadı. BAŞLA çevrimdışı antrenman arenasını açar, odalar sunucu açılınca çalışır.",
-		"custom_server":"ÖZEL SUNUCU"
+		"auto_none_hint":"Hazır sunucu bulunamadı. ODA OLUŞTUR odayı bu cihazda açar: aynı Wi-Fi'daki arkadaşların sadece oda kodunu yazar. BAŞLA çevrimdışı antrenman arenasını açar.",
+		"custom_server":"ÖZEL SUNUCU",
+		"guest_play":"MİSAFİR OLARAK OYNA",
+		"guest_hint":"Hesap gerekmez. Sadece bir ad yaz.",
+		"guest_name":"Adın",
+		"guest_badge":"MİSAFİR",
+		"guest_sign_in":"GİRİŞ YAP",
+		"server_lan_online":"BU AĞDA SUNUCU BULUNDU"
 	},
 	"ru": {
 		"map":"КАРТА", "mode_bomb":"БОМБА • ЗАЛОЖИТЬ / ОБЕЗВРЕДИТЬ",
@@ -135,8 +153,14 @@ const EXTRA := {
 		"server_auto_none":"НЕТ ОНЛАЙН-СЕРВЕРА",
 		"server_auto_checking":"ПОИСК СЕРВЕРА...",
 		"auto_hint":"Сервер находится автоматически. Чтобы зайти к другу, введите только код комнаты.",
-		"auto_none_hint":"Онлайн-сервер не найден. СТАРТ открывает офлайн-тренировку, комнаты заработают, когда сервер будет онлайн.",
-		"custom_server":"СВОЙ СЕРВЕР"
+		"auto_none_hint":"Готовый сервер не найден. СОЗДАТЬ КОМНАТУ открывает комнату на этом устройстве: друзьям в той же Wi-Fi сети нужен только код. СТАРТ открывает офлайн-арену.",
+		"custom_server":"СВОЙ СЕРВЕР",
+		"guest_play":"ИГРАТЬ ГОСТЕМ",
+		"guest_hint":"Аккаунт не нужен. Просто введи имя.",
+		"guest_name":"Твоё имя",
+		"guest_badge":"ГОСТЬ",
+		"guest_sign_in":"ВОЙТИ",
+		"server_lan_online":"СЕРВЕР НАЙДЕН В ЭТОЙ СЕТИ"
 	}
 }
 

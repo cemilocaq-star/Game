@@ -11,6 +11,8 @@ const WORLD_AUDIO = preload("res://scripts/world_audio.gd")
 const BACKEND_SCRIPT = preload("res://scripts/oxenwar_supabase.gd")
 const MENU_SCRIPT = preload("res://scripts/oxenwar_menu.gd")
 const NETWORK_SCRIPT = preload("res://scripts/oxenwar_network.gd")
+const LAN_DISCOVERY := preload("res://scripts/lan_discovery.gd")
+const LAN_HOST := preload("res://scripts/lan_host.gd")
 const SUNSHINE_FX := preload("res://scripts/sunshine_fx.gd")
 var _sunshine_fx: Node3D
 var _sunshine_hit := false
@@ -48,6 +50,10 @@ var local_admin_authorized := false
 var pending_launch_action := "quick_match"
 var pending_launch_room_code := ""
 var launch_server_host := ""
+## Guest session: no account, the display name is the whole identity (open servers only).
+var launch_as_guest := false
+var lan_host: Node
+var _guest_fallback_tried := false
 var _connection_error_toast_shown := false
 var player_profile: Dictionary = {}
 var backend: Node
@@ -308,6 +314,7 @@ func _request_player_identity() -> void:
 	selected_game_mode = str(identity.get("game_mode", "ffa"))
 	selected_map_index = ARENA_LAYOUT.sanitize_map(int(identity.get("map_index", 4)))
 	launch_server_host = str(identity.get("server_host", "")).strip_edges()
+	launch_as_guest = bool(identity.get("guest", false))
 	menu.queue_free()
 
 func _send_presence_heartbeat() -> void:
@@ -324,7 +331,7 @@ func _start_dedicated_server() -> void:
 	network = NETWORK_SCRIPT.new()
 	network.name = "OxenWarNet"
 	add_child(network)
-	if not network.start_server():
+	if not network.start_server(OS.get_cmdline_user_args().has("--open")):
 		get_tree().quit(1)
 		return
 	if OS.get_cmdline_user_args().has("--smoke-test"):
@@ -356,47 +363,108 @@ func _start_multiplayer_client() -> void:
 	network.room_state_changed.connect(_on_network_room_state)
 	network.invite_received.connect(_on_room_invite_received)
 	network.set_local_player(player, local_player_name, player.cosmetic_color)
-	var host := await _resolve_server_host()
-	if not host.is_empty():
-		if is_instance_valid(network_host_input):
-			network_host_input.text = host
-		if is_instance_valid(backend) and not str(backend.access_token).is_empty():
-			network.connect_to_server(host, str(backend.access_token))
-		else:
-			_on_network_status_changed("Sign in required for multiplayer")
-	elif not is_instance_valid(backend) or str(backend.access_token).is_empty():
-		_on_network_status_changed("Sign in required for multiplayer")
+	var target := await _resolve_server_target()
+	var host := str(target.get("host", ""))
+	if host.is_empty():
+		return
+	if is_instance_valid(network_host_input):
+		network_host_input.text = host
+	if bool(target.get("guest", false)):
+		network.connect_as_guest(host, local_player_name)
+	else:
+		network.connect_to_server(host, str(backend.access_token))
 
-## A manual address (advanced menu box, OXENWAR_SERVER_HOST, project setting) wins. Otherwise the server
-## is found in the Supabase directory: the server that hosts the room code when joining, else the best
-## online server. With nothing online the player stays in the offline training arena.
-func _resolve_server_host() -> String:
+func _is_signed_in() -> bool:
+	return is_instance_valid(backend) and not str(backend.access_token).is_empty() and not launch_as_guest
+
+## Where to play, in this order, with nothing typed:
+##   1. an address the player typed or configured (advanced option)
+##   2. the Supabase server directory (signed-in players)
+##   3. an open server on this network, found by LAN discovery (and by room code when joining)
+##   4. a default hosted server from the project settings, if it answers
+##   5. CREATE ROOM only: host the room on this device (lan_host.gd) so friends can join by code
+## Returns {host, guest}. An empty host means offline training.
+func _resolve_server_target() -> Dictionary:
+	var signed_in := _is_signed_in()
 	var manual := _configured_server_host()
 	if not manual.is_empty():
-		return manual
-	if not is_instance_valid(backend) or str(backend.access_token).is_empty():
-		return ""
-	if pending_launch_action == "join_room":
-		var code := pending_launch_room_code.strip_edges().to_upper()
-		_on_network_status_changed("Looking for room %s..." % code)
-		var room_lookup: Dictionary = await backend.find_room_server(code)
-		if room_lookup.get("ok", false):
-			return str(room_lookup.get("host", ""))
-		_show_meme_toast("ROOM %s NOT FOUND • check the code; the room may have closed" % code)
+		return {"host": manual, "guest": not signed_in}
+	var code := pending_launch_room_code.strip_edges().to_upper() if pending_launch_action == "join_room" else ""
+	if signed_in:
+		if not code.is_empty():
+			_on_network_status_changed("Looking for room %s..." % code)
+			var room_lookup: Dictionary = await backend.find_room_server(code)
+			if room_lookup.get("ok", false):
+				return {"host": str(room_lookup.get("host", "")), "guest": false}
+		else:
+			_on_network_status_changed("Finding a server...")
+			var found: Dictionary = await backend.find_server()
+			if found.get("ok", false):
+				var found_host := str(found.get("host", ""))
+				if bool(found.get("stale", false)):
+					await _wake_server(found_host)
+				return {"host": found_host, "guest": false}
+	_on_network_status_changed("Looking for servers on this network...")
+	var servers: Array = await LAN_DISCOVERY.scan(get_tree(), 1.2, LAN_DISCOVERY.PORT, code)
+	if not code.is_empty():
+		var room_server: Dictionary = LAN_DISCOVERY.find_room(servers, code)
+		if not room_server.is_empty():
+			return {"host": LAN_DISCOVERY.address_of(room_server), "guest": true}
+	elif not servers.is_empty():
+		return {"host": LAN_DISCOVERY.address_of(LAN_DISCOVERY.best_server(servers)), "guest": true}
+	for default_server in _default_servers():
+		_on_network_status_changed("Trying %s..." % default_server)
+		if await _probe_server(default_server):
+			return {"host": default_server, "guest": not signed_in}
+	if pending_launch_action == "create_room":
+		if _start_lan_host():
+			_show_meme_toast("ROOM HOSTED ON THIS DEVICE • friends on the same Wi-Fi only need the room code")
+			return {"host": "127.0.0.1", "guest": true}
+	if not code.is_empty():
+		_show_meme_toast("ROOM %s NOT FOUND • check the code; the host must be on the same Wi-Fi or online" % code)
 		_on_network_status_changed("Room %s not found" % code)
-		pending_launch_action = "practice"
-		return ""
-	_on_network_status_changed("Finding a server...")
-	var found: Dictionary = await backend.find_server()
-	if found.get("ok", false):
-		var found_host := str(found.get("host", ""))
-		if bool(found.get("stale", false)):
-			await _wake_server(found_host)
-		return found_host
-	_show_meme_toast("NO ONLINE SERVER • offline training arena")
-	_on_network_status_changed("No online server found")
+	else:
+		_show_meme_toast("NO ONLINE SERVER • offline training arena")
+		_on_network_status_changed("No online server found")
 	pending_launch_action = "practice"
-	return ""
+	return {"host": "", "guest": false}
+
+func _default_servers() -> PackedStringArray:
+	var configured: Variant = ProjectSettings.get_setting("oxenwar/default_servers", PackedStringArray())
+	var result := PackedStringArray()
+	if typeof(configured) == TYPE_PACKED_STRING_ARRAY or typeof(configured) == TYPE_ARRAY:
+		for item in configured:
+			var value := str(item).strip_edges()
+			if not value.is_empty():
+				result.append(value)
+	return result
+
+## One quick HTTP request to a hosted server's /health page. Free plans sleep, so a slow answer is waited for.
+func _probe_server(host: String) -> bool:
+	if not host.begins_with("wss://"):
+		return true
+	_on_network_status_changed("Waking the server (up to a minute)...")
+	var request := HTTPRequest.new()
+	request.timeout = 50.0
+	add_child(request)
+	var status := 0
+	if request.request("https://" + host.trim_prefix("wss://") + "/health") == OK:
+		var response: Array = await request.request_completed
+		status = int(response[1])
+	request.queue_free()
+	return status >= 200 and status < 300
+
+func _start_lan_host() -> bool:
+	if is_instance_valid(lan_host):
+		return true
+	lan_host = LAN_HOST.new()
+	lan_host.name = "OxenWarLanHost"
+	add_child(lan_host)
+	if lan_host.start():
+		return true
+	lan_host.queue_free()
+	lan_host = null
+	return false
 
 ## Free hosting plans put idle servers to sleep; one HTTP request wakes them (this can take a minute).
 func _wake_server(host: String) -> void:
@@ -441,6 +509,11 @@ func _on_network_authentication_changed(authenticated: bool, message: String) ->
 	elif is_instance_valid(player) and not authenticated:
 		player.set_physics_process(false)
 		_release_all_touch_actions()
+		if not _guest_fallback_tried and not network.is_guest_connection() and message.begins_with("Game ticket invalid") and is_instance_valid(network):
+			# An open server (own PC, LAN) does not know Supabase tickets: join it as a guest instead.
+			_guest_fallback_tried = true
+			network.connect_as_guest(network.current_host(), local_player_name)
+			return
 		if not _connection_error_toast_shown:
 			# Without a hint the player just stands frozen; tell them how to change the server.
 			_connection_error_toast_shown = true
@@ -669,8 +742,8 @@ func _on_network_connect_pressed() -> void:
 	if host.is_empty():
 		_on_network_status_changed("Enter a deployed server host")
 		return
-	if not is_instance_valid(backend) or str(backend.access_token).is_empty():
-		_on_network_status_changed("Sign in required for multiplayer")
+	if not _is_signed_in():
+		network.connect_as_guest(host, local_player_name)
 		return
 	network.connect_to_server(host, str(backend.access_token))
 

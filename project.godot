@@ -10,6 +10,10 @@ run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 config/description="OxenWar: free-to-play cross-platform parkour arena with accounts, friends and free character cosmetics."
 
+[oxenwar]
+
+default_servers=PackedStringArray("wss://oxenwar-game-server.onrender.com")
+
 [display]
 window/size/viewport_width=1280
 window/size/viewport_height=720

@@ -79,16 +79,17 @@ func _run() -> void:
 	if requests.size() == 1:
 		_check(str(requests[0].get("launch_action")) == "quick_match", "START requests a quick match")
 		_check(str(requests[0].get("server_host")) == "", "no server address is needed or sent")
+	# CREATE ROOM and JOIN are not blocked either: the game itself looks for a server (LAN, hosted) and
+	# CREATE ROOM hosts the room on this device when nothing else exists.
 	create.pressed.emit()
-	_check(requests.size() == 1, "CREATE ROOM with no server online does not launch")
-	_check(menu.notice_panel.visible, "CREATE ROOM with no server online shows a visible hint")
-	menu.notice_panel.hide()
+	_check(requests.size() == 2 and str(requests[1].get("launch_action")) == "create_room", "CREATE ROOM with no server online still launches (hosts here)")
 	code_field.text = "AB234C"
 	code_field.text_changed.emit("AB234C")
 	join.pressed.emit()
-	_check(requests.size() == 1, "JOIN with no server online does not launch")
-	_check(menu.notice_panel.visible, "JOIN with no server online shows a visible hint")
-	menu.notice_panel.hide()
+	_check(requests.size() == 3 and str(requests[2].get("launch_action")) == "join_room", "JOIN with a code launches (the game finds the host on the network)")
+	_check(str(requests[2].get("room_code")) == "AB234C", "JOIN carries the room code")
+	_check(not bool(requests[2].get("guest", true)), "a signed-in player is not a guest")
+	var base := requests.size()
 
 	# A server comes online: the address is never typed. START, CREATE ROOM and JOIN (room code only) all launch.
 	backend.server_online = true
@@ -110,34 +111,34 @@ func _run() -> void:
 	_check(menu.selected_game_mode == "demolition", "mode card selects Bomb Rush")
 	_check(menu.selected_map_index == 5, "map tile selects Jungle Arena")
 	start.pressed.emit()
-	_check(requests.size() == 2 and str(requests[1].get("launch_action")) == "quick_match", "START with a server online starts quick match")
-	if requests.size() >= 2:
-		_check(str(requests[1].get("game_mode")) == "demolition" and int(requests[1].get("map_index")) == 5, "quick match carries mode and map")
-		_check(str(requests[1].get("server_host")) == "", "server is resolved automatically, no host sent")
+	_check(requests.size() == base + 1 and str(requests[base].get("launch_action")) == "quick_match", "START with a server online starts quick match")
+	if requests.size() >= base + 1:
+		_check(str(requests[base].get("game_mode")) == "demolition" and int(requests[base].get("map_index")) == 5, "quick match carries mode and map")
+		_check(str(requests[base].get("server_host")) == "", "server is resolved automatically, no host sent")
 	create.pressed.emit()
-	_check(requests.size() == 3 and str(requests[2].get("launch_action")) == "create_room", "CREATE ROOM creates a room")
+	_check(requests.size() == base + 2 and str(requests[base + 1].get("launch_action")) == "create_room", "CREATE ROOM creates a room")
 	code_field.text = "ab"
 	code_field.text_changed.emit("ab")
 	join.pressed.emit()
-	_check(requests.size() == 3, "JOIN with a short code does not launch")
+	_check(requests.size() == base + 2, "JOIN with a short code does not launch")
 	code_field.text = "xjhwe2"
 	code_field.text_changed.emit("xjhwe2")
 	_check(code_field.text == "XJHWE2", "room code is upper-cased while typing")
 	join.pressed.emit()
-	_check(requests.size() == 4 and str(requests[3].get("launch_action")) == "join_room", "JOIN with only a room code joins")
-	if requests.size() >= 4:
-		_check(str(requests[3].get("room_code")) == "XJHWE2", "join carries the normalized room code")
-		_check(str(requests[3].get("server_host")) == "", "join needs no server address")
+	_check(requests.size() == base + 3 and str(requests[base + 2].get("launch_action")) == "join_room", "JOIN with only a room code joins")
+	if requests.size() >= base + 3:
+		_check(str(requests[base + 2].get("room_code")) == "XJHWE2", "join carries the normalized room code")
+		_check(str(requests[base + 2].get("server_host")) == "", "join needs no server address")
 
 	# Advanced: a custom server address still works, and a malformed one is rejected with an error.
 	host_field.text = "bad host"
 	host_field.text_changed.emit("bad host")
 	start.pressed.emit()
-	_check(requests.size() == 4, "malformed custom address does not launch")
+	_check(requests.size() == base + 3, "malformed custom address does not launch")
 	host_field.text = "wss://example.com"
 	host_field.text_changed.emit("wss://example.com")
 	start.pressed.emit()
-	_check(requests.size() == 5 and str(requests[4].get("server_host")) == "wss://example.com", "custom server address is sent")
+	_check(requests.size() == base + 4 and str(requests[base + 3].get("server_host")) == "wss://example.com", "custom server address is sent")
 
 	# Leaving and returning to the play tab keeps what was typed.
 	menu.call("_on_tab_pressed", "play")
