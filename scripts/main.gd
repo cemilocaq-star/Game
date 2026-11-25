@@ -13,6 +13,7 @@ const MENU_SCRIPT = preload("res://scripts/oxenwar_menu.gd")
 const NETWORK_SCRIPT = preload("res://scripts/oxenwar_network.gd")
 const LAN_DISCOVERY := preload("res://scripts/lan_discovery.gd")
 const EMOTE_CATALOG := preload("res://scripts/emote_catalog.gd")
+const SERVER_LIST := preload("res://scripts/server_list.gd")
 const LAN_HOST := preload("res://scripts/lan_host.gd")
 const SUNSHINE_FX := preload("res://scripts/sunshine_fx.gd")
 var _sunshine_fx: Node3D
@@ -413,7 +414,11 @@ func _resolve_server_target() -> Dictionary:
 			return {"host": LAN_DISCOVERY.address_of(room_server), "guest": true}
 	elif not servers.is_empty():
 		return {"host": LAN_DISCOVERY.address_of(LAN_DISCOVERY.best_server(servers)), "guest": true}
-	for default_server in _default_servers():
+	var candidates := await _remote_server_list()
+	for fallback in _default_servers():
+		if not candidates.has(fallback):
+			candidates.append(fallback)
+	for default_server in candidates:
 		_on_network_status_changed("Trying %s..." % default_server)
 		if await _probe_server(default_server):
 			return {"host": default_server, "guest": not signed_in}
@@ -439,6 +444,29 @@ func _default_servers() -> PackedStringArray:
 			if not value.is_empty():
 				result.append(value)
 	return result
+
+## Hosted server addresses live in servers.json on GitHub, so a moved or replaced server only needs that file
+## edited, not a new APK. The last good list is cached in user:// for offline starts.
+func _remote_server_list() -> PackedStringArray:
+	var urls: Variant = ProjectSettings.get_setting("oxenwar/server_list_urls", PackedStringArray())
+	var found := PackedStringArray()
+	for url in urls:
+		var request := HTTPRequest.new()
+		request.timeout = 6.0
+		add_child(request)
+		if request.request(str(url)) == OK:
+			var response: Array = await request.request_completed
+			if int(response[1]) == 200:
+				found = SERVER_LIST.parse((response[3] as PackedByteArray).get_string_from_utf8())
+		request.queue_free()
+		if not found.is_empty():
+			var cache := FileAccess.open("user://server_list.json", FileAccess.WRITE)
+			if cache != null:
+				cache.store_string(JSON.stringify({"servers": Array(found)}))
+			return found
+	if FileAccess.file_exists("user://server_list.json"):
+		return SERVER_LIST.parse(FileAccess.get_file_as_string("user://server_list.json"))
+	return found
 
 ## One quick HTTP request to a hosted server's /health page. Free plans sleep, so a slow answer is waited for.
 func _probe_server(host: String) -> bool:

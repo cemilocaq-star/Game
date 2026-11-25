@@ -13,6 +13,7 @@ config/description="OxenWar: free-to-play cross-platform parkour arena with acco
 [oxenwar]
 
 default_servers=PackedStringArray("wss://oxenwar-game-server.onrender.com")
+server_list_urls=PackedStringArray("https://raw.githubusercontent.com/cemilocaq-star/Game/main/servers.json", "https://raw.githubusercontent.com/cemilocaq-star/Game/independent-audit/servers.json")
 
 [display]
 window/size/viewport_width=1280
