@@ -12,6 +12,7 @@ const BACKEND_SCRIPT = preload("res://scripts/oxenwar_supabase.gd")
 const MENU_SCRIPT = preload("res://scripts/oxenwar_menu.gd")
 const NETWORK_SCRIPT = preload("res://scripts/oxenwar_network.gd")
 const LAN_DISCOVERY := preload("res://scripts/lan_discovery.gd")
+const EMOTE_CATALOG := preload("res://scripts/emote_catalog.gd")
 const LAN_HOST := preload("res://scripts/lan_host.gd")
 const SUNSHINE_FX := preload("res://scripts/sunshine_fx.gd")
 var _sunshine_fx: Node3D
@@ -2057,14 +2058,14 @@ func _build_emote_wheel(root: Control, trigger_offset: Vector2, m: float) -> voi
 	back.add_theme_stylebox_override("panel", back_style)
 	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	emote_wheel.add_child(back)
-	var choices := [
-		{"id":"griddy", "label":"Dance", "icon":"emote_dance", "dir":Vector2(0, -1)},
-		{"id":"goofy", "label":"Goofy", "icon":"emote_goofy", "dir":Vector2(1, 0)},
-		{"id":"robot", "label":"Robot", "icon":"emote_robot", "dir":Vector2(0, 1)},
-		{"id":"wave", "label":"Wave", "icon":"emote_wave", "dir":Vector2(-1, 0)}
-	]
+	# Eight emotes around the ring, clockwise from the top (order comes from the shared catalog).
+	var choices: Array = []
+	for index in range(EMOTE_CATALOG.IDS.size()):
+		var emote_key: String = EMOTE_CATALOG.IDS[index]
+		var angle := TAU * float(index) / float(EMOTE_CATALOG.IDS.size())
+		choices.append({"id": emote_key, "label": EMOTE_CATALOG.LABELS[emote_key], "icon": EMOTE_CATALOG.ICONS[emote_key], "dir": Vector2(sin(angle), -cos(angle))})
 	var center := Vector2(wheel_size, wheel_size) * 0.5
-	var button_size := maxf(m * 1.15, 72.0)
+	var button_size := 62.0
 	for choice in choices:
 		var button: Button = GAME_HUD.button(emote_wheel, "Emote_" + str(choice.id), str(choice.icon), str(choice.label), "", UI_THEME.ACCENT, Vector2(button_size, button_size))
 		button.position = center + (choice.dir as Vector2) * (wheel_size * 0.5 - button_size * 0.5 - 12.0) - Vector2(button_size, button_size) * 0.5

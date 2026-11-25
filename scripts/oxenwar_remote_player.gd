@@ -2,6 +2,7 @@ extends Node3D
 ## Lightweight visual proxy for another connected player.
 
 const CharacterVisuals = preload("res://scripts/character_visuals.gd")
+const EMOTE_CATALOG := preload("res://scripts/emote_catalog.gd")
 const WEAPON_VISUALS := preload("res://scripts/arcade_weapon_visuals.gd")
 const PLAYER := preload("res://scripts/player.gd")
 const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
@@ -212,7 +213,7 @@ func apply_network_state(position_value: Vector3, yaw_value: float, sliding: boo
 		_swimwear_root.visible = swimming
 	CharacterVisuals.set_clothing_visible(_character_detail_root, not swimming)
 	if emote_id != _emote_id:
-		_emote_id = emote_id if emote_id in ["griddy", "goofy", "robot", "wave"] else ""
+		_emote_id = EMOTE_CATALOG.sanitize(emote_id)
 		_emote_clock = 0.0
 	if is_instance_valid(_name_tag):
 		_name_tag.text = "%s  •  K.O." % display_name if dead else "%s  •  HP %d" % [display_name, int(ceil(health))]

@@ -33,6 +33,7 @@ const SUPABASE_URL := "https://lznnfwhlsquiitkhjzlc.supabase.co"
 const SUPABASE_KEY := "sb_publishable_z7UuZtF9NQwox1Ae0droQA_mxpD-P7L"
 const SERVER_PLAYER_SCRIPT := preload("res://scripts/oxenwar_server_player.gd")
 const LAN_DISCOVERY := preload("res://scripts/lan_discovery.gd")
+const EMOTE_CATALOG := preload("res://scripts/emote_catalog.gd")
 ## Open servers accept guests: a display name is the whole identity, nothing is saved to an account.
 const GUEST_TICKET_PREFIX := "GUEST-"
 const GUEST_USER_PREFIX := "guest-"
@@ -334,12 +335,12 @@ func _sanitize_mode(mode: String) -> String:
 	return "ffa"
 
 func request_emote(emote_id: String) -> void:
-	if is_authenticated and not is_dedicated_server and emote_id in ["griddy", "goofy", "robot", "wave", ""]:
+	if is_authenticated and not is_dedicated_server and (emote_id.is_empty() or EMOTE_CATALOG.is_valid(emote_id)):
 		rpc_id(1, "_server_set_emote", emote_id)
 
 @rpc("any_peer", "call_remote", "reliable")
 func _server_set_emote(emote_id: String) -> void:
-	if not multiplayer.is_server() or emote_id not in ["griddy", "goofy", "robot", "wave", ""]:
+	if not multiplayer.is_server() or (not emote_id.is_empty() and not EMOTE_CATALOG.is_valid(emote_id)):
 		return
 	var peer_id := multiplayer.get_remote_sender_id()
 	if not _peer_users.has(peer_id) or not _server_players.has(peer_id):
@@ -766,7 +767,7 @@ func _server_authenticate(ticket: String) -> void:
 		player.damage_received = maxf(0.0, float(restored.get("damage_received", 0.0)))
 		player.secret_404_found = bool(restored.get("secret_404_found", false))
 		var restored_emote := str(restored.get("emote_id", ""))
-		player.emote_id = restored_emote if restored_emote in ["griddy", "goofy", "robot", "wave"] else ""
+		player.emote_id = EMOTE_CATALOG.sanitize(restored_emote)
 		player.is_swimming = bool(restored.get("is_swimming", false))
 		player.damage_dealt = float(restored.get("damage_dealt", 0.0))
 		player.shots_fired = int(restored.get("shots_fired", 0))

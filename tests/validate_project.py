@@ -31,7 +31,7 @@ required = [
     "tools/set_android_version.py", "tests/test_android_version.py",
     "tests/test_live_websocket_proxy.py", "tests/test_character_motion_rig.gd",
     "scripts/lan_discovery.gd", "scripts/lan_host.gd", "tests/test_lan_discovery.gd", "tests/test_open_host.gd",
-    "tests/test_guest_menu.gd", "tests/run_open_server_test.sh", "tests/online/open_client.gd",
+    "tests/test_guest_menu.gd", "scripts/emote_catalog.gd", "assets/weapons/kenney/blaster.glb", "assets/weapons/kenney/blaster-repeater.glb", "assets/weapons/kenney/Textures/colormap.png", "assets/weapons/kenney/CREDITS.md", "tests/run_open_server_test.sh", "tests/online/open_client.gd",
 ]
 for rel in required:
     if not (ROOT / rel).is_file():
@@ -226,8 +226,8 @@ checks = [
     ("Hill_North_Beam", main, "central capture-zone arena marker"),
     ("objective_label.text", main, "live hill objective HUD"),
     ("WINNER  %s  •  %d KILLS", main, "highest-kill winner announcement"),
-    ("play_emote(\"griddy\")", player, "Griddy emote trigger"),
-    ("play_emote(\"goofy\")", player, "goofy dance emote trigger"),
+    ("EMOTE_CATALOG.IDS", player, "emote key triggers from the shared catalog"),
+    ("\"salute\"", read("scripts/emote_catalog.gd"), "extended emote list"),
     ("_make_emote_music", player, "original synthesized emote music"),
     ("LOOP_FORWARD", player, "looped original dance beat"),
     ("request_emote", read("scripts/oxenwar_network.gd"), "network emote request"),
@@ -236,11 +236,11 @@ checks = [
     
     
     
-    ("emote_robot", player, "robot emote input"),
-    ("emote_wave", player, "wave emote input"),
+    ("emote_robot", read("scripts/input_bindings.gd"), "robot emote input"),
+    ("emote_wave", read("scripts/input_bindings.gd"), "wave emote input"),
     ('net.request_emote("")', player, "server receives emote stop state"),
-    ('"robot"', read("scripts/oxenwar_network.gd"), "server validates robot emote"),
-    ('"wave"', read("scripts/oxenwar_network.gd"), "server validates wave emote"),
+    ("EMOTE_CATALOG.is_valid", read("scripts/oxenwar_network.gd"), "server validates robot emote"),
+    ("EMOTE_CATALOG.sanitize", read("scripts/oxenwar_network.gd"), "server validates wave emote"),
     ('state["collections"] = player.collection_counts.duplicate(true)', read("scripts/oxenwar_network.gd"), "authoritative collectible count snapshot"),
     ('state["secret_404_found"] = player.secret_404_found', read("scripts/oxenwar_network.gd"), "authoritative secret discovery snapshot"),
     ("ORBS %d  •  404", main, "clear non-currency orb counter"),

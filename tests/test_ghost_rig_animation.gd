@@ -26,6 +26,10 @@ const STATES := {
 	"goofy": [0.0, true, false, "goofy"],
 	"robot": [0.0, true, false, "robot"],
 	"wave": [0.0, true, false, "wave"],
+	"salute": [0.0, true, false, "salute"],
+	"clap": [0.0, true, false, "clap"],
+	"flex": [0.0, true, false, "flex"],
+	"spin": [0.0, true, false, "spin"],
 	"defeat": [0.0, true, false, "defeat"],
 }
 const BONES := ["UpperArm_", "Forearm_", "Thigh_", "Shin_"]
@@ -236,7 +240,7 @@ func _test_symmetry_and_loop() -> void:
 
 ## Going from one state to the next (run -> slide -> air -> ...) moves bones smoothly, never in a jump.
 func _test_transitions() -> void:
-	var order := ["run", "slide", "airborne", "run", "griddy", "idle", "wave", "goofy", "robot", "defeat", "walk"]
+	var order := ["run", "slide", "airborne", "run", "griddy", "idle", "wave", "goofy", "robot", "salute", "clap", "flex", "spin", "defeat", "walk"]
 	var previous := _bone_rotations()
 	var worst := 0.0
 	var worst_at := ""
@@ -279,7 +283,7 @@ func _test_weapon_hold() -> void:
 func _test_abuse() -> void:
 	var generator := RandomNumberGenerator.new()
 	generator.seed = 20261117
-	var emotes := ["", "", "griddy", "goofy", "robot", "wave", "defeat", "unknown_emote"]
+	var emotes := ["", "", "griddy", "goofy", "robot", "wave", "salute", "clap", "flex", "spin", "defeat", "unknown_emote"]
 	for index in range(600):
 		var deltas := [0.0, DT, DT, 0.033, 0.1, 1.0]
 		var state := [generator.randf_range(0.0, 14.0), generator.randf() > 0.3, generator.randf() > 0.8, emotes[generator.randi() % emotes.size()]]

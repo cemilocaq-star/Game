@@ -5,6 +5,7 @@ extends RefCounted
 const GHOST_RIG := preload("res://scripts/ghost_costume_rig.gd")
 const CHARACTER_VISUALS := preload("res://scripts/character_visuals.gd")
 const WEAPON_HOLD := preload("res://scripts/weapon_hold.gd")
+const EMOTE_CATALOG := preload("res://scripts/emote_catalog.gd")
 
 ## Builds the articulated limb rig on the shared slim torso. When `outfit_id`
 ## has a costume profile (see CharacterVisuals.profile_for) the limbs, hands and
@@ -125,7 +126,7 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 	var move_weight := clampf(speed / 6.6, 0.0, 1.0)
 	var cadence := lerpf(7.2, 12.4, move_weight)
 	var phase := clock * cadence
-	var active_emote := emote in ["griddy", "goofy", "robot", "wave", "defeat"]
+	var active_emote := emote == "defeat" or EMOTE_CATALOG.is_valid(emote)
 	var emote_phase := clock * TAU * _emote_rate(emote)
 	var bob_target := 0.0
 	var body_lean := 0.0
@@ -152,6 +153,18 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 				body_lean = -0.025
 				body_sway = sin(emote_phase * 0.5) * 0.035
 				bob_target = absf(sin(emote_phase)) * 0.014
+			"salute":
+				body_lean = -0.02
+				bob_target = 0.0
+			"clap":
+				body_lean = 0.03
+				bob_target = absf(sin(emote_phase * 2.0)) * 0.02
+			"flex":
+				body_lean = -0.035
+				body_sway = sin(emote_phase * 0.5) * 0.05
+				bob_target = absf(sin(emote_phase * 2.0)) * 0.012
+			"spin":
+				bob_target = absf(sin(emote_phase * 1.8)) * 0.05
 	elif not grounded:
 		body_lean = -0.12
 		bob_target = -0.035
@@ -162,7 +175,11 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 
 	rig.position.y = move_toward(rig.position.y, bob_target, delta * 5.0)
 	rig.rotation.x = move_toward(rig.rotation.x, body_lean, delta * 6.0)
-	rig.rotation.y = move_toward(rig.rotation.y, body_sway, delta * 7.0)
+	if emote == "spin":
+		# A full turn about the vertical axis; wrapped afterwards so it unwinds the short way when the emote ends.
+		rig.rotation.y = wrapf(emote_phase * 0.9, -PI, PI)
+	else:
+		rig.rotation.y = move_toward(wrapf(rig.rotation.y, -PI, PI), body_sway, delta * 7.0)
 
 	# The oversized troll head follows movement with a subtle, readable bounce.
 	var details := rig.get_parent().get_node_or_null("CharacterDetailPass") as Node3D if is_instance_valid(rig.get_parent()) else null
@@ -261,6 +278,49 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 			knee_x = 0.04
 			ankle_x = 0.0
 			leg_z = side * 0.015
+		elif emote == "salute":
+			# Right hand to the brow, left arm at the side, feet together.
+			if is_right:
+				arm_x = 1.55 + sin(emote_phase * 0.7) * 0.015
+				arm_z = 0.42
+				elbow_x = 1.95
+			else:
+				arm_x = 0.0
+				arm_z = -0.05
+				elbow_x = 0.20
+			leg_x = 0.0
+			knee_x = 0.0
+			ankle_x = 0.0
+			leg_z = side * 0.02
+		elif emote == "clap":
+			# Both forearms come together in front of the chest twice a second.
+			var together := 0.5 + 0.5 * sin(emote_phase * 2.0)
+			arm_x = 1.05
+			arm_z = side * (0.30 - 0.34 * together)
+			elbow_x = 1.10 + together * 0.16
+			leg_x = sin(emote_phase + phase_offset) * 0.07
+			knee_x = 0.05
+			ankle_x = 0.0
+			leg_z = side * 0.03
+		elif emote == "flex":
+			# Double biceps: upper arms forward and out, forearms folded up, a small pulse, wide stance.
+			var pulse := 0.5 + 0.5 * sin(emote_phase * 2.0)
+			arm_x = 1.20
+			arm_z = side * 0.55
+			elbow_x = 1.85 + pulse * 0.25
+			leg_x = 0.0
+			knee_x = 0.08
+			ankle_x = 0.0
+			leg_z = side * 0.11
+		elif emote == "spin":
+			# Arms out like wings while the whole body turns, knees soft.
+			arm_x = 0.0
+			arm_z = side * 1.25
+			elbow_x = 0.10
+			leg_x = 0.30 if is_right else -0.10
+			knee_x = 0.28
+			ankle_x = -0.10
+			leg_z = side * 0.06
 
 		if not hold.is_empty() and not active_emote:
 			var glove_target: Variant = hold.get("right") if is_right else hold.get("left")
@@ -292,6 +352,14 @@ static func _emote_rate(emote: String) -> float:
 			return 1.8
 		"wave":
 			return 1.05
+		"salute":
+			return 1.2
+		"clap":
+			return 1.0
+		"flex":
+			return 0.8
+		"spin":
+			return 1.0
 	return 1.0
 
 

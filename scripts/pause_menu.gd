@@ -31,7 +31,7 @@ Left click / FIRE: shoot      G: grenade      E / R: next / previous weapon
 V: arsenal      H: inspect weapon      T: reload / recharge
 Tab: scoreboard      F: plant / defuse
 C / VIEW: first / third person camera
-B N M J: emotes      Esc / Back: this menu"""
+B N M J Z K L U: emotes      Esc / Back: this menu"""
 
 var _ui_root: Control
 var _card: Control

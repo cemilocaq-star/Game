@@ -152,6 +152,23 @@ static func _authored_body(parent: Node3D, asset: String, scale_factor: float, o
 	grip.position = Vector3(0.0, -0.09, 0.01) if asset == "rifle" else (Vector3(0.0, -0.09, 0.05) if asset == "sidearm" else Vector3(0.0, -0.11, 0.02))
 	parent.add_child(grip)
 
+## CC0 Kenney blaster bodies. Their barrels point +Z, so they are turned half a circle to face -Z like every weapon here.
+static func _kenney_body(parent: Node3D, asset: String, scale_factor: float, offset: Vector3) -> void:
+	var packed := load("res://assets/weapons/kenney/%s.glb" % asset) as PackedScene
+	if packed == null:
+		push_error("Missing Kenney weapon: " + asset)
+		return
+	var model := packed.instantiate() as Node3D
+	model.name = "AuthoredBody"
+	model.rotation.y = PI
+	model.scale = Vector3.ONE * scale_factor
+	model.position = offset
+	parent.add_child(model)
+	var grip := Marker3D.new()
+	grip.name = "AuthoredGrip"
+	grip.position = Vector3(0.0, -0.11, 0.04)
+	parent.add_child(grip)
+
 static func build_weapon(weapon_id: String, tint: Color) -> Node3D:
 	var root := Node3D.new()
 	root.name = "ArcadeWeapon_" + weapon_id
@@ -186,24 +203,21 @@ static func build_weapon(weapon_id: String, tint: Color) -> Node3D:
 			_box(root, "MiniCoreCarryBar", Vector3(0.06, 0.04, 0.26), Vector3(0.0, 0.16, -0.05), steel, METAL)
 			_grip(root, "MiniCoreGrip", Vector3(0.0, -0.19, 0.12), rubber)
 		"hand_cannon":
-			_ell(root, "NovaChunkyBody", Vector3(0.30, 0.24, 0.42), Vector3(0.0, 0.0, -0.06), body)
-			_cone(root, "NovaBarrel", 0.095, 0.125, 0.24, Vector3(0.0, 0.015, -0.33), steel, METAL)
-			_ring(root, "NovaMuzzleRing", 0.115, 0.022, Vector3(0.0, 0.015, -0.46), trim, METAL)
-			_tube(root, "NovaMuzzle", 0.075, 0.07, Vector3(0.0, 0.015, -0.47), tint, GLOW)
-			_orb(root, "NovaPowerGem", 0.075, Vector3(0.0, 0.135, -0.14), tint, GLOW)
-			_prism(root, "NovaTopFin", Vector3(0.06, 0.07, 0.30), Vector3(0.0, 0.13, 0.02), steel, METAL)
-			_box(root, "NovaSideGlass", Vector3(0.012, 0.09, 0.20), Vector3(0.152, 0.0, -0.07), light, GLASS)
-			_grip(root, "NovaGrip", Vector3(0.0, -0.20, 0.10), rubber)
+			_kenney_body(root, "blaster", 0.32, Vector3(0.0, -0.14, -0.12))
+			_ring(root, "NovaMuzzleRing", 0.075, 0.018, Vector3(0.0, 0.03, -0.40), trim, METAL)
+			_tube(root, "NovaMuzzle", 0.05, 0.05, Vector3(0.0, 0.03, -0.42), tint, GLOW)
+			_orb(root, "NovaPowerGem", 0.06, Vector3(0.0, 0.17, -0.02), tint, GLOW)
+			_box(root, "NovaTopFin", Vector3(0.04, 0.05, 0.22), Vector3(0.0, 0.2, 0.04), steel, METAL)
+			_box(root, "NovaSideGlass", Vector3(0.012, 0.08, 0.16), Vector3(0.115, 0.04, -0.06), light, GLASS)
+			_grip(root, "NovaGrip", Vector3(0.0, -0.17, 0.05), rubber)
 		"pulse_carbine":
-			_ell(root, "PulseBody", Vector3(0.20, 0.19, 0.68), Vector3(0.0, 0.0, -0.11), body)
-			_box(root, "PulseLeftFin", Vector3(0.04, 0.075, 0.54), Vector3(-0.135, 0.015, -0.17), trim, PLASTIC)
-			_box(root, "PulseRightFin", Vector3(0.04, 0.075, 0.54), Vector3(0.135, 0.015, -0.17), trim, PLASTIC)
-			_cone(root, "PulseBarrel", 0.05, 0.065, 0.34, Vector3(0.0, 0.01, -0.52), steel, METAL)
-			_ring(root, "PulseBarrelBand", 0.07, 0.014, Vector3(0.0, 0.01, -0.40), gun, DARK)
-			_orb(root, "PulseCore", 0.065, Vector3(0.0, 0.12, -0.18), tint, GLOW)
-			_box(root, "PulseSightBase", Vector3(0.05, 0.03, 0.22), Vector3(0.0, 0.115, 0.07), gun, DARK)
-			_box(root, "PulseStock", Vector3(0.12, 0.16, 0.20), Vector3(0.0, -0.02, 0.34), rubber, GRIP)
-			_grip(root, "PulseGrip", Vector3(0.0, -0.17, 0.15), rubber)
+			_kenney_body(root, "blaster-repeater", 0.42, Vector3(0.0, -0.17, -0.12))
+			_ring(root, "PulseBarrelBand", 0.07, 0.014, Vector3(0.0, 0.01, -0.45), gun, DARK)
+			_orb(root, "PulseCore", 0.055, Vector3(0.0, 0.16, -0.06), tint, GLOW)
+			_box(root, "PulseSightBase", Vector3(0.05, 0.03, 0.20), Vector3(0.0, 0.18, 0.06), gun, DARK)
+			_box(root, "PulseStock", Vector3(0.12, 0.14, 0.18), Vector3(0.0, -0.02, 0.30), rubber, GRIP)
+			_tube(root, "PulseMuzzleGlow", 0.035, 0.04, Vector3(0.0, 0.01, -0.64), tint, GLOW)
+			_grip(root, "PulseGrip", Vector3(0.0, -0.17, 0.12), rubber)
 		"star_piercer":
 			_ell(root, "PiercerLongPrism", Vector3(0.14, 0.14, 0.92), Vector3(0.0, 0.01, -0.23), body)
 			_cone(root, "PiercerNeedle", 0.018, 0.06, 0.40, Vector3(0.0, 0.01, -0.64), steel, METAL)

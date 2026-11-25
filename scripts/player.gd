@@ -2,6 +2,7 @@ extends CharacterBody3D
 class_name ArcadePlayer
 
 const CharacterVisuals = preload("res://scripts/character_visuals.gd")
+const EMOTE_CATALOG := preload("res://scripts/emote_catalog.gd")
 const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
 const ARCADE_WEAPON_VISUALS = preload("res://scripts/arcade_weapon_visuals.gd")
 const WEAPON_FEEL = preload("res://scripts/weapon_feel.gd")
@@ -289,14 +290,10 @@ func set_swimming(enabled: bool) -> void:
 func _process(delta: float) -> void:
 	if is_instance_valid(_camera):
 		_camera.fov = lerpf(86.0, 68.0, _view_anim.fov_blend())
-	if Input.is_action_just_pressed("emote_griddy"):
-		play_emote("griddy")
-	elif Input.is_action_just_pressed("emote_goofy"):
-		play_emote("goofy")
-	elif Input.is_action_just_pressed("emote_robot"):
-		play_emote("robot")
-	elif Input.is_action_just_pressed("emote_wave"):
-		play_emote("wave")
+	for emote_key in EMOTE_CATALOG.IDS:
+		if InputMap.has_action(EMOTE_CATALOG.action_name(emote_key)) and Input.is_action_just_pressed(EMOTE_CATALOG.action_name(emote_key)):
+			play_emote(emote_key)
+			break
 	_motion_clock += delta
 	if active_emote != "":
 		_emote_clock += delta
@@ -485,7 +482,7 @@ func _animate_weapon_details() -> void:
 
 
 func play_emote(emote_id: String) -> void:
-	if emote_id not in ["griddy", "goofy", "robot", "wave"]:
+	if not EMOTE_CATALOG.is_valid(emote_id):
 		return
 	if active_emote == emote_id:
 		stop_emote()
@@ -515,7 +512,7 @@ func stop_emote() -> void:
 func apply_remote_emote(emote_id: String) -> void:
 	if emote_id == active_emote:
 		return
-	active_emote = emote_id if emote_id in ["griddy", "goofy", "robot", "wave"] else ""
+	active_emote = EMOTE_CATALOG.sanitize(emote_id)
 	_emote_clock = 0.0
 
 func _update_emote_visual() -> void:

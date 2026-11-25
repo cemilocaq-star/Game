@@ -4,6 +4,7 @@ extends SceneTree
 const CHARACTER_VISUALS := preload("res://scripts/character_visuals.gd")
 const CHARACTER_MOTION_RIG := preload("res://scripts/character_motion_rig.gd")
 const REMOTE_PLAYER := preload("res://scripts/oxenwar_remote_player.gd")
+const EMOTE_CATALOG := preload("res://scripts/emote_catalog.gd")
 
 var failures: Array[String] = []
 
@@ -43,20 +44,35 @@ func _run_tests() -> void:
 	_assert_true("run cycle alternates arms", arm_left.rotation.x * arm_right.rotation.x < 0.0)
 	_assert_true("run cycle alternates legs", leg_left.rotation.x * leg_right.rotation.x < 0.0)
 
-	# Four emotes must produce distinct right-arm poses.
-	var poses: Dictionary = {}
-	for emote in ["griddy", "goofy", "robot", "wave"]:
+	# Every emote in the catalog must produce its own whole-body pose (both arms, elbows and legs).
+	var emote_ids: Array = EMOTE_CATALOG.IDS
+	_assert_true("eight emotes are selectable", emote_ids.size() == 8)
+	var signatures: Dictionary = {}
+	for emote in emote_ids:
 		CHARACTER_MOTION_RIG.animate(rig, 0.37, 0.0, true, false, emote, 1.0)
-		poses[emote] = (rig.get_node("ArmPivot_R") as Node3D).rotation.x
-	var emote_ids := ["griddy", "goofy", "robot", "wave"]
+		signatures[emote] = _pose_signature(rig)
 	for first_index in range(emote_ids.size()):
 		for second_index in range(first_index + 1, emote_ids.size()):
 			var first_id: String = emote_ids[first_index]
 			var second_id: String = emote_ids[second_index]
-			_assert_true(
-				"emotes have distinct arm poses: %s / %s" % [first_id, second_id],
-				absf(float(poses[first_id]) - float(poses[second_id])) > 0.05
-			)
+			var distance := 0.0
+			for value_index in range((signatures[first_id] as Array).size()):
+				distance += absf(float(signatures[first_id][value_index]) - float(signatures[second_id][value_index]))
+			_assert_true("emotes have distinct poses: %s / %s" % [first_id, second_id], distance > 0.25)
+	# The new emotes read as what they are.
+	CHARACTER_MOTION_RIG.animate(rig, 0.37, 0.0, true, false, "salute", 1.0)
+	_assert_true("salute raises only the right hand", (rig.get_node("ArmPivot_R") as Node3D).rotation.x > 1.2 and (rig.get_node("ArmPivot_L") as Node3D).rotation.x < 0.3)
+	CHARACTER_MOTION_RIG.animate(rig, 0.37, 0.0, true, false, "flex", 1.0)
+	_assert_true("flex bends both elbows high", (rig.get_node("ArmPivot_R/ElbowPivot") as Node3D).rotation.x > 1.7 and (rig.get_node("ArmPivot_L/ElbowPivot") as Node3D).rotation.x > 1.7)
+	CHARACTER_MOTION_RIG.animate(rig, 0.1, 0.0, true, false, "spin", 1.0)
+	var spin_start := rig.rotation.y
+	CHARACTER_MOTION_RIG.animate(rig, 0.3, 0.0, true, false, "spin", 1.0)
+	_assert_true("spin turns the whole body", absf(rig.rotation.y - spin_start) > 0.4)
+	CHARACTER_MOTION_RIG.animate(rig, 0.3, 0.0, true, false, "", 1.0)
+	_assert_true("body returns upright after the spin", absf(rig.rotation.y) <= PI)
+	_assert_true("catalog validates ids", EMOTE_CATALOG.is_valid("clap") and not EMOTE_CATALOG.is_valid("hax") and EMOTE_CATALOG.sanitize("hax") == "")
+	for emote in emote_ids:
+		_assert_true("emote has a label, key and icon: " + str(emote), EMOTE_CATALOG.LABELS.has(emote) and EMOTE_CATALOG.KEYS.has(emote) and EMOTE_CATALOG.ICONS.has(emote))
 
 	# Sliding has a stable pose even when an emote state is present.
 	CHARACTER_MOTION_RIG.animate(rig, 1.0, 6.0, true, true, "wave", 1.0)
@@ -398,3 +414,17 @@ func _assert_close(label: String, actual: float, expected: float, tolerance: flo
 func _assert_equal(label: String, actual: Variant, expected: Variant) -> void:
 	if actual != expected:
 		failures.append("%s: expected %s, got %s" % [label, str(expected), str(actual)])
+
+
+func _pose_signature(rig: Node3D) -> Array:
+	var values: Array = []
+	for arm_name in ["ArmPivot_L", "ArmPivot_R"]:
+		var arm := rig.get_node(arm_name) as Node3D
+		values.append(arm.rotation.x)
+		values.append(arm.rotation.z)
+		values.append((arm.get_node("ElbowPivot") as Node3D).rotation.x)
+	for leg_name in ["LegPivot_L", "LegPivot_R"]:
+		var leg := rig.get_node(leg_name) as Node3D
+		values.append(leg.rotation.x)
+		values.append(leg.rotation.z)
+	return values
