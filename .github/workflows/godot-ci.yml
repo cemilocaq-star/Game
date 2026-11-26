@@ -420,3 +420,33 @@ jobs:
           if-no-files-found: error
           compression-level: 6
           retention-days: 30
+
+  docker-server:
+    name: Hosted server image starts and answers /health
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build the Render image
+        run: docker build -t oxenwar-server .
+
+      - name: Start it like Render does and wait for /health
+        run: |
+          docker run -d --name oxenwar -p 10000:10000 \
+            -e PORT=10000 -e OXENWAR_TRANSPORT=websocket -e OXENWAR_PORT=8081 \
+            -e OXENWAR_OPEN_MODE=1 -e OXENWAR_SERVER_SECRET=ci-only-secret \
+            oxenwar-server
+          ok=0
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:10000/health | grep -q '"status":"ok"'; then ok=1; break; fi
+            if [ "$(docker inspect -f '{{.State.Running}}' oxenwar)" != "true" ]; then break; fi
+            sleep 2
+          done
+          docker logs oxenwar 2>&1 | tail -40
+          if [ "$ok" != "1" ]; then echo "Server image did not become healthy."; exit 1; fi
+          if docker logs oxenwar 2>&1 | grep -E "SCRIPT ERROR|Failed to load script"; then
+            echo "Server logged GDScript errors."; exit 1
+          fi
+          echo "PASS: hosted server image starts and /health answers"
