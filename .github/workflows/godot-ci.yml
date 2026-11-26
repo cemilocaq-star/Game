@@ -447,6 +447,15 @@ jobs:
           docker logs oxenwar 2>&1 | tail -40
           if [ "$ok" != "1" ]; then echo "Server image did not become healthy."; exit 1; fi
           curl -fsS http://127.0.0.1:10000/ >/dev/null
+          # A complete WebSocket handshake must still reach Godot and be accepted (101).
+          handshake=$(curl -s -i -N --max-time 3 http://127.0.0.1:10000/ \
+            -H "Connection: Upgrade" -H "Upgrade: websocket" \
+            -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" || true)
+          echo "$handshake" | head -5
+          echo "$handshake" | head -1 | grep -q " 101" || { echo "Real WebSocket handshake was not accepted."; exit 1; }
+          # An incomplete upgrade (the kind that used to spam the log) must be answered by the proxy, not Godot.
+          incomplete=$(curl -s -i --max-time 3 http://127.0.0.1:10000/ -H "Upgrade: websocket" -H "Connection: Upgrade" || true)
+          echo "$incomplete" | head -1 | grep -q " 400" || { echo "Incomplete upgrade was not rejected by the proxy."; exit 1; }
           sleep 2
           if docker logs oxenwar 2>&1 | grep -E "Not enough response headers|SCRIPT ERROR|Failed to load script"; then
             echo "Server logged GDScript errors."; exit 1

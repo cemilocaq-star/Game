@@ -14,6 +14,16 @@ ENTRYPOINT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(ENTRYPOINT)
 
 
+FULL_UPGRADE = (
+    b"GET /multiplayer HTTP/1.1\r\n"
+    b"Host: localhost\r\n"
+    b"Upgrade: websocket\r\n"
+    b"Connection: Upgrade\r\n"
+    b"Sec-WebSocket-Version: 13\r\n"
+    b"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n"
+)
+
+
 async def test_health_endpoint() -> None:
     server = await asyncio.start_server(ENTRYPOINT._handle_client, "127.0.0.1", 0)
     port = int(server.sockets[0].getsockname()[1])
@@ -59,6 +69,45 @@ async def test_plain_http_is_not_forwarded() -> None:
         ENTRYPOINT.BACKEND_PORT = old_backend_port
         server.close()
         await server.wait_closed()
+
+
+async def test_incomplete_upgrade_is_not_forwarded() -> None:
+    # A backend that fails the test if anything reaches it (Godot would log "Not enough response headers").
+    reached = []
+
+    async def forbidden_backend(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        reached.append(True)
+        writer.close()
+
+    backend = await asyncio.start_server(forbidden_backend, "127.0.0.1", 0)
+    old_backend_port = ENTRYPOINT.BACKEND_PORT
+    ENTRYPOINT.BACKEND_PORT = int(backend.sockets[0].getsockname()[1])
+    proxy = await asyncio.start_server(ENTRYPOINT._handle_client, "127.0.0.1", 0)
+    port = int(proxy.sockets[0].getsockname()[1])
+    try:
+        bad_requests = (
+            b"GET / HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\n\r\n",
+            b"GET / HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n",
+            b"GET / HTTP/1.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: a\r\nSec-WebSocket-Version: 13\r\n\r\n",
+            b"POST / HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: a\r\nSec-WebSocket-Version: 13\r\n\r\n",
+        )
+        for request in bad_requests:
+            reader, writer = await asyncio.open_connection("127.0.0.1", port)
+            writer.write(request)
+            await writer.drain()
+            response = await asyncio.wait_for(reader.read(), timeout=3.0)
+            writer.close()
+            await writer.wait_closed()
+            if not response.startswith(b"HTTP/1.1 400"):
+                raise AssertionError(f"Incomplete upgrade {request[:30]!r} got {response[:40]!r}")
+        if reached:
+            raise AssertionError("An incomplete WebSocket upgrade reached the Godot backend")
+    finally:
+        ENTRYPOINT.BACKEND_PORT = old_backend_port
+        proxy.close()
+        backend.close()
+        await proxy.wait_closed()
+        await backend.wait_closed()
 
 
 async def test_websocket_tunnel() -> None:
@@ -138,7 +187,7 @@ async def test_backend_unavailable() -> None:
             ENTRYPOINT.BACKEND_PORT = unavailable.getsockname()[1]
             reader, writer = await asyncio.open_connection("127.0.0.1", port)
             try:
-                writer.write(b"GET /multiplayer HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n")
+                writer.write(FULL_UPGRADE)
                 await writer.drain()
                 response = await asyncio.wait_for(reader.read(), timeout=4.0)
                 assert response.startswith(b"HTTP/1.1 503 Service Unavailable\r\n"), response
@@ -154,6 +203,7 @@ async def test_backend_unavailable() -> None:
 async def main() -> None:
     await test_health_endpoint()
     await test_plain_http_is_not_forwarded()
+    await test_incomplete_upgrade_is_not_forwarded()
     await test_websocket_tunnel()
     await test_backend_unavailable()
     print("PASS: Render /health endpoint bidirectional WebSocket tunnel and unavailable-backend response")
