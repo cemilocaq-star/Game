@@ -136,9 +136,9 @@ async def test_backend_unavailable() -> None:
         with socket.socket() as unavailable:
             unavailable.bind(("127.0.0.1", 0))
             ENTRYPOINT.BACKEND_PORT = unavailable.getsockname()[1]
-                writer.write(b"GET /multiplayer HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n")
+            reader, writer = await asyncio.open_connection("127.0.0.1", port)
             try:
-                writer.write(b"GET /multiplayer HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                writer.write(b"GET /multiplayer HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n")
                 await writer.drain()
                 response = await asyncio.wait_for(reader.read(), timeout=4.0)
                 assert response.startswith(b"HTTP/1.1 503 Service Unavailable\r\n"), response
