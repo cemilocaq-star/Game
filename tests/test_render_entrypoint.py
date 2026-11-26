@@ -37,6 +37,30 @@ async def test_health_endpoint() -> None:
         await server.wait_closed()
 
 
+async def test_plain_http_is_not_forwarded() -> None:
+    # Nothing listens on the backend port: a forwarded request would get 503, a locally answered one 200.
+    old_backend_port = ENTRYPOINT.BACKEND_PORT
+    ENTRYPOINT.BACKEND_PORT = 1
+    server = await asyncio.start_server(ENTRYPOINT._handle_client, "127.0.0.1", 0)
+    port = int(server.sockets[0].getsockname()[1])
+    try:
+        for request, expected in ((b"GET / HTTP/1.1\r\nHost: x\r\nAccept: */*\r\n\r\n", b"HTTP/1.1 200 OK"),
+                                  (b"HEAD / HTTP/1.1\r\nHost: x\r\nA: b\r\n\r\n", b"HTTP/1.1 200 OK"),
+                                  (b"POST /x HTTP/1.1\r\nHost: x\r\nA: b\r\n\r\n", b"HTTP/1.1 405")):
+            reader, writer = await asyncio.open_connection("127.0.0.1", port)
+            writer.write(request)
+            await writer.drain()
+            response = await asyncio.wait_for(reader.read(), timeout=3.0)
+            writer.close()
+            await writer.wait_closed()
+            if not response.startswith(expected):
+                raise AssertionError(f"Plain HTTP request {request[:12]!r} got {response[:40]!r}")
+    finally:
+        ENTRYPOINT.BACKEND_PORT = old_backend_port
+        server.close()
+        await server.wait_closed()
+
+
 async def test_websocket_tunnel() -> None:
     async def dummy_godot_backend(
         reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -129,6 +153,7 @@ async def test_backend_unavailable() -> None:
 
 async def main() -> None:
     await test_health_endpoint()
+    await test_plain_http_is_not_forwarded()
     await test_websocket_tunnel()
     await test_backend_unavailable()
     print("PASS: Render /health endpoint bidirectional WebSocket tunnel and unavailable-backend response")
