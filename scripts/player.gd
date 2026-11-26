@@ -5,6 +5,7 @@ const CharacterVisuals = preload("res://scripts/character_visuals.gd")
 const EMOTE_CATALOG := preload("res://scripts/emote_catalog.gd")
 const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
 const ARCADE_WEAPON_VISUALS = preload("res://scripts/arcade_weapon_visuals.gd")
+const SKELETAL_AVATAR = preload("res://scripts/skeletal_avatar.gd")
 const WEAPON_FEEL = preload("res://scripts/weapon_feel.gd")
 const FOOTSTEPS = preload("res://scripts/footstep_audio.gd")
 const LOOK_CONTROL = preload("res://scripts/look_control.gd")
@@ -116,6 +117,8 @@ var _weapon_pivot: Node3D
 var _prev_look := Vector2.ZERO
 ## The weapon the character carries in the world (seen in third person and the intro).
 var _tp_weapon: Node3D
+## Skinned third-person body (skeletal_avatar.gd). The procedural body keeps animating but is not rendered.
+var _avatar: Node3D
 var _tp_weapon_info: Dictionary = {}
 var _tp_kick := 0.0
 var _look_primed := false
@@ -193,6 +196,7 @@ func _build_visuals() -> void:
 
 	# Keep the local avatar out of the first-person camera while preserving shadows.
 	_set_visual_layer_recursive(self, 2)
+	_build_avatar()
 	_camera = Camera3D.new()
 	_camera.position = Vector3(0, 1.55, -0.34)
 	_camera.current = true
@@ -209,6 +213,20 @@ func _build_visuals() -> void:
 		halo.position = Vector3(0, 2.0, 0)
 		_set_visual_layer_recursive(halo, 2)
 		add_child(halo)
+
+
+## The skinned character other players also see. Like the rest of the body it is only drawn by the external
+## camera (render layer 2); the procedural body stays in the tree, animated, but is given no render layer.
+func _build_avatar() -> void:
+	var avatar := SKELETAL_AVATAR.new()
+	avatar.name = "SkeletalAvatar"
+	if not avatar.build(cosmetic_outfit, cosmetic_color):
+		avatar.free()
+		return
+	add_child(avatar)
+	_avatar = avatar
+	_set_visual_layer_recursive(avatar, 2)
+	_set_visual_layer_recursive(_body_mesh, 0)
 
 
 func _set_visual_layer_recursive(node: Node, layer_mask: int) -> void:
@@ -309,6 +327,10 @@ func _process(delta: float) -> void:
 	if tp_armed:
 		hold = WEAPON_HOLD.reload_hold_targets(_tp_weapon_info, presentation_pitch, reload_weight)
 	CharacterMotionRig.animate(_motion_rig, _motion_clock, Vector2(velocity.x, velocity.z).length(), is_on_floor(), _is_sliding, active_emote, delta, hold)
+	if is_instance_valid(_avatar):
+		var flat_velocity := Vector3(velocity.x, 0.0, velocity.z)
+		_avatar.visible = not is_instance_valid(_body_mesh) or _body_mesh.visible
+		_avatar.update_pose(delta, flat_velocity.length(), global_transform.basis.inverse() * flat_velocity, is_on_floor(), _is_sliding, active_emote, tp_armed, reload_weight > 0.0)
 	_tp_kick = move_toward(_tp_kick, 0.0, delta * 7.0)
 	if is_instance_valid(_tp_weapon):
 		_tp_weapon.visible = tp_armed and (third_person or _intro_left > 0.0)
@@ -593,6 +615,8 @@ func set_combat_dead(dead: bool) -> void:
 	if dead == is_dead:
 		return
 	is_dead = dead
+	if is_instance_valid(_avatar):
+		_avatar.set_dead(dead)
 	_aim_held = false
 	for tween: Tween in [_weapon_equip_tween, _weapon_inspect_tween, _weapon_fire_tween]:
 		if tween != null and tween.is_valid():
@@ -674,9 +698,12 @@ func _attach_tp_weapon() -> void:
 	_tp_weapon_info = WEAPON_HOLD.measure(_tp_weapon, selected_weapon_id)
 	_tp_weapon.scale = Vector3.ONE * WEAPON_HOLD.WEAPON_SCALE
 	_tp_weapon.position = WEAPON_HOLD.GLOVE_LOCAL - (_tp_weapon_info.grip as Vector3) * WEAPON_HOLD.WEAPON_SCALE
-	_set_visual_layer_recursive(_tp_weapon, 2)
+	_set_visual_layer_recursive(_tp_weapon, 0 if is_instance_valid(_avatar) else 2)
 	_tp_weapon.visible = false
 	elbow.add_child(_tp_weapon)
+	if is_instance_valid(_avatar):
+		_avatar.set_weapon(selected_weapon_id, weapon_data.get("color", Color("#8CEEFF")))
+		_set_visual_layer_recursive(_avatar, 2)
 
 
 func _blaster_material(color: Color, metallic_value: float, emissive: bool = false) -> StandardMaterial3D:
@@ -765,6 +792,8 @@ func _fire_blaster() -> void:
 		return
 	_blaster_cooldown = float(ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"]).get("cooldown", 0.24))
 	_tp_kick = 1.0
+	if is_instance_valid(_avatar):
+		_avatar.fire()
 	_view_anim.fire(clampf(pow(_blaster_cooldown / 0.24, 0.55), 0.45, 1.8), 1.0 if randf() > 0.5 else -1.0)
 	_animate_weapon_fire()
 	var origin := _camera.global_position
