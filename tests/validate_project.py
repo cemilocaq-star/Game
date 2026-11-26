@@ -254,7 +254,7 @@ checks = [
     ('"tr"', i18n, "Turkish localization"),
     ('"ru"', i18n, "Russian localization"),
     ("_setup_blaster", player, "procedural Aether Blaster model"),
-    ("BarrelShroud", read("scripts/arcade_weapon_visuals.gd"), "multi-part Aether Blaster barrel casing"),
+    ("AetherEmitter", read("scripts/arcade_weapon_visuals.gd"), "multi-part Aether Blaster barrel casing"),
     ("UpperPowerRail", read("scripts/arcade_weapon_visuals.gd"), "Aether Blaster top equipment rail"),
     ("MuzzleRing", read("scripts/arcade_weapon_visuals.gd"), "Aether Blaster muzzle detail"),
     ("_view_anim.fire", player, "short visual blaster recoil animation"),
