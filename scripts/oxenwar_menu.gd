@@ -843,7 +843,7 @@ func _check_auto_server() -> void:
 		auto_server_state = "checking"
 		_refresh_server_state(server_host)
 	var found: Dictionary = {}
-	if not is_guest and backend != null and backend.has_method("find_server"):
+	if backend != null and backend.has_method("find_server"):
 		found = await backend.find_server()
 		if render_token != _render_id or not is_instance_valid(server_dot):
 			return

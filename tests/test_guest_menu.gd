@@ -68,7 +68,7 @@ func _run() -> void:
 	_check(str(menu.profile.get("display_name", "")) == "Ali", "guest profile carries the typed name")
 	_check(menu.find_child("MainNav", true, false) == null, "guest has no account tabs")
 	_check(menu.find_child("StartButton", true, false) != null, "guest sees the play screen")
-	_check(not backend.calls.has("update_presence") and not backend.calls.has("find_server"), "guest never calls the account backend")
+	_check(not backend.calls.has("update_presence") and not backend.calls.has("get_profile"), "guest never touches the account (presence, profile); the public server lookup is allowed")
 
 	var create: Button = menu.find_child("CreateRoomButton", true, false)
 	var join: Button = menu.find_child("JoinRoomButton", true, false)

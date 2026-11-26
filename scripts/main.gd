@@ -392,12 +392,12 @@ func _resolve_server_target() -> Dictionary:
 	if not manual.is_empty():
 		return {"host": manual, "guest": not signed_in}
 	var code := pending_launch_room_code.strip_edges().to_upper() if pending_launch_action == "join_room" else ""
-	if signed_in:
+	if backend != null:
 		if not code.is_empty():
 			_on_network_status_changed("Looking for room %s..." % code)
 			var room_lookup: Dictionary = await backend.find_room_server(code)
 			if room_lookup.get("ok", false):
-				return {"host": str(room_lookup.get("host", "")), "guest": false}
+				return {"host": str(room_lookup.get("host", "")), "guest": not signed_in}
 		else:
 			_on_network_status_changed("Finding a server...")
 			var found: Dictionary = await backend.find_server()
@@ -405,7 +405,7 @@ func _resolve_server_target() -> Dictionary:
 				var found_host := str(found.get("host", ""))
 				if bool(found.get("stale", false)):
 					await _wake_server(found_host)
-				return {"host": found_host, "guest": false}
+				return {"host": found_host, "guest": not signed_in}
 	_on_network_status_changed("Looking for servers on this network...")
 	var servers: Array = await LAN_DISCOVERY.scan(get_tree(), 1.2, LAN_DISCOVERY.PORT, code)
 	if not code.is_empty():
