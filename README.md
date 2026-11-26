@@ -39,6 +39,19 @@ The game client contains only the project's publishable key. Never add a Supabas
 
 Database schema source is in `supabase/migrations/`. Apply all new migrations, including `20261109143000_oxenwar_hero_inspired_outfits.sql`, before using the new outfits on a hosted Supabase project. The server sync Edge Function is in `supabase/functions/oxenwar-server-sync/index.ts`. It validates user JWTs over HTTPS when issuing a 60-second, single-use game ticket; the game server redeems it and receives a 12-hour server-only session token.
 
+## Playing without typing a server address
+
+- **Guest login:** type a name and play; no account or server secret is needed on an open server (`--server --open`, or `OXENWAR_OPEN_MODE=1` on Render).
+- **Rooms hosted on this device:** CREATE ROOM starts the authoritative server inside the game. Friends on the same Wi-Fi or hotspot join with only the room code (LAN discovery over UDP 2457).
+- **Hosted server:** the address is not baked into the APK. The game reads `servers.json` from this repository (raw.githubusercontent.com, `main` first, then `independent-audit`), caches the last good list, and falls back to `oxenwar/default_servers` in `project.godot`. To move the server, edit `servers.json`.
+- **Server directory (signed-in players):** `supabase/migrations/20261115120000_oxenwar_server_directory.sql` (applied to the live project on 2026-11-25) lets a dedicated server register itself through the `oxenwar-server-sync` edge function (`sync_directory`); the repository version of that function must be deployed for registration to work.
+
+## Characters, models and animation
+
+- Players are skinned KayKit Adventurers (CC0): Rogue, RogueHooded, Knight, Barbarian, Mage (`assets/characters/kaykit/`). One shared skeleton, 76 clips from `Rogue.glb`; `scripts/skeletal_avatar.gd` picks idle/walk/run/strafe/jump/death/emote clips and plays an upper-body aim/reload/shoot layer while a weapon is held. Outfit ids choose the character.
+- The older procedural body is still in the scene tree (tests and weapon hold maths use it) but is not rendered while the skinned character loads.
+- Weapon bodies from CC0 packs: Quaternius (`assets/weapons/quaternius/`) and Kenney (`assets/weapons/kenney/`); see each CREDITS.md.
+
 ## Run locally
 
 1. Install Godot 4.4.1 Standard (not .NET) and Python 3.
