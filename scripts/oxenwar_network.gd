@@ -130,6 +130,8 @@ var _directory_timer := 0.0
 var _directory_signature := ""
 var _directory_busy := false
 var _directory_warned := false
+var _directory_attempted := false
+var _directory_failures := 0
 
 func start_server(open_server: bool = false) -> bool:
 	is_dedicated_server = true
@@ -1531,12 +1533,27 @@ func _server_process_directory(delta: float) -> void:
 	codes.sort()
 	var signature := "%d|%s" % [_server_players.size(), ",".join(codes)]
 	var changed := signature != _directory_signature
-	# New rooms are announced within ~2 seconds; otherwise a heartbeat every 25 seconds keeps the entry fresh.
-	if (changed and _directory_timer >= 2.0) or _directory_timer >= 25.0 or _directory_signature.is_empty():
+	if directory_sync_due(_directory_attempted, _directory_failures, _directory_timer, changed):
 		_sync_directory(signature)
+
+## When to call the directory edge function: right away the first time, within ~2 seconds of a change, and
+## otherwise a heartbeat every 25 seconds. After failures it backs off (10s, 20s, 40s ... max 300s) so a wrong
+## secret or an outage can never turn into a request flood.
+static func directory_sync_due(attempted: bool, failures: int, timer: float, changed: bool) -> bool:
+	if not attempted:
+		return true
+	if failures > 0:
+		return timer >= directory_retry_interval(failures)
+	return (changed and timer >= 2.0) or timer >= 25.0
+
+static func directory_retry_interval(failures: int) -> float:
+	if failures <= 0:
+		return 25.0
+	return minf(10.0 * pow(2.0, float(failures - 1)), 300.0)
 
 func _sync_directory(signature: String) -> void:
 	_directory_busy = true
+	_directory_attempted = true
 	_directory_timer = 0.0
 	var rooms: Array = []
 	for code in _rooms.keys():
@@ -1562,9 +1579,15 @@ func _sync_directory(signature: String) -> void:
 	})
 	if result.get("ok", false):
 		_directory_signature = signature
-	elif not _directory_warned:
-		_directory_warned = true
-		push_warning("OxenWar server directory sync failed with HTTP status %d" % int(result.get("status", 0)))
+		_directory_failures = 0
+		_directory_warned = false
+	else:
+		_directory_failures += 1
+		if not _directory_warned:
+			_directory_warned = true
+			var status := int(result.get("status", 0))
+			var hint := " (OXENWAR_SERVER_SECRET differs from the Supabase secret)" if status == 403 else ""
+			push_warning("OxenWar server directory sync failed with HTTP status %d%s; retrying with backoff" % [status, hint])
 	_directory_busy = false
 
 func _generate_room_code() -> String:

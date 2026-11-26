@@ -199,6 +199,9 @@ jobs:
       - name: Test hosted server list parsing
         run: timeout 60s godot --headless --path . --script tests/test_server_list.gd
 
+      - name: Test directory sync backoff
+        run: timeout 60s godot --headless --path . --script tests/test_directory_backoff.gd
+
       - name: Test HUD overlays, pause menu and settings
         run: timeout 60s godot --headless --path . --script tests/test_ui_overlays.gd
 
