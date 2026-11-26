@@ -446,7 +446,9 @@ jobs:
           done
           docker logs oxenwar 2>&1 | tail -40
           if [ "$ok" != "1" ]; then echo "Server image did not become healthy."; exit 1; fi
-          if docker logs oxenwar 2>&1 | grep -E "SCRIPT ERROR|Failed to load script"; then
+          curl -fsS http://127.0.0.1:10000/ >/dev/null
+          sleep 2
+          if docker logs oxenwar 2>&1 | grep -E "Not enough response headers|SCRIPT ERROR|Failed to load script"; then
             echo "Server logged GDScript errors."; exit 1
           fi
           echo "PASS: hosted server image starts and /health answers"

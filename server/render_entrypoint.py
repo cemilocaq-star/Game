@@ -59,6 +59,25 @@ async def _handle_client(
             await writer.drain()
             return
 
+        # Plain HTTP probes (load balancer checks, bots, browsers) never reach Godot: its WebSocket listener logs
+        # an error for every request that is not a proper upgrade. Only real WebSocket upgrades are tunnelled.
+        if b"upgrade: websocket" not in header.lower():
+            method = request_line.split(" ", 1)[0]
+            if method in ("GET", "HEAD"):
+                body = b'{"status":"ok","service":"oxenwar"}\n'
+                writer.write(
+                    b"HTTP/1.1 200 OK\r\n"
+                    b"Content-Type: application/json\r\n"
+                    b"Cache-Control: no-store\r\n"
+                    + f"Content-Length: {len(body)}\r\n".encode("ascii")
+                    + b"Connection: close\r\n\r\n"
+                    + (b"" if method == "HEAD" else body)
+                )
+            else:
+                writer.write(b"HTTP/1.1 405 Method Not Allowed\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            await writer.drain()
+            return
+
         try:
             backend_reader, backend_writer = await asyncio.wait_for(
                 asyncio.open_connection(BACKEND_HOST, BACKEND_PORT), timeout=3.0
