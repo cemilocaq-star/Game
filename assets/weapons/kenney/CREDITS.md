@@ -9,3 +9,5 @@ License: https://creativecommons.org/publicdomain/zero/1.0/
 - Textures/colormap.png: shared palette texture referenced by both GLBs.
 
 Downloaded 2026-11-25, copied unchanged. Game transforms (rotation, scale) and the fictional energy attachments are in arcade_weapon_visuals.gd. No downloaded animations are used.
+
+The hand_cannon, pulse_carbine and aether (default weapon) bodies come from these two files.

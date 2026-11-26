@@ -45,7 +45,7 @@ func run() -> void:
 	check(remote._reload_left > 0.0, "remote reload progresses")
 	remote.apply_network_state(Vector3.ZERO, 0.0, false, 0.0, true)
 	check(remote._reload_left == 0.0, "death resets remote reload")
-	for id: String in ["ranger_rifle", "heavy_sidearm", "longshot", "hand_cannon", "pulse_carbine"]:
+	for id: String in ["ranger_rifle", "heavy_sidearm", "longshot", "hand_cannon", "pulse_carbine", "aether"]:
 		var model := WEAPONS.build_weapon(id, Color.CYAN)
 		check(model.get_node_or_null("AuthoredBody") != null, id + " uses imported authored body")
 		var meshes := model.find_children("*", "MeshInstance3D", true, false)

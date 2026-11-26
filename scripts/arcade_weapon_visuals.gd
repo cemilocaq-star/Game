@@ -181,16 +181,13 @@ static func build_weapon(weapon_id: String, tint: Color) -> Node3D:
 	var rubber := Color("#1A1F27")
 	match weapon_id:
 		"aether":
-			_ell(root, "AetherCore", Vector3(0.20, 0.19, 0.66), Vector3(0.0, 0.0, -0.10), body)
-			_cone(root, "BarrelShroud", 0.085, 0.115, 0.36, Vector3(0.0, 0.005, -0.28), steel, METAL)
-			_box(root, "UpperPowerRail", Vector3(0.07, 0.035, 0.46), Vector3(0.0, 0.125, -0.08), gun, DARK)
-			for i in range(4):
-				_box(root, "RailTooth_%d" % i, Vector3(0.09, 0.03, 0.035), Vector3(0.0, 0.15, -0.26 + float(i) * 0.1), steel, METAL)
-			_tube(root, "AetherEmitter", 0.075, 0.16, Vector3(0.0, 0.0, -0.45), tint, GLOW)
-			_ring(root, "MuzzleRing", 0.095, 0.018, Vector3(0.0, 0.0, -0.50), steel, METAL)
-			_orb(root, "AetherCell", 0.075, Vector3(0.115, -0.02, 0.05), tint, GLOW)
-			_box(root, "AetherWindow", Vector3(0.012, 0.07, 0.24), Vector3(-0.098, 0.015, -0.12), light, GLASS)
-			_grip(root, "AetherGrip", Vector3(0.0, -0.17, 0.13), rubber)
+			_kenney_body(root, "blaster", 0.40, Vector3(0.0, -0.17, -0.10))
+			_tube(root, "AetherEmitter", 0.055, 0.05, Vector3(0.0, 0.01, -0.48), tint, GLOW)
+			_ring(root, "MuzzleRing", 0.085, 0.016, Vector3(0.0, 0.01, -0.45), steel, METAL)
+			_orb(root, "AetherCell", 0.065, Vector3(0.0, 0.2, -0.02), tint, GLOW)
+			_box(root, "UpperPowerRail", Vector3(0.05, 0.03, 0.3), Vector3(0.0, 0.25, 0.04), gun, DARK)
+			_box(root, "AetherWindow", Vector3(0.012, 0.08, 0.18), Vector3(0.13, 0.05, -0.08), light, GLASS)
+			_grip(root, "AetherGrip", Vector3(0.0, -0.2, 0.06), rubber)
 		"minicore":
 			_ell(root, "MiniCoreHousing", Vector3(0.30, 0.24, 0.44), Vector3(0.0, 0.0, -0.05), body)
 			for i in range(6):

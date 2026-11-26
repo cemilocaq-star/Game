@@ -11,6 +11,7 @@ const ARENA_LAYOUT = preload("res://scripts/arena_layout.gd")
 const LAN_DISCOVERY := preload("res://scripts/lan_discovery.gd")
 const CHARACTER_VISUALS = preload("res://scripts/character_visuals.gd")
 const CHARACTER_MOTION_RIG = preload("res://scripts/character_motion_rig.gd")
+const SKELETAL_AVATAR = preload("res://scripts/skeletal_avatar.gd")
 var backend: Node
 var locale := "az"
 var profile: Dictionary = {}
@@ -1505,6 +1506,17 @@ func _refresh_character_preview(color_id: String, outfit_id: String, accessory_i
 
 	# Same hero armor as in-game, fitted to the slim torso.
 	CHARACTER_VISUALS.add_hero_details(body, outfit_id)
+
+	# The skinned in-game character (looping Idle clip). The procedural body above stays in the tree but is
+	# given no render layer, so the preview shows exactly what other players see.
+	var avatar := SKELETAL_AVATAR.new()
+	if avatar.build(outfit_id, avatar_color):
+		preview_model.add_child(avatar)
+		for node in body.find_children("*", "VisualInstance3D", true, false):
+			(node as VisualInstance3D).layers = 0
+		body.layers = 0
+	else:
+		avatar.free()
 
 func _add_preview_accessory(body: Node3D, accessory_id: String, avatar_color: Color) -> void:
 	# Same head-fitted accessory as in-game.
