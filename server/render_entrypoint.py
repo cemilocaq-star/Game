@@ -7,6 +7,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 
 PUBLIC_PORT = int(os.environ.get("PORT", "10000"))
 BACKEND_HOST = "127.0.0.1"
@@ -20,6 +21,44 @@ GAME_COMMAND = [
     "--",
     "--server",
 ]
+
+
+_last_reject_log = 0.0
+
+
+def _is_complete_upgrade(header: bytes) -> tuple[bool, list[str]]:
+    """True only for a complete RFC 6455 client handshake; also returns the lower-case header names seen.
+
+    Godot's WebSocket listener logs an error for every upgrade that lacks a required header, so anything
+    incomplete is answered here and never forwarded.
+    """
+    lines = header.decode("latin-1", errors="replace").split("\r\n")
+    request = lines[0].split(" ")
+    headers: dict[str, str] = {}
+    for line in lines[1:]:
+        if ":" in line:
+            name, value = line.split(":", 1)
+            headers[name.strip().lower()] = value.strip().lower()
+    ok = (
+        len(request) == 3
+        and request[0] == "GET"
+        and request[2].startswith("HTTP/1.1")
+        and headers.get("upgrade") == "websocket"
+        and "upgrade" in headers.get("connection", "")
+        and bool(headers.get("host"))
+        and bool(headers.get("sec-websocket-key"))
+        and headers.get("sec-websocket-version") == "13"
+    )
+    return ok, sorted(headers)
+
+
+def _log_rejected_upgrade(header_names: list[str]) -> None:
+    # Rate limited, and only header NAMES are logged (never values, paths, tickets or cookies).
+    global _last_reject_log
+    now = time.monotonic()
+    if now - _last_reject_log >= 60.0:
+        _last_reject_log = now
+        print("proxy: rejected incomplete WebSocket upgrade, headers=" + ",".join(header_names), flush=True)
 
 
 async def _copy_stream(source: asyncio.StreamReader, destination: asyncio.StreamWriter) -> None:
@@ -75,6 +114,13 @@ async def _handle_client(
                 )
             else:
                 writer.write(b"HTTP/1.1 405 Method Not Allowed\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            await writer.drain()
+            return
+
+        complete, header_names = _is_complete_upgrade(header)
+        if not complete:
+            _log_rejected_upgrade(header_names)
+            writer.write(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
             await writer.drain()
             return
 
