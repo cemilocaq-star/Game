@@ -163,13 +163,23 @@ func _test_local_player() -> void:
 		return
 	_check(weapon.get_parent().name == "ElbowPivot" and weapon.get_parent().get_parent().name == "ArmPivot_R", "the weapon is in the right hand")
 	var meshes_on_body_layer := true
+	var avatar: Node3D = player.get("_avatar")
+	var expected_layer := 0 if is_instance_valid(avatar) else 2 ## the procedural body is not drawn while the skinned one is
 	var stack: Array[Node] = [weapon]
 	while not stack.is_empty():
 		var node: Node = stack.pop_back()
-		if node is VisualInstance3D and (node as VisualInstance3D).layers != 2:
+		if node is VisualInstance3D and (node as VisualInstance3D).layers != expected_layer:
 			meshes_on_body_layer = false
 		stack.append_array(node.get_children())
 	_check(meshes_on_body_layer, "the world weapon is on the body render layer, so first person never draws it")
+	if is_instance_valid(avatar):
+		_check(is_instance_valid(avatar.weapon_mount), "the skinned character holds the world weapon")
+		var drawn_layers_ok := is_instance_valid(avatar.weapon_mount)
+		if drawn_layers_ok:
+			for mesh in avatar.weapon_mount.find_children("*", "VisualInstance3D", true, false):
+				if (mesh as VisualInstance3D).layers != 2:
+					drawn_layers_ok = false
+		_check(drawn_layers_ok, "the skinned character's weapon is on the character layer, so first person never draws it")
 	for frame in range(5):
 		player.call("_process", 1.0 / 60.0)
 	_check(not weapon.visible, "the world weapon is hidden in first person")
