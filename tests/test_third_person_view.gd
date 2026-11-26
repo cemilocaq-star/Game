@@ -29,7 +29,16 @@ func _run() -> void:
 
 	# The body is on render layer 2; the first-person camera only draws layer 1.
 	var body: MeshInstance3D = player.get("_body_mesh")
-	_check(body != null and body.layers == 2, "the local body is on its own render layer")
+	var avatar: Node3D = player.get("_avatar")
+	if is_instance_valid(avatar):
+		var drawn := 0
+		for node in avatar.find_children("*", "MeshInstance3D", true, false):
+			drawn += 1
+			_check((node as MeshInstance3D).layers == 2, "skinned body mesh %s is on the character layer" % node.name)
+		_check(drawn > 0, "the skinned body has meshes")
+		_check(body != null and body.layers == 0, "the procedural body is not drawn while the skinned one is")
+	else:
+		_check(body != null and body.layers == 2, "the local body is on its own render layer")
 
 	# Entering the game: the intro shows the character from the front.
 	_check(player.is_external_view(), "the match starts with the character intro")
