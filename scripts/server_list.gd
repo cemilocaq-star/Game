@@ -9,7 +9,9 @@ static func parse(text: String) -> PackedStringArray:
 	var matcher := RegEx.new()
 	matcher.compile("^(wss://)?[A-Za-z0-9.-]{3,190}(:[0-9]{2,5})?$")
 	for item in parsed["servers"]:
-		var value := str(item).strip_edges()
+		if typeof(item) != TYPE_STRING:
+			continue
+		var value := (item as String).strip_edges()
 		if matcher.search(value) != null and not result.has(value) and result.size() < 8:
 			result.append(value)
 	return result

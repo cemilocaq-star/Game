@@ -6,6 +6,7 @@ const EMOTE_CATALOG := preload("res://scripts/emote_catalog.gd")
 const WEAPON_VISUALS := preload("res://scripts/arcade_weapon_visuals.gd")
 const PLAYER := preload("res://scripts/player.gd")
 const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
+const SKELETAL_AVATAR := preload("res://scripts/skeletal_avatar.gd")
 const NET_SYNC := preload("res://scripts/net_sync.gd")
 const WEAPON_HOLD := preload("res://scripts/weapon_hold.gd")
 const FOOTSTEPS := preload("res://scripts/footstep_audio.gd")
@@ -43,6 +44,9 @@ var _swimwear_root: Node3D
 var _character_detail_root: Node3D
 var _hero_root: Node3D
 var _motion_rig: Node3D
+## Skinned character with real skeletal clips (skeletal_avatar.gd). The older procedural body stays in the
+## tree, driven as before, but is not rendered while this is present.
+var _avatar: Node3D
 var _motion_clock := 0.0
 var _previous_position := Vector3.ZERO
 var _has_previous_position := false
@@ -143,6 +147,41 @@ func _rebuild_remote_detail() -> void:
 		_motion_rig = CharacterMotionRig.build(_visual, _base_color, _outfit_id)
 		_weapon_mount = null
 		_attach_weapon()
+	_build_avatar()
+
+
+## Replaces the look of the player with the skinned character. The legacy body is hidden by clearing the render
+## layers of its meshes (their visibility flags and animation keep working, so nothing else has to change).
+func _build_avatar() -> void:
+	if is_instance_valid(_avatar):
+		_avatar.free()
+	_avatar = null
+	if not is_instance_valid(_visual):
+		return
+	var avatar := SKELETAL_AVATAR.new()
+	avatar.name = "SkeletalAvatar"
+	if not avatar.build(_outfit_id, _base_color):
+		avatar.free()
+		return
+	add_child(avatar)
+	_avatar = avatar
+	_hide_legacy_visuals()
+	_sync_avatar_weapon()
+
+
+func _hide_legacy_visuals() -> void:
+	if not is_instance_valid(_avatar) or not is_instance_valid(_visual):
+		return
+	_visual.layers = 0
+	for node in _visual.find_children("*", "GeometryInstance3D", true, false):
+		(node as GeometryInstance3D).layers = 0
+
+
+func _sync_avatar_weapon() -> void:
+	if not is_instance_valid(_avatar):
+		return
+	var data: Dictionary = PLAYER.ARCADE_WEAPON_LOCAL.get(_weapon_id, {})
+	_avatar.set_weapon(_weapon_id, data.get("color", Color.WHITE))
 
 
 ## The pitch arrives with each snapshot; the weapon eases toward it so a 20 Hz update never snaps.
@@ -159,6 +198,8 @@ func sync_weapon(weapon_id: String, grounded: bool) -> void:
 	_reload_left = 0.0
 	_weapon_kick = 0.0
 	_attach_weapon()
+	_hide_legacy_visuals()
+	_sync_avatar_weapon()
 
 
 func sync_reload(seconds_left: float) -> void:
@@ -198,6 +239,8 @@ func set_result_pose(outcome: String) -> void:
 func play_weapon_fire(weapon_id: String) -> void:
 	if not _dead and weapon_id == _weapon_id:
 		_weapon_kick = 1.0
+		if is_instance_valid(_avatar):
+			_avatar.fire()
 
 func _remote_material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -222,12 +265,16 @@ func apply_network_state(position_value: Vector3, yaw_value: float, sliding: boo
 		if is_instance_valid(material):
 			var team_color := Color("#F05A66") if team_id == "red" else (Color("#4C91FF") if team_id == "blue" else _base_color)
 			material.albedo_color = team_color.darkened(0.65) if dead else team_color
+			if is_instance_valid(_avatar):
+				_avatar.set_team_color(team_color)
 		if dead != _dead:
 			_dead = dead
 			_fall_elapsed = 0.0
 			_weapon_kick = 0.0
 			_reload_left = 0.0
 			_visual.visible = true
+			if is_instance_valid(_avatar):
+				_avatar.set_dead(dead)
 			if not dead:
 				_visual.rotation = Vector3.ZERO
 	if _sliding != sliding:
@@ -293,8 +340,11 @@ func _process(delta: float) -> void:
 		rotation.y = lerp_angle(rotation.y, target_yaw, minf(1.0, delta * 14.0))
 	_motion_clock += delta
 	var estimated_speed := 0.0
+	var ground_velocity := Vector3.ZERO
 	if _has_previous_position:
 		estimated_speed = global_position.distance_to(_previous_position) / maxf(delta, 0.0001)
+		ground_velocity = (global_position - _previous_position) / maxf(delta, 0.0001)
+		ground_velocity.y = 0.0
 	else:
 		_has_previous_position = true
 	_previous_position = global_position
@@ -311,6 +361,10 @@ func _process(delta: float) -> void:
 	if armed:
 		hold = WEAPON_HOLD.reload_hold_targets(_weapon_info, presentation_pitch, reload_weight)
 	CharacterMotionRig.animate(_motion_rig, _motion_clock, estimated_speed, _grounded or not _result_pose.is_empty(), _sliding and _result_pose.is_empty(), pose, delta, hold)
+	if is_instance_valid(_avatar):
+		_avatar.visible = _visual.visible
+		var avatar_emote := pose if _avatar.EMOTE_CLIPS.has(pose) else ""
+		_avatar.update_pose(delta, estimated_speed, global_transform.basis.inverse() * ground_velocity, _grounded or not _result_pose.is_empty(), _sliding and _result_pose.is_empty(), avatar_emote, armed, _reload_left > 0.0)
 	_weapon_kick = move_toward(_weapon_kick, 0.0, delta * 7.0)
 	if is_instance_valid(_weapon_mount):
 		_weapon_mount.visible = armed

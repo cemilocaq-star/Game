@@ -193,6 +193,9 @@ jobs:
       - name: Test room hosted inside the game with a guest (no server needed)
         run: timeout 90s godot --headless --path . --script tests/test_open_host.gd
 
+      - name: Test skeletal avatars
+        run: timeout 120s godot --headless --path . --script tests/test_skeletal_avatar.gd
+
       - name: Test hosted server list parsing
         run: timeout 60s godot --headless --path . --script tests/test_server_list.gd
 

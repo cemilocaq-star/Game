@@ -30,7 +30,7 @@ required = [
     "scripts/progression.gd", "scripts/graphics_manager.gd", "scripts/oxenwar_event_fx.gd", "shaders/neon_surface.gdshader",
     "tools/set_android_version.py", "tests/test_android_version.py",
     "tests/test_live_websocket_proxy.py", "tests/test_character_motion_rig.gd",
-    "scripts/lan_discovery.gd", "scripts/server_list.gd", "tests/test_server_list.gd", "servers.json", "scripts/lan_host.gd", "tests/test_lan_discovery.gd", "tests/test_open_host.gd",
+    "scripts/lan_discovery.gd", "scripts/server_list.gd", "scripts/skeletal_avatar.gd", "tests/test_skeletal_avatar.gd", "assets/characters/kaykit/Rogue.glb", "assets/characters/kaykit/Knight.glb", "assets/characters/kaykit/Mage.glb", "assets/characters/kaykit/Barbarian.glb", "assets/characters/kaykit/RogueHooded.glb", "assets/characters/kaykit/CREDITS.md", "tests/test_server_list.gd", "servers.json", "scripts/lan_host.gd", "tests/test_lan_discovery.gd", "tests/test_open_host.gd",
     "tests/test_guest_menu.gd", "scripts/emote_catalog.gd", "assets/weapons/kenney/blaster.glb", "assets/weapons/kenney/blaster-repeater.glb", "assets/weapons/kenney/Textures/colormap.png", "assets/weapons/kenney/CREDITS.md", "tests/run_open_server_test.sh", "tests/online/open_client.gd",
 ]
 for rel in required:
