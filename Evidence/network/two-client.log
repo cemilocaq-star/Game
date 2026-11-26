@@ -1,0 +1,6 @@
+ONLINE_NOTE A: room 9KDEP3, other peer 770921887, spawn (-1.180843, 1.4835, 6.0)
+ONLINE_NOTE A: shots fired 2, own health trace [100.0]
+ONLINE_RESULT A PASS checks=18
+ONLINE_NOTE B: room 9KDEP3, other peer 67688979, spawn (-2.4, 0.000428, 6.0)
+ONLINE_RESULT B PASS checks=14
+ONLINE TEST PASSED

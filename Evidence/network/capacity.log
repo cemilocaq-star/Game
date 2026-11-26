@@ -1,0 +1,1 @@
+{"status": "PASS", "clients": 9, "room_sizes": [1, 8], "movement_confirmed": 8, "transport": "ENet UDP localhost", "auth": "fixture ticket redemption", "persistence": "fixture; no Supabase writes"}

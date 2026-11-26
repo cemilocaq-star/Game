@@ -20,6 +20,21 @@ By default the dedicated server listens on UDP **2456** and accepts up to 32 ENe
 - Round timer, event selection/effect timers, collectible availability/respawn, score and XP awards.
 - Match-result persistence through the `oxenwar-server-sync` Edge Function.
 
+## Automatic server discovery
+
+Players never type a server address. A running dedicated server registers itself in the Supabase table `oxenwar_servers` (through the `sync_directory` action of the `oxenwar-server-sync` Edge Function, using `OXENWAR_SERVER_SECRET`) and lists its room codes in `oxenwar_room_directory`. It refreshes this every 25 seconds, and within about 2 seconds of a room being created or closed.
+
+- **START / CREATE ROOM:** the game calls `oxenwar_find_server()` and connects to the best server (the fullest one that is not full).
+- **JOIN:** the game calls `oxenwar_find_room_server(code)` and connects to the server that hosts the room, so only the room code is needed.
+- **Sleeping server:** if the newest server has not reported for 90 seconds (a free Render instance asleep), the client sends one request to `https://<host>/health` to wake it, then connects.
+- **Nothing online:** START opens the offline training arena. CREATE ROOM and JOIN explain that no server is online.
+
+The server needs to know its public address. It reads `OXENWAR_PUBLIC_HOST` (for example `wss://oxenwar-game-server.onrender.com`), or detects it from `RENDER_EXTERNAL_URL` (Render) or `FLY_APP_NAME` (Fly.io). Without any of these it logs a warning and does not appear in the list.
+
+The migration `supabase/migrations/20261115120000_oxenwar_server_directory.sql` and the updated Edge Function must be applied/deployed to the Supabase project before this works. The two tables allow no direct client access; signed-in players can only call the two read functions.
+
+A custom address (own server, LAN test) is still possible: tap **CUSTOM SERVER** in the lobby, or set `OXENWAR_SERVER_HOST`.
+
 ## Connect clients
 
 Run the game normally and sign in. Enter the server's LAN/public hostname in the server field, then press **CONNECT**. For the WebSocket transport, use the complete `wss://` URL; for ENet, use a hostname/IP and expose UDP 2456. The client authenticates with its Supabase access token. After successful authentication the client performs the exact lobby action selected in the menu (quick match, create a private room or join by code).

@@ -1,0 +1,66 @@
+Godot Engine v4.4.1.stable.official.49a5bc7b6 - https://godotengine.org
+
+== MAP 0 LOST MALL: 4304 nodes, 1694 jump steps, 2836 gap jumps, built in 247 ms
+  space: 4282 safe nodes of 4304, 0 drop-in pits [], 22 unreachable-from-floor nodes (tops of tall props)
+  routes red->blue: 4 distinct: 20 m (0% squeezed), 25 m (0% squeezed), 28 m (0% squeezed), 41 m (0% squeezed)
+  balance (mean path metres from spawn slots): centre red 17 / blue 17; A red 24 / blue 31; B red 30 / blue 24
+  traffic: top 5% of cells carry 15% of routes; busiest: (3.8,0.0,2.2) 2% (passage 3.0 m wide), (-0.8,0.0,2.2) 2% (passage 3.0 m wide), (0.8,0.0,0.8) 2% (passage 3.0 m wide), (3.8,0.0,-2.2) 2% (passage 3.0 m wide), (2.2,0.0,-0.8) 1% (passage 3.0 m wide), (0.8,0.0,2.2) 1% (passage 3.0 m wide)
+  sightlines: clear view share <8 m 80%, 8-16 m 57%, >16 m 39% (longest 36.4 m)
+  spawn exposure (share of the map beyond 10 m that sees a spawn, mean of 8 slots): red 47%, blue 47%
+  red/blue spawn distance (slot 0): 20.0 m
+  landmarks (3 m+ solid props) per quadrant NW/NE/SW/SE: [3, 3, 3, 2]
+== MAP 1 NEON CITY: 4678 nodes, 1877 jump steps, 2664 gap jumps, built in 226 ms
+  space: 4672 safe nodes of 4678, 0 drop-in pits [], 6 unreachable-from-floor nodes (tops of tall props)
+  routes red->blue: 4 distinct: 22 m (0% squeezed), 25 m (0% squeezed), 30 m (0% squeezed), 40 m (0% squeezed)
+  balance (mean path metres from spawn slots): centre red 18 / blue 17; A red 20 / blue 31; B red 30 / blue 20
+  traffic: top 5% of cells carry 14% of routes; busiest: (3.8,0.0,2.2) 2% (passage 3.0 m wide), (2.2,0.0,0.8) 2% (passage 3.0 m wide), (5.2,0.0,3.8) 2% (passage 3.0 m wide), (0.8,0.0,0.8) 2% (passage 3.0 m wide), (8.2,0.0,6.8) 1% (passage 3.0 m wide), (9.8,0.0,6.8) 1% (passage 3.0 m wide)
+  sightlines: clear view share <8 m 77%, 8-16 m 66%, >16 m 43% (longest 32.8 m)
+  spawn exposure (share of the map beyond 10 m that sees a spawn, mean of 8 slots): red 54%, blue 54%
+  red/blue spawn distance (slot 0): 20.0 m
+  landmarks (3 m+ solid props) per quadrant NW/NE/SW/SE: [1, 1, 2, 1]
+== MAP 2 SPACE ISLANDS: 4178 nodes, 159 jump steps, 2660 gap jumps, built in 187 ms
+  space: 4166 safe nodes of 4178, 0 drop-in pits [], 12 unreachable-from-floor nodes (tops of tall props)
+  routes red->blue: 4 distinct: 20 m (0% squeezed), 25 m (0% squeezed), 28 m (0% squeezed), 37 m (0% squeezed)
+  balance (mean path metres from spawn slots): centre red 16 / blue 16; A red 20 / blue 31; B red 29 / blue 20
+  traffic: top 5% of cells carry 12% of routes; busiest: (5.2,0.0,-5.2) 2% (passage 3.0 m wide), (3.8,0.0,-2.2) 2% (passage 3.0 m wide), (3.8,0.0,2.2) 2% (passage 3.0 m wide), (5.2,0.0,-3.8) 1% (passage 3.0 m wide), (-11.2,0.0,5.2) 1% (passage 3.0 m wide), (3.8,0.0,0.8) 1% (passage 3.0 m wide)
+  sightlines: clear view share <8 m 84%, 8-16 m 66%, >16 m 38% (longest 32.7 m)
+  spawn exposure (share of the map beyond 10 m that sees a spawn, mean of 8 slots): red 42%, blue 51%
+  red/blue spawn distance (slot 0): 20.0 m
+  landmarks (3 m+ solid props) per quadrant NW/NE/SW/SE: [1, 1, 2, 1]
+== MAP 3 CANDY WORLD: 4208 nodes, 1678 jump steps, 2475 gap jumps, built in 224 ms
+  space: 4202 safe nodes of 4208, 0 drop-in pits [], 6 unreachable-from-floor nodes (tops of tall props)
+  routes red->blue: 4 distinct: 20 m (0% squeezed), 25 m (0% squeezed), 28 m (0% squeezed), 41 m (0% squeezed)
+  balance (mean path metres from spawn slots): centre red 18 / blue 17; A red 20 / blue 31; B red 30 / blue 20
+  traffic: top 5% of cells carry 13% of routes; busiest: (6.8,0.0,-5.2) 2% (passage 3.0 m wide), (-5.2,0.0,-5.2) 2% (passage 3.0 m wide), (-8.2,0.0,-8.2) 2% (passage 3.0 m wide), (-6.8,0.0,-6.8) 2% (passage 3.0 m wide), (0.8,0.0,0.8) 2% (passage 3.0 m wide), (-3.8,0.0,2.2) 2% (passage 3.0 m wide)
+  sightlines: clear view share <8 m 84%, 8-16 m 65%, >16 m 40% (longest 33.7 m)
+  spawn exposure (share of the map beyond 10 m that sees a spawn, mean of 8 slots): red 52%, blue 52%
+  red/blue spawn distance (slot 0): 20.0 m
+  landmarks (3 m+ solid props) per quadrant NW/NE/SW/SE: [3, 2, 2, 1]
+== MAP 4 SUNKEN OASIS: 4194 nodes, 1697 jump steps, 3383 gap jumps, built in 239 ms
+  space: 4156 safe nodes of 4194, 0 drop-in pits [], 38 unreachable-from-floor nodes (tops of tall props)
+  routes red->blue: 4 distinct: 20 m (0% squeezed), 25 m (0% squeezed), 28 m (0% squeezed), 41 m (0% squeezed)
+  balance (mean path metres from spawn slots): centre red 17 / blue 17; A red 22 / blue 31; B red 30 / blue 21
+  traffic: top 5% of cells carry 12% of routes; busiest: (-11.2,0.0,3.8) 2% (passage 3.0 m wide), (8.2,0.0,6.8) 1% (passage 3.0 m wide), (-3.8,0.0,2.2) 1% (passage 3.0 m wide), (6.8,0.0,6.8) 1% (passage 3.0 m wide), (-2.2,0.0,0.8) 1% (passage 3.0 m wide), (-0.8,0.0,0.8) 1% (passage 3.0 m wide)
+  sightlines: clear view share <8 m 80%, 8-16 m 64%, >16 m 38% (longest 34.7 m)
+  spawn exposure (share of the map beyond 10 m that sees a spawn, mean of 8 slots): red 55%, blue 41%
+  red/blue spawn distance (slot 0): 20.0 m
+  landmarks (3 m+ solid props) per quadrant NW/NE/SW/SE: [3, 1, 2, 2]
+== MAP 5 JUNGLE ARENA: 4671 nodes, 1781 jump steps, 4478 gap jumps, built in 338 ms
+  space: 4500 safe nodes of 4671, 0 drop-in pits [], 171 unreachable-from-floor nodes (tops of tall props)
+  routes red->blue: 4 distinct: 28 m (0% squeezed), 28 m (0% squeezed), 35 m (0% squeezed), 35 m (0% squeezed)
+  balance (mean path metres from spawn slots): centre red 16 / blue 14; A red 18 / blue 19; B red 18 / blue 17
+  traffic: top 5% of cells carry 12% of routes; busiest: (-0.8,0.0,5.2) 1% (passage 3.0 m wide), (0.8,0.0,6.8) 1% (passage 3.0 m wide), (2.2,0.0,6.8) 1% (passage 3.0 m wide), (-6.8,0.0,2.2) 1% (passage 3.0 m wide), (-0.8,0.0,6.8) 1% (passage 3.0 m wide), (-2.2,0.0,5.2) 1% (passage 3.0 m wide)
+  sightlines: clear view share <8 m 79%, 8-16 m 56%, >16 m 35% (longest 34.8 m)
+  spawn exposure (share of the map beyond 10 m that sees a spawn, mean of 8 slots): red 52%, blue 48%
+  red/blue spawn distance (slot 0): 24.4 m
+  landmarks (3 m+ solid props) per quadrant NW/NE/SW/SE: [6, 8, 7, 6]
+== MAP 6 REDSTONE CANYON: 4204 nodes, 1462 jump steps, 3185 gap jumps, built in 275 ms
+  space: 4150 safe nodes of 4204, 0 drop-in pits [], 54 unreachable-from-floor nodes (tops of tall props)
+  routes red->blue: 4 distinct: 21 m (0% squeezed), 27 m (0% squeezed), 27 m (0% squeezed), 36 m (0% squeezed)
+  balance (mean path metres from spawn slots): centre red 18 / blue 17; A red 21 / blue 31; B red 31 / blue 20
+  traffic: top 5% of cells carry 14% of routes; busiest: (-3.8,0.0,2.2) 2% (passage 3.0 m wide), (-3.8,0.0,-2.2) 2% (passage 3.0 m wide), (-5.2,0.0,2.2) 2% (passage 3.0 m wide), (-5.2,0.0,-5.2) 2% (passage 3.0 m wide), (-6.8,0.0,-6.8) 1% (passage 3.0 m wide), (2.2,0.0,2.2) 1% (passage 3.0 m wide)
+  sightlines: clear view share <8 m 76%, 8-16 m 57%, >16 m 27% (longest 33.7 m)
+  spawn exposure (share of the map beyond 10 m that sees a spawn, mean of 8 slots): red 37%, blue 37%
+  red/blue spawn distance (slot 0): 20.0 m
+  landmarks (3 m+ solid props) per quadrant NW/NE/SW/SE: [2, 1, 4, 1]
+PASS: map flow checks for all 7 maps

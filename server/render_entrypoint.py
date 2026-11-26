@@ -59,9 +59,17 @@ async def _handle_client(
             await writer.drain()
             return
 
-        backend_reader, backend_writer = await asyncio.open_connection(
-            BACKEND_HOST, BACKEND_PORT
-        )
+        try:
+            backend_reader, backend_writer = await asyncio.wait_for(
+                asyncio.open_connection(BACKEND_HOST, BACKEND_PORT), timeout=3.0
+            )
+        except (OSError, asyncio.TimeoutError):
+            writer.write(
+                b"HTTP/1.1 503 Service Unavailable\r\n"
+                b"Content-Length: 0\r\nConnection: close\r\n\r\n"
+            )
+            await writer.drain()
+            return
         backend_writer.write(header)
         await backend_writer.drain()
         await asyncio.gather(

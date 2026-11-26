@@ -102,10 +102,36 @@ async def test_websocket_tunnel() -> None:
         ENTRYPOINT.BACKEND_PORT = old_backend_port
 
 
+async def test_backend_unavailable() -> None:
+    listener = await asyncio.start_server(ENTRYPOINT._handle_client, "127.0.0.1", 0)
+    port = listener.sockets[0].getsockname()[1]
+    original = ENTRYPOINT.BACKEND_PORT
+    # Keep a TCP socket bound but not listening, avoiding a free-port race.
+    import socket
+    try:
+        with socket.socket() as unavailable:
+            unavailable.bind(("127.0.0.1", 0))
+            ENTRYPOINT.BACKEND_PORT = unavailable.getsockname()[1]
+            reader, writer = await asyncio.open_connection("127.0.0.1", port)
+            try:
+                writer.write(b"GET /multiplayer HTTP/1.1\r\nHost: localhost\r\n\r\n")
+                await writer.drain()
+                response = await asyncio.wait_for(reader.read(), timeout=4.0)
+                assert response.startswith(b"HTTP/1.1 503 Service Unavailable\r\n"), response
+            finally:
+                writer.close()
+                await writer.wait_closed()
+    finally:
+        ENTRYPOINT.BACKEND_PORT = original
+        listener.close()
+        await listener.wait_closed()
+
+
 async def main() -> None:
     await test_health_endpoint()
     await test_websocket_tunnel()
-    print("PASS: Render /health endpoint and bidirectional WebSocket tunnel")
+    await test_backend_unavailable()
+    print("PASS: Render /health endpoint bidirectional WebSocket tunnel and unavailable-backend response")
 
 
 if __name__ == "__main__":

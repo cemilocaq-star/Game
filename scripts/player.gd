@@ -2,8 +2,19 @@ extends CharacterBody3D
 class_name ArcadePlayer
 
 const CharacterVisuals = preload("res://scripts/character_visuals.gd")
+const EMOTE_CATALOG := preload("res://scripts/emote_catalog.gd")
 const CharacterMotionRig = preload("res://scripts/character_motion_rig.gd")
 const ARCADE_WEAPON_VISUALS = preload("res://scripts/arcade_weapon_visuals.gd")
+const SKELETAL_AVATAR = preload("res://scripts/skeletal_avatar.gd")
+const WEAPON_FEEL = preload("res://scripts/weapon_feel.gd")
+const FOOTSTEPS = preload("res://scripts/footstep_audio.gd")
+const LOOK_CONTROL = preload("res://scripts/look_control.gd")
+const USER_SETTINGS_SCRIPT = preload("res://scripts/user_settings.gd")
+const AUDIO_BUSES = preload("res://scripts/audio_buses.gd")
+const WEAPON_VIEW_ANIM = preload("res://scripts/weapon_viewmodel_anim.gd")
+const WEAPON_HOLD = preload("res://scripts/weapon_hold.gd")
+const WEAPON_AUDIO = preload("res://scripts/weapon_audio.gd")
+const SFX_BANK_PLAYER = preload("res://scripts/sfx_bank.gd")
 
 const ARCADE_WEAPON_LOCAL := {
 	"aether": {"name":"AETHER BLASTER", "cooldown":0.24, "range":65.0, "color":Color("#8CEEFF")},
@@ -36,6 +47,7 @@ const ARCADE_WEAPON_LOCAL := {
 }
 
 signal collected(points: int)
+signal reload_requested(weapon_id: String)
 
 const WALK_SPEED := 6.0
 const SPRINT_SPEED := 9.0
@@ -52,6 +64,7 @@ const SLIDE_DURATION := 0.7
 const SLIDE_STAMINA_COST := 12.0
 
 var look_sensitivity := 0.0022
+var _recoil_scale := 1.0
 var pitch := 0.0
 var stamina := MAX_STAMINA
 var health := 100.0
@@ -64,8 +77,19 @@ var event_gravity_scale := 1.0
 var event_speed_scale := 1.0
 var score := 0
 var gyro_enabled := true
+var touch_sensitivity := 1.0
+var touch_acceleration := 0.0
+var ads_sensitivity := 0.72
+var gyro_sensitivity := 1.0
+var gyro_invert_yaw := false
+var gyro_invert_pitch := false
+var gyro_bias := Vector3.ZERO
+var _look_finger := -1 ## index of the finger that owns touch look, -1 when none
+var device_look_scale := 1.0 ## finger travel on this screen compared with the reference phone
 var _dash_direction := Vector3.ZERO
 var _camera: Camera3D
+var _aim_held := false
+var _reverse_movement := false
 var _body_mesh: MeshInstance3D
 var _collider: CollisionShape3D
 var _capsule: CapsuleShape3D
@@ -74,7 +98,6 @@ var _coyote_left := 0.0
 var _is_sliding := false
 var _footstep_player: AudioStreamPlayer3D
 var _footstep_distance := 0.0
-var _footstep_streams: Dictionary = {}
 var player_name := "Player"
 var cosmetic_color := Color("#27D7E7")
 var cosmetic_outfit := "outfit_default"
@@ -87,12 +110,37 @@ var _admin_hammer: Node3D
 var _blaster_audio: AudioStreamPlayer3D
 var _blaster_model: Node3D
 var _blaster_cooldown := 0.0
-var _blaster_recoil := 0.0
+## First-person weapon presentation (sway, bob, ADS, recoil springs, reload, raise). The model sits
+## under _weapon_pivot, which receives this layer's pose; the model keeps its own tweens.
+var _view_anim = WEAPON_VIEW_ANIM.new()
+var _weapon_pivot: Node3D
+var _prev_look := Vector2.ZERO
+## The weapon the character carries in the world (seen in third person and the intro).
+var _tp_weapon: Node3D
+## Skinned third-person body (skeletal_avatar.gd). The procedural body keeps animating but is not rendered.
+var _avatar: Node3D
+var _tp_weapon_info: Dictionary = {}
+var _tp_kick := 0.0
+var _look_primed := false
+var _feel = WEAPON_FEEL.Tracker.new()
+## The local character is hidden from the first-person camera, so players never saw their own model.
+## A short orbit intro when the match starts, and a C / VIEW toggle for a third-person camera, show it.
+const INTRO_SECONDS := 2.6
+const THIRD_PERSON_OFFSET := Vector3(0.55, 0.2, 3.1)
+var third_person := false
+var _intro_left := INTRO_SECONDS
+var _view_was_external := false
+var _prev_on_floor := true
+var _prev_fall_speed := 0.0
+const WEAPON_REST := Vector3(0.27, -0.24, -0.48)
+var _weapon_equip_tween: Tween
 var _weapon_inspect_tween: Tween
 var _weapon_fire_tween: Tween
 var _weapon_idle_clock := 0.0
 var selected_weapon_id := "aether"
 var arsenal_open := false
+## Set by the HUD while a full-screen overlay (results, pause) is open: no firing or looking.
+var ui_blocked := false
 var active_emote := ""
 var _emote_clock := 0.0
 var _emote_music: AudioStreamPlayer
@@ -106,6 +154,8 @@ var is_swimming := false
 var swim_map_index := 4
 
 func _ready() -> void:
+	preload("res://scripts/input_bindings.gd").ensure()
+	load_input_settings()
 	floor_snap_length = CharacterMovement.FLOOR_SNAP_LENGTH
 	_build_visuals()
 	_setup_footstep_audio()
@@ -146,6 +196,7 @@ func _build_visuals() -> void:
 
 	# Keep the local avatar out of the first-person camera while preserving shadows.
 	_set_visual_layer_recursive(self, 2)
+	_build_avatar()
 	_camera = Camera3D.new()
 	_camera.position = Vector3(0, 1.55, -0.34)
 	_camera.current = true
@@ -162,6 +213,20 @@ func _build_visuals() -> void:
 		halo.position = Vector3(0, 2.0, 0)
 		_set_visual_layer_recursive(halo, 2)
 		add_child(halo)
+
+
+## The skinned character other players also see. Like the rest of the body it is only drawn by the external
+## camera (render layer 2); the procedural body stays in the tree, animated, but is given no render layer.
+func _build_avatar() -> void:
+	var avatar := SKELETAL_AVATAR.new()
+	avatar.name = "SkeletalAvatar"
+	if not avatar.build(cosmetic_outfit, cosmetic_color):
+		avatar.free()
+		return
+	add_child(avatar)
+	_avatar = avatar
+	_set_visual_layer_recursive(avatar, 2)
+	_set_visual_layer_recursive(_body_mesh, 0)
 
 
 func _set_visual_layer_recursive(node: Node, layer_mask: int) -> void:
@@ -241,14 +306,12 @@ func set_swimming(enabled: bool) -> void:
 		CharacterVisuals.set_clothing_visible(_character_detail_root, not enabled)
 
 func _process(delta: float) -> void:
-	if Input.is_action_just_pressed("emote_griddy"):
-		play_emote("griddy")
-	elif Input.is_action_just_pressed("emote_goofy"):
-		play_emote("goofy")
-	elif Input.is_action_just_pressed("emote_robot"):
-		play_emote("robot")
-	elif Input.is_action_just_pressed("emote_wave"):
-		play_emote("wave")
+	if is_instance_valid(_camera):
+		_camera.fov = lerpf(86.0, 68.0, _view_anim.fov_blend())
+	for emote_key in EMOTE_CATALOG.IDS:
+		if InputMap.has_action(EMOTE_CATALOG.action_name(emote_key)) and Input.is_action_just_pressed(EMOTE_CATALOG.action_name(emote_key)):
+			play_emote(emote_key)
+			break
 	_motion_clock += delta
 	if active_emote != "":
 		_emote_clock += delta
@@ -257,19 +320,166 @@ func _process(delta: float) -> void:
 		var movement_speed := Vector2(velocity.x, velocity.z).length()
 		var moving := movement_speed > 0.35 and is_on_floor() and not _is_sliding
 		_body_mesh.position.y = 0.9 + (absf(sin(_motion_clock * 10.0)) * 0.035 if moving else sin(_motion_clock * 1.8) * 0.012)
-	CharacterMotionRig.animate(_motion_rig, _motion_clock, Vector2(velocity.x, velocity.z).length(), is_on_floor(), _is_sliding, active_emote, delta)
+	var tp_armed := is_instance_valid(_tp_weapon) and not is_dead and active_emote.is_empty()
+	var reload_weight := WEAPON_HOLD.reload_weight(_view_anim.reload_t)
+	var presentation_pitch := pitch - reload_weight * 0.45
+	var hold: Dictionary = {}
+	if tp_armed:
+		hold = WEAPON_HOLD.reload_hold_targets(_tp_weapon_info, presentation_pitch, reload_weight)
+	CharacterMotionRig.animate(_motion_rig, _motion_clock, Vector2(velocity.x, velocity.z).length(), is_on_floor(), _is_sliding, active_emote, delta, hold)
+	if is_instance_valid(_avatar):
+		var flat_velocity := Vector3(velocity.x, 0.0, velocity.z)
+		_avatar.visible = not is_instance_valid(_body_mesh) or _body_mesh.visible
+		_avatar.update_pose(delta, flat_velocity.length(), global_transform.basis.inverse() * flat_velocity, is_on_floor(), _is_sliding, active_emote, tp_armed, reload_weight > 0.0)
+	_tp_kick = move_toward(_tp_kick, 0.0, delta * 7.0)
+	if is_instance_valid(_tp_weapon):
+		_tp_weapon.visible = tp_armed and (third_person or _intro_left > 0.0)
+		WEAPON_HOLD.place_mount(_tp_weapon, _tp_weapon.get_parent() as Node3D, _motion_rig, _tp_weapon_info, presentation_pitch, _tp_kick)
 	_blaster_cooldown = maxf(0.0, _blaster_cooldown - delta)
-	_blaster_recoil = move_toward(_blaster_recoil, 0.0, delta * 1.35)
+	var on_floor_now := is_on_floor()
+	if on_floor_now and not _prev_on_floor and _prev_fall_speed < -5.5 and not is_dead:
+		SFX_BANK_PLAYER.play_recorded(self, "land", clampf(-14.0 + (-_prev_fall_speed - 5.5) * 0.8, -14.0, -5.0))
+	_prev_on_floor = on_floor_now
+	_prev_fall_speed = velocity.y
+	var recoil_recovery: float = _feel.step(delta)
+	if recoil_recovery > 0.0 and is_instance_valid(_camera) and not is_dead:
+		pitch = clampf(pitch - recoil_recovery, deg_to_rad(-82.0), deg_to_rad(82.0))
+		_camera.rotation.x = pitch
 	_weapon_idle_clock += delta
-	if is_instance_valid(_blaster_model):
-		_blaster_model.position.z = -0.48 + _blaster_recoil
-		if (_weapon_inspect_tween == null or not _weapon_inspect_tween.is_running()) and (_weapon_fire_tween == null or not _weapon_fire_tween.is_running()):
-			_blaster_model.rotation.z = sin(_weapon_idle_clock * 1.35) * 0.012
-			_blaster_model.position.y = -0.24 + sin(_weapon_idle_clock * 1.7) * 0.006
+	_update_weapon_view(delta)
 	if is_instance_valid(_blaster_model):
 		_animate_weapon_details()
-	if Input.is_action_pressed("fire") and _blaster_cooldown <= 0.0 and not arsenal_open:
+	# A raw mouse click on a HUD button must not fire: on desktop only shoot while the
+	# mouse is captured. Touch devices fire through the on-screen FIRE button instead.
+	var fire_input_allowed := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED or DisplayServer.is_touchscreen_available()
+	if Input.is_action_pressed("fire") and _blaster_cooldown <= 0.0 and not arsenal_open and not ui_blocked and fire_input_allowed:
 		_fire_blaster()
+	_update_camera_view(delta)
+
+
+func toggle_third_person() -> void:
+	set_third_person(not third_person)
+
+
+func set_third_person(enabled: bool) -> void:
+	third_person = enabled
+	_intro_left = 0.0 # choosing a view always ends the intro
+
+
+func is_external_view() -> bool:
+	return third_person or _intro_left > 0.0
+
+
+## Third-person / intro camera. The camera orbits the head and is pulled in by a ray so it never
+## ends up inside a wall. The first-person viewmodel is hidden while the body is visible.
+func _update_camera_view(delta: float) -> void:
+	if not is_instance_valid(_camera):
+		return
+	var intro := _intro_left > 0.0
+	if intro:
+		_intro_left = maxf(0.0, _intro_left - delta)
+	var external := third_person or intro
+	if not external:
+		if _view_was_external:
+			_view_was_external = false
+			_camera.cull_mask = 1
+			_camera.position = Vector3(0.0, 1.05 if _is_sliding else 1.55, -0.34)
+			_camera.rotation = Vector3(pitch, 0.0, 0.0)
+			if is_instance_valid(_blaster_model):
+				_blaster_model.visible = not is_dead
+		return
+	_view_was_external = true
+	_camera.cull_mask = 3
+	if is_instance_valid(_blaster_model):
+		_blaster_model.visible = false
+	var yaw_offset := 0.0
+	var shoulder := THIRD_PERSON_OFFSET.x
+	var distance := THIRD_PERSON_OFFSET.z
+	if intro:
+		# Start in front of the character, then swing round behind it (smoothstep).
+		var progress := 1.0 - _intro_left / INTRO_SECONDS
+		var eased := progress * progress * (3.0 - 2.0 * progress)
+		yaw_offset = lerpf(PI * 0.88, 0.0, eased)
+		shoulder = lerpf(0.0, THIRD_PERSON_OFFSET.x, eased)
+		distance = lerpf(THIRD_PERSON_OFFSET.z * 0.85, THIRD_PERSON_OFFSET.z, eased)
+	var pivot := Vector3(0.0, 1.0 if _is_sliding else 1.5, 0.0)
+	var arm := Basis(Vector3.UP, yaw_offset) * (Basis(Vector3.RIGHT, pitch) * Vector3(shoulder, THIRD_PERSON_OFFSET.y, distance))
+	var desired := pivot + arm
+	if is_inside_tree():
+		var pivot_global := to_global(pivot)
+		var desired_global := to_global(desired)
+		var query := PhysicsRayQueryParameters3D.create(pivot_global, desired_global)
+		query.exclude = [get_rid()]
+		query.collision_mask = 1
+		query.collide_with_areas = false
+		var hit := get_world_3d().direct_space_state.intersect_ray(query)
+		if not hit.is_empty():
+			var back := (pivot_global - desired_global).normalized()
+			var clearance := maxf(0.0, pivot_global.distance_to(hit.position) - 0.25)
+			var clear := pivot_global - back * clearance
+			desired = to_local(clear)
+	# Cover can compress the boom below the head radius. In that case render
+	# the world alone so the close avatar cannot fill the screen.
+	_camera.cull_mask = 1 if desired.distance_to(pivot) < 1.2 else 3
+	_camera.position = desired
+	_camera.rotation = Vector3(pitch, yaw_offset, 0.0)
+
+
+func _weapon_aim_allowed() -> bool:
+	return _aim_held and not arsenal_open and not ui_blocked and not is_dead and not _weapon_pose_locked()
+
+
+## Drives the first-person weapon layer once per frame. The look rate comes from how much the
+## view actually turned, so mouse, touch drag, gyro and recoil all sway the weapon the same way.
+func _update_weapon_view(delta: float) -> void:
+	if not is_instance_valid(_weapon_pivot):
+		return
+	if is_dead:
+		_view_anim.reset()
+		_weapon_pivot.transform = Transform3D.IDENTITY
+		_look_primed = false
+		return
+	var look_rate := Vector2.ZERO
+	if _look_primed and delta > 0.0:
+		look_rate = Vector2(angle_difference(_prev_look.x, rotation.y), pitch - _prev_look.y) / delta
+	_prev_look = Vector2(rotation.y, pitch)
+	_look_primed = true
+	if InputMap.has_action("reload") and Input.is_action_just_pressed("reload"):
+		request_reload()
+	var move_input := Vector2.ZERO
+	if not ui_blocked:
+		move_input = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var pose: Dictionary = _view_anim.step(delta, {
+		"look_rate": look_rate,
+		"speed": Vector2(velocity.x, velocity.z).length(),
+		"vertical_speed": velocity.y,
+		"on_floor": is_on_floor(),
+		"sprinting": Input.is_action_pressed("sprint") and stamina > 0.0 and not ui_blocked,
+		"sliding": _is_sliding,
+		"aiming": _weapon_aim_allowed(),
+		"move_input": move_input
+	})
+	_weapon_pivot.transform = WEAPON_VIEW_ANIM.pivot_transform(WEAPON_REST, pose)
+
+
+## Plays the reload animation. There is no ammo system yet, so this is presentation only; firing
+## is held back while the magazine swap plays. Returns false when a reload cannot start now.
+func request_reload() -> bool:
+	if is_dead or arsenal_open or ui_blocked or _intro_left > 0.0 or _weapon_pose_locked():
+		return false
+	var cooldown := float(ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"]).get("cooldown", 0.24))
+	var started := _view_anim.start_reload(WEAPON_VIEW_ANIM.reload_duration(cooldown))
+	if started:
+		reload_requested.emit(selected_weapon_id)
+	return started
+
+
+func is_reloading() -> bool:
+	return _view_anim.is_reloading()
+
+
+func _weapon_pose_locked() -> bool:
+	return (_weapon_equip_tween != null and _weapon_equip_tween.is_running()) or (_weapon_inspect_tween != null and _weapon_inspect_tween.is_running())
 
 
 func _animate_weapon_details() -> void:
@@ -294,7 +504,7 @@ func _animate_weapon_details() -> void:
 
 
 func play_emote(emote_id: String) -> void:
-	if emote_id not in ["griddy", "goofy", "robot", "wave"]:
+	if not EMOTE_CATALOG.is_valid(emote_id):
 		return
 	if active_emote == emote_id:
 		stop_emote()
@@ -324,7 +534,7 @@ func stop_emote() -> void:
 func apply_remote_emote(emote_id: String) -> void:
 	if emote_id == active_emote:
 		return
-	active_emote = emote_id if emote_id in ["griddy", "goofy", "robot", "wave"] else ""
+	active_emote = EMOTE_CATALOG.sanitize(emote_id)
 	_emote_clock = 0.0
 
 func _update_emote_visual() -> void:
@@ -361,6 +571,7 @@ func _start_emote_music() -> void:
 		_emote_music = AudioStreamPlayer.new()
 		_emote_music.name = "OriginalGriddyBeat"
 		_emote_music.volume_db = -13.0
+		_emote_music.bus = AUDIO_BUSES.bus_or_master(AUDIO_BUSES.MUSIC)
 		add_child(_emote_music)
 	_emote_music.stream = _make_emote_music()
 	_emote_music.play()
@@ -400,41 +611,100 @@ func set_arsenal_open(open: bool) -> void:
 	if open:
 		Input.action_release("fire")
 
+func set_combat_dead(dead: bool) -> void:
+	if dead == is_dead:
+		return
+	is_dead = dead
+	if is_instance_valid(_avatar):
+		_avatar.set_dead(dead)
+	_aim_held = false
+	for tween: Tween in [_weapon_equip_tween, _weapon_inspect_tween, _weapon_fire_tween]:
+		if tween != null and tween.is_valid():
+			tween.kill()
+	_view_anim.reset()
+	if is_instance_valid(_weapon_pivot):
+		_weapon_pivot.transform = Transform3D.IDENTITY
+	if is_instance_valid(_blaster_model):
+		_blaster_model.visible = not dead
+		_blaster_model.position = WEAPON_REST
+		_blaster_model.rotation = Vector3.ZERO
+		_blaster_model.scale = Vector3.ONE
+	if not dead:
+		_blaster_cooldown = 0.0
+
+
 func set_selected_weapon(weapon_id: String) -> void:
 	if not ARCADE_WEAPON_LOCAL.has(weapon_id) or selected_weapon_id == weapon_id:
 		return
 	selected_weapon_id = weapon_id
-	_blaster_cooldown = 0.0
 	_setup_blaster()
-	_blaster_recoil = 0.035
+	_view_anim.start_switch()
 	if is_instance_valid(_blaster_model):
-		var target_position := Vector3(0.27, -0.24, -0.48)
+		var target_position := WEAPON_REST
 		_blaster_model.position = target_position + Vector3(0.0, -0.09, 0.08)
-		var equip_tween := create_tween()
-		equip_tween.set_parallel(true)
-		equip_tween.tween_property(_blaster_model, "position", target_position, 0.20).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		equip_tween.tween_property(_blaster_model, "rotation", Vector3.ZERO, 0.20).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_weapon_equip_tween = create_tween()
+		_weapon_equip_tween.set_parallel(true)
+		_weapon_equip_tween.tween_property(_blaster_model, "position", target_position, 0.20).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_weapon_equip_tween.tween_property(_blaster_model, "rotation", Vector3.ZERO, 0.20).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if is_instance_valid(_blaster_audio):
-		_blaster_audio.stream = _make_weapon_stream(weapon_id)
+		WEAPON_AUDIO.prewarm(weapon_id)
+		_blaster_audio.stream = make_weapon_stream(weapon_id)
 
 func _setup_blaster() -> void:
 	if not is_instance_valid(_camera):
 		return
+	for tween: Tween in [_weapon_equip_tween, _weapon_inspect_tween, _weapon_fire_tween]:
+		if tween != null and tween.is_valid():
+			tween.kill()
 	if is_instance_valid(_blaster_model):
+		if _blaster_model.get_parent() != null:
+			_blaster_model.get_parent().remove_child(_blaster_model)
 		_blaster_model.queue_free()
+	if not is_instance_valid(_weapon_pivot):
+		_weapon_pivot = Node3D.new()
+		_weapon_pivot.name = "WeaponPivot"
+		_camera.add_child(_weapon_pivot)
 	var weapon_data: Dictionary = ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"])
 	var weapon_color: Color = weapon_data.get("color", Color("#8CEEFF"))
 	_blaster_model = ARCADE_WEAPON_VISUALS.build_weapon(selected_weapon_id, weapon_color)
 	_blaster_model.position = Vector3(0.27, -0.24, -0.48)
-	_camera.add_child(_blaster_model)
+	_blaster_model.visible = not is_dead
+	_weapon_pivot.add_child(_blaster_model)
+	_attach_tp_weapon()
 	if not is_instance_valid(_blaster_audio):
 		_blaster_audio = AudioStreamPlayer3D.new()
 		_blaster_audio.name = "ArcadeWeaponAudio"
 		_blaster_audio.volume_db = -7.0
 		_blaster_audio.max_distance = 42.0
 		_blaster_audio.unit_size = 9.0
-		_blaster_audio.stream = _make_weapon_stream(selected_weapon_id)
+		_blaster_audio.bus = AUDIO_BUSES.bus_or_master(AUDIO_BUSES.WEAPONS)
+		_blaster_audio.stream = make_weapon_stream(selected_weapon_id)
 		_camera.add_child(_blaster_audio)
+
+## Builds the world-space copy of the weapon in the character's right hand. It is only drawn by the
+## external (intro / third-person) camera; the first-person camera never sees render layer 2.
+func _attach_tp_weapon() -> void:
+	if is_instance_valid(_tp_weapon):
+		_tp_weapon.get_parent().remove_child(_tp_weapon)
+		_tp_weapon.queue_free()
+		_tp_weapon = null
+	if not is_instance_valid(_motion_rig):
+		return
+	var elbow := _motion_rig.get_node_or_null("ArmPivot_R/ElbowPivot") as Node3D
+	if not is_instance_valid(elbow):
+		return
+	var weapon_data: Dictionary = ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"])
+	_tp_weapon = ARCADE_WEAPON_VISUALS.build_weapon(selected_weapon_id, weapon_data.get("color", Color("#8CEEFF")))
+	_tp_weapon_info = WEAPON_HOLD.measure(_tp_weapon, selected_weapon_id)
+	_tp_weapon.scale = Vector3.ONE * WEAPON_HOLD.WEAPON_SCALE
+	_tp_weapon.position = WEAPON_HOLD.GLOVE_LOCAL - (_tp_weapon_info.grip as Vector3) * WEAPON_HOLD.WEAPON_SCALE
+	_set_visual_layer_recursive(_tp_weapon, 0 if is_instance_valid(_avatar) else 2)
+	_tp_weapon.visible = false
+	elbow.add_child(_tp_weapon)
+	if is_instance_valid(_avatar):
+		_avatar.set_weapon(selected_weapon_id, weapon_data.get("color", Color("#8CEEFF")))
+		_set_visual_layer_recursive(_avatar, 2)
+
 
 func _blaster_material(color: Color, metallic_value: float, emissive: bool = false) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -447,68 +717,15 @@ func _blaster_material(color: Color, metallic_value: float, emissive: bool = fal
 		material.emission_energy_multiplier = 1.8
 	return material
 
-func _make_weapon_stream(weapon_id: String) -> AudioStreamWAV:
-	# Original synthetic arcade tones; all samples are generated locally.
-	const sample_rate := 22050
-	const duration := 0.17
-	var profiles := {
-		"aether":[260.0, 105.0, 520.0, 0.22],
-		"minicore":[520.0, 190.0, 880.0, 0.14],
-		"hand_cannon":[145.0, 55.0, 290.0, 0.30],
-		"pulse_carbine":[340.0, 125.0, 680.0, 0.18],
-		"star_piercer":[780.0, 620.0, 1560.0, 0.08],
-		"duck_launcher":[210.0, 80.0, 430.0, 0.34],
-		"banana_boomerang":[430.0, 260.0, 860.0, 0.20],
-		"confetti_cannon":[690.0, 410.0, 1380.0, 0.12],
-		"prism_scepter":[610.0, 180.0, 1220.0, 0.24],
-		"vortex_orbiter":[190.0, 150.0, 570.0, 0.28],
-		"comet_bow":[390.0, 300.0, 1170.0, 0.10],
-		"bubble_burst":[310.0, 220.0, 930.0, 0.32],
-		"glitch_ray":[880.0, 510.0, 1760.0, 0.16],
-		"meteor_mallet":[115.0, 35.0, 230.0, 0.38],
-		"frost_wand":[560.0, 360.0, 1120.0, 0.12],
-		"solar_lance":[470.0, 90.0, 1410.0, 0.26],
-		"slime_slinger":[175.0, 95.0, 350.0, 0.36],
-		"pixel_storm":[960.0, 240.0, 1920.0, 0.10],
-		"thunder_drum":[95.0, 28.0, 190.0, 0.42],
-		"moon_disc":[270.0, 210.0, 810.0, 0.18],
-		"jellyfish_staff":[720.0, 440.0, 1440.0, 0.20],
-		"portal_popper":[225.0, 420.0, 900.0, 0.24],
-		"rubber_chicken":[390.0, 720.0, 1170.0, 0.42],
-		"ranger_rifle":[305.0, 95.0, 610.0, 0.18],
-		"heavy_sidearm":[155.0, 48.0, 310.0, 0.28],
-		"longshot":[820.0, 540.0, 1640.0, 0.09],
-		"rotary_arc":[175.0, 34.0, 525.0, 0.25]
-	}
-	var profile: Array = profiles.get(weapon_id, profiles["aether"])
-	var base_frequency := float(profile[0])
-	var sweep_amount := float(profile[1])
-	var overtone_frequency := float(profile[2])
-	var overtone_mix := float(profile[3])
-	var count := int(sample_rate * duration)
-	var bytes := PackedByteArray()
-	bytes.resize(count * 2)
-	for i in range(count):
-		var t := float(i) / float(sample_rate)
-		var progress := float(i) / float(count)
-		var envelope := pow(maxf(0.0, 1.0 - progress), 2.15)
-		var fundamental := sin(TAU * (base_frequency - sweep_amount * t / duration) * t)
-		var overtone := sin(TAU * overtone_frequency * t) * overtone_mix
-		var wobble := sin(TAU * (base_frequency * 0.5) * t) * 0.08
-		var sample := clampf((fundamental * (0.72 - overtone_mix * 0.35) + overtone + wobble) * envelope * 0.72, -1.0, 1.0)
-		bytes.encode_s16(i * 2, int(sample * 32767.0))
-	var stream := AudioStreamWAV.new()
-	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = sample_rate
-	stream.stereo = false
-	stream.data = bytes
-	return stream
+static func make_weapon_stream(weapon_id: String) -> AudioStreamWAV:
+	# Layered original synthesis (crack, body, sub thump, mechanics, tail); see weapon_audio.gd.
+	return WEAPON_AUDIO.stream(weapon_id, "own", 0)
 
 func inspect_weapon() -> void:
-	if not is_instance_valid(_blaster_model) or arsenal_open or is_dead:
+	if not is_instance_valid(_blaster_model) or arsenal_open or is_dead or _weapon_pose_locked():
 		return
-	if _weapon_inspect_tween != null and _weapon_inspect_tween.is_running():
-		return
+	if _weapon_fire_tween != null and _weapon_fire_tween.is_running():
+		_weapon_fire_tween.kill()
 	_weapon_inspect_tween = create_tween()
 	_weapon_inspect_tween.set_trans(Tween.TRANS_SINE)
 	_weapon_inspect_tween.set_ease(Tween.EASE_IN_OUT)
@@ -571,14 +788,34 @@ func _animate_weapon_fire() -> void:
 
 
 func _fire_blaster() -> void:
-	if not is_instance_valid(_camera) or _blaster_cooldown > 0.0:
+	if is_dead or not is_instance_valid(_camera) or _blaster_cooldown > 0.0 or _weapon_pose_locked() or _intro_left > 0.0 or _view_anim.is_reloading():
 		return
 	_blaster_cooldown = float(ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"]).get("cooldown", 0.24))
-	_blaster_recoil = 0.055
+	_tp_kick = 1.0
+	if is_instance_valid(_avatar):
+		_avatar.fire()
+	_view_anim.fire(clampf(pow(_blaster_cooldown / 0.24, 0.55), 0.45, 1.8), 1.0 if randf() > 0.5 else -1.0)
 	_animate_weapon_fire()
 	var origin := _camera.global_position
 	var direction := -_camera.global_basis.z.normalized()
 	var weapon_data: Dictionary = ARCADE_WEAPON_LOCAL.get(selected_weapon_id, ARCADE_WEAPON_LOCAL["aether"])
+	if third_person:
+		# Shoot from the head toward the point under the crosshair, not from the camera behind the body.
+		var aim_end := origin + direction * float(weapon_data.get("range", 65.0))
+		var aim_query := PhysicsRayQueryParameters3D.create(origin, aim_end)
+		aim_query.exclude = [get_rid()]
+		aim_query.collide_with_areas = false
+		var aim_hit := get_world_3d().direct_space_state.intersect_ray(aim_query)
+		var aim_point: Vector3 = aim_end if aim_hit.is_empty() else aim_hit.position
+		origin = global_position + Vector3.UP * (0.9 if _is_sliding else 1.45)
+		direction = (aim_point - origin).normalized()
+	# Weapon feel: spread depends on movement and sustained fire, then the camera kicks up a little.
+	var feel_profile: Dictionary = WEAPON_FEEL.profile(float(weapon_data.get("cooldown", 0.24)), float(weapon_data.get("range", 65.0)))
+	var aiming_now := _aim_held and not arsenal_open and not ui_blocked
+	var spread_now: float = _feel.spread_deg(feel_profile, WEAPON_FEEL.movement_multiplier(Vector2(velocity.x, velocity.z).length(), is_on_floor(), _is_sliding, aiming_now))
+	# Online, the server rolls the spread (a client must not pick its own); this is the crosshair aim.
+	var aim_direction := direction
+	direction = WEAPON_FEEL.apply_spread(direction, spread_now)
 	var endpoint := origin + direction * float(weapon_data.get("range", 65.0))
 	var query := PhysicsRayQueryParameters3D.create(origin, endpoint)
 	query.exclude = [get_rid()]
@@ -588,11 +825,17 @@ func _fire_blaster() -> void:
 		endpoint = hit.position
 	var net: Node = get_parent().get_node_or_null("OxenWarNet")
 	var online_fire: bool = is_instance_valid(net) and bool(net.get("is_authenticated"))
+	var kick: Dictionary = _feel.fire(feel_profile, aiming_now, _recoil_scale)
+	pitch = clampf(pitch + float(kick.pitch), deg_to_rad(-82.0), deg_to_rad(82.0))
+	_camera.rotation.x = pitch
+	rotate_y(float(kick.yaw))
 	if online_fire:
-		net.call("request_blaster_fire", selected_weapon_id, direction)
+		net.call("request_blaster_fire", selected_weapon_id, aim_direction, aiming_now)
 	else:
 		_show_blaster_beam(origin, endpoint)
 	if is_instance_valid(_blaster_audio):
+		# A different layered variant each shot, so repeated fire never sounds identical.
+		_blaster_audio.stream = WEAPON_AUDIO.stream(selected_weapon_id, WEAPON_AUDIO.OWN, randi() % WEAPON_AUDIO.VARIANTS)
 		_blaster_audio.pitch_scale = randf_range(0.985, 1.015)
 		_blaster_audio.play()
 	var flash := MeshInstance3D.new()
@@ -623,6 +866,7 @@ func _show_blaster_beam(origin: Vector3, endpoint: Vector3) -> void:
 	beam.material_override = material
 	var scene := get_tree().current_scene
 	if not is_instance_valid(scene):
+		beam.free()
 		return
 	scene.add_child(beam)
 	beam.global_position = (origin + endpoint) * 0.5
@@ -632,6 +876,13 @@ func _show_blaster_beam(origin: Vector3, endpoint: Vector3) -> void:
 	get_tree().create_timer(0.085).timeout.connect(beam.queue_free)
 
 func _physics_process(delta: float) -> void:
+	if is_dead or ui_blocked:
+		velocity.x = 0.0
+		velocity.z = 0.0
+		if not is_on_floor():
+			velocity.y = CharacterMovement.apply_gravity(velocity.y, GRAVITY, event_gravity_scale, delta)
+		move_and_slide()
+		return
 	if admin_fly_enabled:
 		var fly_input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 		var fly_forward := -global_transform.basis.z
@@ -679,6 +930,8 @@ func _physics_process(delta: float) -> void:
 	var forward := -global_transform.basis.z
 	var right := global_transform.basis.x
 	var direction := (right * input_vector.x + forward * -input_vector.y).normalized()
+	if _reverse_movement:
+		direction = -direction
 
 	if dash_left > 0.0:
 		_set_sliding(false)
@@ -706,15 +959,12 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	set_swimming(MapWorldBuilder.in_swim_zone(swim_map_index, global_position))
 	_update_footsteps(delta)
-	if _camera:
+	if _camera and not is_external_view():
 		var target_camera_height := 1.05 if _is_sliding else 1.55
 		_camera.position.y = move_toward(_camera.position.y, target_camera_height, 5.5 * delta)
 
-	if gyro_enabled and OS.has_feature("android"):
-		var gyro := Input.get_gyroscope()
-		rotate_y(-gyro.y * look_sensitivity * 70.0 * delta)
-		pitch = clampf(pitch - gyro.x * look_sensitivity * 70.0 * delta, deg_to_rad(-82.0), deg_to_rad(82.0))
-		_camera.rotation.x = pitch
+	if OS.has_feature("android"):
+		apply_gyro(Input.get_gyroscope(), delta)
 
 func _setup_footstep_audio() -> void:
 	_footstep_player = AudioStreamPlayer3D.new()
@@ -722,6 +972,7 @@ func _setup_footstep_audio() -> void:
 	_footstep_player.volume_db = -9.0
 	_footstep_player.max_distance = 24.0
 	_footstep_player.unit_size = 8.0
+	_footstep_player.bus = AUDIO_BUSES.bus_or_master(AUDIO_BUSES.FOOTSTEPS)
 	add_child(_footstep_player)
 
 func _update_footsteps(delta: float) -> void:
@@ -732,99 +983,16 @@ func _update_footsteps(delta: float) -> void:
 		_footstep_distance = 0.0
 		return
 	_footstep_distance += horizontal_speed * delta
-	var step_distance := 2.05 if horizontal_speed > WALK_SPEED + 0.5 else 1.55
+	var step_distance := FOOTSTEPS.step_distance(horizontal_speed, WALK_SPEED)
 	if _footstep_distance >= step_distance:
 		_footstep_distance = 0.0
 		_play_surface_footstep()
 
 func _play_surface_footstep() -> void:
-	var surface := _detect_footstep_surface()
-	if not _footstep_streams.has(surface):
-		_footstep_streams[surface] = _make_footstep_stream(surface)
-	_footstep_player.stream = _footstep_streams[surface] as AudioStreamWAV
+	var surface := FOOTSTEPS.detect(get_world_3d(), global_position, [get_rid()])
+	_footstep_player.stream = FOOTSTEPS.stream(surface)
 	_footstep_player.pitch_scale = randf_range(0.92, 1.08)
 	_footstep_player.play()
-
-func _detect_footstep_surface() -> String:
-	var origin := global_position + Vector3.UP * 0.25
-	var target := global_position - Vector3.UP * 1.1
-	var query := PhysicsRayQueryParameters3D.create(origin, target)
-	query.exclude = [get_rid()]
-	query.collide_with_areas = false
-	var hit := get_world_3d().direct_space_state.intersect_ray(query)
-	if hit.is_empty():
-		return "stone"
-	var collider: Object = hit.get("collider")
-	var surface_hint := ""
-	if collider is CollisionObject3D:
-		surface_hint = str(collider.get_meta("surface_type", ""))
-		if surface_hint.is_empty():
-			for group_name in collider.get_groups():
-				if str(group_name).begins_with("surface_"):
-					surface_hint = str(group_name).trim_prefix("surface_")
-					break
-	if surface_hint.is_empty() and collider is Node:
-		surface_hint = str(collider.name)
-	surface_hint = surface_hint.to_lower()
-	if "grass" in surface_hint or "foliage" in surface_hint or "leaf" in surface_hint:
-		return "grass"
-	if "metal" in surface_hint or "steel" in surface_hint:
-		return "metal"
-	if "wood" in surface_hint or "plank" in surface_hint:
-		return "wood"
-	if "ice" in surface_hint or "snow" in surface_hint:
-		return "ice"
-	if "sand" in surface_hint or "dirt" in surface_hint or "soil" in surface_hint:
-		return "dirt"
-	return "stone"
-
-func _make_footstep_stream(surface: String) -> AudioStreamWAV:
-	# Original synthesized foley: distinct tonal/noise profiles, generated locally.
-	const sample_rate := 22050
-	const duration := 0.105
-	var sample_count := int(sample_rate * duration)
-	var bytes := PackedByteArray()
-	bytes.resize(sample_count * 2)
-	var rng := RandomNumberGenerator.new()
-	rng.randomize()
-	var frequency := 430.0
-	var noise_mix := 0.28
-	var amplitude := 0.52
-	match surface:
-		"grass":
-			frequency = 180.0
-			noise_mix = 0.78
-			amplitude = 0.34
-		"metal":
-			frequency = 920.0
-			noise_mix = 0.18
-			amplitude = 0.48
-		"wood":
-			frequency = 270.0
-			noise_mix = 0.24
-			amplitude = 0.48
-		"ice":
-			frequency = 1080.0
-			noise_mix = 0.52
-			amplitude = 0.30
-		"dirt":
-			frequency = 220.0
-			noise_mix = 0.88
-			amplitude = 0.30
-	for i in range(sample_count):
-		var t := float(i) / float(sample_rate)
-		var envelope := pow(maxf(0.0, 1.0 - float(i) / float(sample_count)), 2.2)
-		var tone := sin(TAU * frequency * t) * (1.0 - noise_mix)
-		var noise := rng.randf_range(-1.0, 1.0) * noise_mix
-		var transient := rng.randf_range(-1.0, 1.0) * 0.24 if i < int(sample_rate * 0.009) else 0.0
-		var sample := clampf((tone + noise + transient) * envelope * amplitude, -1.0, 1.0)
-		bytes.encode_s16(i * 2, int(sample * 32767.0))
-	var stream := AudioStreamWAV.new()
-	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = sample_rate
-	stream.stereo = false
-	stream.data = bytes
-	return stream
 
 func apply_server_slide(enabled: bool) -> void:
 	_set_sliding(enabled)
@@ -911,6 +1079,11 @@ func active_event_ice() -> bool:
 	return event_speed_scale == 0.82
 
 func apply_event(event_id: String) -> void:
+	_reverse_movement = event_id == "REVERSE_PANIC"
+	if is_instance_valid(_character_detail_root):
+		var head := _character_detail_root.get_node_or_null("HeadPivot") as Node3D
+		if head:
+			head.scale = Vector3.ONE * (1.65 if event_id == "BIG_HEAD" else 1.0)
 	event_gravity_scale = 0.55 if event_id == "LOW_GRAVITY" else 1.0
 	match event_id:
 		"BONK_MODE":
@@ -927,19 +1100,76 @@ func apply_event(event_id: String) -> void:
 			event_speed_scale = 1.0
 
 func _unhandled_input(event: InputEvent) -> void:
+	if InputMap.has_action("toggle_view") and event.is_action_pressed("toggle_view"):
+		toggle_third_person()
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		_aim_held = event.pressed and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_apply_look(event.relative)
+	elif event is InputEventScreenTouch and not event.pressed and event.index == _look_finger:
+		_look_finger = -1
 	elif event is InputEventScreenDrag:
 		var viewport_size := get_viewport().get_visible_rect().size
-		if event.position.x > viewport_size.x * 0.38:
-			_apply_look(event.relative)
-	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED
+		if event.position.x > viewport_size.x * 0.38 and _claim_look_finger(event.index):
+			apply_touch_drag(event.relative, event.velocity.length())
+	# Esc is handled by the HUD (pause menu), which also frees/captures the mouse.
 
 func _apply_look(relative: Vector2) -> void:
-	rotate_y(-relative.x * look_sensitivity)
-	pitch = clampf(pitch - relative.y * look_sensitivity, deg_to_rad(-82.0), deg_to_rad(82.0))
-	_camera.rotation.x = pitch
+	if ui_blocked:
+		return
+	# Mouse: the original path, now slowed down while zoomed in (ADS).
+	var ads := _ads_look_scale()
+	_turn_view(Vector2(-relative.x, -relative.y) * look_sensitivity * ads)
+
+## Only one finger turns the view. The first finger that drags in the look area owns it until it
+## lifts, so a second finger resting or sliding there cannot double the turn speed.
+func _claim_look_finger(index: int) -> bool:
+	if _look_finger == -1:
+		_look_finger = index
+	return _look_finger == index
+
+## A finger drag on the right side of the screen. `speed` is the finger speed in viewport pixels per
+## second (for the optional acceleration).
+func apply_touch_drag(relative: Vector2, speed: float) -> void:
+	if ui_blocked:
+		return
+	_turn_view(LOOK_CONTROL.touch_turn(relative, speed, look_sensitivity, touch_sensitivity, touch_acceleration, device_look_scale, _ads_look_scale()))
+
+## One frame of gyro aiming. Does nothing when gyro is off or the player cannot look (menus, defeat).
+func apply_gyro(rate: Vector3, delta: float) -> void:
+	if not gyro_enabled or ui_blocked or is_dead:
+		return
+	_turn_view(LOOK_CONTROL.gyro_turn(rate - gyro_bias, delta, look_sensitivity, gyro_sensitivity, _ads_look_scale(), gyro_invert_yaw, gyro_invert_pitch))
+
+## 1.0 at the hip, down to the ADS setting when fully zoomed in.
+func _ads_look_scale() -> float:
+	return LOOK_CONTROL.ads_scale(ads_sensitivity, float(_view_anim.fov_blend()) if _view_anim != null else 0.0)
+
+## Turns the view by (yaw, pitch) radians and keeps the pitch inside its limits.
+func _turn_view(turn: Vector2) -> void:
+	if turn == Vector2.ZERO:
+		return
+	rotate_y(turn.x)
+	pitch = clampf(pitch + turn.y, deg_to_rad(-82.0), deg_to_rad(82.0))
+	if is_instance_valid(_camera):
+		_camera.rotation.x = pitch
+
+## Reads the saved touch, gyro and ADS settings and works out this screen's look scale.
+func load_input_settings() -> void:
+	_recoil_scale = clampf(float(USER_SETTINGS_SCRIPT.read_value("gameplay", "recoil_scale", 1.0)), 0.0, 1.5)
+	touch_sensitivity = USER_SETTINGS_SCRIPT.touch_sensitivity()
+	touch_acceleration = USER_SETTINGS_SCRIPT.touch_acceleration()
+	ads_sensitivity = USER_SETTINGS_SCRIPT.ads_sensitivity()
+	gyro_enabled = USER_SETTINGS_SCRIPT.gyro_enabled()
+	gyro_bias = USER_SETTINGS_SCRIPT.gyro_bias()
+	gyro_sensitivity = USER_SETTINGS_SCRIPT.gyro_sensitivity()
+	gyro_invert_yaw = USER_SETTINGS_SCRIPT.gyro_invert_yaw()
+	gyro_invert_pitch = USER_SETTINGS_SCRIPT.gyro_invert_pitch()
+	device_look_scale = LOOK_CONTROL.device_scale(float(DisplayServer.screen_get_dpi()), Vector2(DisplayServer.window_get_size())) if DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") else 1.0
+
+## The on-screen AIM button: toggles aiming down sights (touch has no right mouse button).
+func set_touch_aim(enabled: bool) -> void:
+	_aim_held = enabled and not is_dead
 
 func _material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()

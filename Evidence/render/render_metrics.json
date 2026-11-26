@@ -1,0 +1,55 @@
+{
+  "context": "software renderer; captures, not hardware benchmark",
+  "maps": [
+    {
+      "draw_calls": 773.0,
+      "fps": 5.0,
+      "map": 0,
+      "memory_bytes": 92105635.0,
+      "primitives": 145492.0
+    },
+    {
+      "draw_calls": 715.0,
+      "fps": 5.0,
+      "map": 1,
+      "memory_bytes": 91950181.0,
+      "primitives": 143108.0
+    },
+    {
+      "draw_calls": 745.0,
+      "fps": 9.0,
+      "map": 2,
+      "memory_bytes": 91996772.0,
+      "primitives": 150072.0
+    },
+    {
+      "draw_calls": 729.0,
+      "fps": 9.0,
+      "map": 3,
+      "memory_bytes": 91845587.0,
+      "primitives": 147036.0
+    },
+    {
+      "draw_calls": 574.0,
+      "fps": 2.0,
+      "map": 4,
+      "memory_bytes": 95095809.0,
+      "primitives": 62216.0
+    },
+    {
+      "draw_calls": 545.0,
+      "fps": 2.0,
+      "map": 5,
+      "memory_bytes": 97435068.0,
+      "primitives": 93180.0
+    },
+    {
+      "draw_calls": 379.0,
+      "fps": 2.0,
+      "map": 6,
+      "memory_bytes": 93319965.0,
+      "primitives": 57144.0
+    }
+  ],
+  "renderer": "llvmpipe (LLVM 19.1.7, 256 bits)"
+}

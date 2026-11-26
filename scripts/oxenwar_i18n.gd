@@ -48,6 +48,129 @@ const TEXTS := {
 	}
 }
 
+## Strings added by the FPS-style menu redesign. Kept separate so the original table stays untouched.
+const EXTRA := {
+	"az": {
+		"map":"XƏRİTƏ", "mode_bomb":"BOMBA HÜCUMU • QUR / ZƏRƏRSİZLƏŞDİR",
+		"mode_desc_ffa":"Hamı hamıya qarşı. Ən çox kill edən qalib gəlir.",
+		"mode_desc_tdm":"Qırmızı və mavi komanda. Komanda xalı qalibi seçir.",
+		"mode_desc_koth":"Mərkəzi nöqtəni tut və onu müdafiə et.",
+		"mode_desc_bomb":"Bombanı qur və ya zərərsizləşdir. Raund sistemi.",
+		"server_status_ready":"SERVER HAZIRDIR", "server_status_none":"SERVER YOXDUR", "server_status_bad":"ÜNVAN YANLIŞDIR",
+		"start_training":"BAŞLA • TƏLİM ARENASI", "training_notice":"Server ünvanı yoxdur. Oflayn təlim arenası açılır.",
+		"server_field_hint":"wss://… və ya host/IP", "your_server":"SERVER",
+		"footer_hint":"[WASD] hərəkət   [SHIFT] qaç   [CTRL] sürüş   [Q] dash   [V] arsenal   [ESC] fasilə",
+		"private_room":"ÖZƏL OTAQ", "quick_match_label":"SÜRƏTLİ MATÇ", "level":"RANK",
+		"login_title":"HESABINA DAXİL OL",
+		"need_server_room":"Hazırda onlayn server yoxdur, otaq yaratmaq mümkün deyil.",
+		"need_server_join":"Hazırda onlayn server yoxdur, otağa qoşulmaq mümkün deyil.",
+		"server_custom":"ÖZ SERVERİN",
+		"server_auto_online":"SERVER ONLAYN",
+		"server_auto_none":"ONLAYN SERVER YOXDUR",
+		"server_auto_checking":"SERVER AXTARILIR...",
+		"auto_hint":"Server avtomatik tapılır. Dostun otağına qoşulmaq üçün yalnız otaq kodunu yaz.",
+		"auto_none_hint":"Hazırda hazır server tapılmadı. OTAQ YARAT otağı bu cihazda açır: eyni Wi-Fi-dakı dostların yalnız otaq kodunu yazır. BAŞLA oflayn təlim arenasını açır.",
+		"custom_server":"ÖZ SERVERİM",
+		"guest_play":"QONAQ KİMİ OYNA",
+		"guest_hint":"Hesab lazım deyil. Yalnız adını yaz.",
+		"guest_name":"Adın",
+		"guest_badge":"QONAQ",
+		"guest_sign_in":"HESABA GİR",
+		"server_lan_online":"BU ŞƏBƏKƏDƏ SERVER TAPILDI"
+	},
+	"en": {
+		"map":"MAP", "mode_bomb":"BOMB RUSH • PLANT / DEFUSE",
+		"mode_desc_ffa":"Everyone for themselves. Most kills wins.",
+		"mode_desc_tdm":"Red versus blue. Team score decides the match.",
+		"mode_desc_koth":"Capture the central zone and hold it.",
+		"mode_desc_bomb":"Plant or defuse the bomb. Round-based.",
+		"server_status_ready":"SERVER READY", "server_status_none":"NO SERVER", "server_status_bad":"CHECK ADDRESS",
+		"start_training":"START • TRAINING ARENA", "training_notice":"No server address set. Opening the offline training arena.",
+		"server_field_hint":"wss://… or host/IP", "your_server":"SERVER",
+		"footer_hint":"[WASD] move   [SHIFT] sprint   [CTRL] slide   [Q] dash   [V] arsenal   [ESC] pause",
+		"private_room":"PRIVATE ROOM", "quick_match_label":"QUICK MATCH", "level":"RANK",
+		"login_title":"SIGN IN TO YOUR ACCOUNT",
+		"need_server_room":"No online server right now, so a room cannot be created.",
+		"need_server_join":"No online server right now, so you cannot join a room.",
+		"server_custom":"CUSTOM SERVER",
+		"server_auto_online":"SERVER ONLINE",
+		"server_auto_none":"NO ONLINE SERVER",
+		"server_auto_checking":"SEARCHING FOR A SERVER...",
+		"auto_hint":"The server is found automatically. To join a friend, just enter the room code.",
+		"auto_none_hint":"No ready server found. CREATE ROOM opens the room on this device: friends on the same Wi-Fi only type the room code. START opens the offline training arena.",
+		"custom_server":"CUSTOM SERVER",
+		"guest_play":"PLAY AS GUEST",
+		"guest_hint":"No account needed. Just type a name.",
+		"guest_name":"Your name",
+		"guest_badge":"GUEST",
+		"guest_sign_in":"SIGN IN",
+		"server_lan_online":"SERVER FOUND ON THIS NETWORK"
+	},
+	"tr": {
+		"map":"HARİTA", "mode_bomb":"BOMBA HÜCUMU • KUR / ETKİSİZLEŞTİR",
+		"mode_desc_ffa":"Herkes tek başına. En çok kill yapan kazanır.",
+		"mode_desc_tdm":"Kırmızı takım mavi takıma karşı. Takım skoru belirler.",
+		"mode_desc_koth":"Merkez bölgeyi ele geçir ve savun.",
+		"mode_desc_bomb":"Bombayı kur veya etkisiz hale getir. Raund tabanlı.",
+		"server_status_ready":"SUNUCU HAZIR", "server_status_none":"SUNUCU YOK", "server_status_bad":"ADRESİ KONTROL ET",
+		"start_training":"BAŞLA • ANTRENMAN ARENASI", "training_notice":"Sunucu adresi yok. Çevrimdışı antrenman arenası açılıyor.",
+		"server_field_hint":"wss://… veya host/IP", "your_server":"SUNUCU",
+		"footer_hint":"[WASD] hareket   [SHIFT] koş   [CTRL] kay   [Q] dash   [V] arsenal   [ESC] duraklat",
+		"private_room":"ÖZEL ODA", "quick_match_label":"HIZLI MAÇ", "level":"RÜTBE",
+		"login_title":"HESABINA GİRİŞ YAP",
+		"need_server_room":"Şu anda çevrimiçi sunucu yok, oda oluşturulamıyor.",
+		"need_server_join":"Şu anda çevrimiçi sunucu yok, odaya katılınamıyor.",
+		"server_custom":"ÖZEL SUNUCU",
+		"server_auto_online":"SUNUCU ÇEVRİMİÇİ",
+		"server_auto_none":"ÇEVRİMİÇİ SUNUCU YOK",
+		"server_auto_checking":"SUNUCU ARANIYOR...",
+		"auto_hint":"Sunucu otomatik bulunur. Arkadaşının odasına katılmak için sadece oda kodunu yaz.",
+		"auto_none_hint":"Hazır sunucu bulunamadı. ODA OLUŞTUR odayı bu cihazda açar: aynı Wi-Fi'daki arkadaşların sadece oda kodunu yazar. BAŞLA çevrimdışı antrenman arenasını açar.",
+		"custom_server":"ÖZEL SUNUCU",
+		"guest_play":"MİSAFİR OLARAK OYNA",
+		"guest_hint":"Hesap gerekmez. Sadece bir ad yaz.",
+		"guest_name":"Adın",
+		"guest_badge":"MİSAFİR",
+		"guest_sign_in":"GİRİŞ YAP",
+		"server_lan_online":"BU AĞDA SUNUCU BULUNDU"
+	},
+	"ru": {
+		"map":"КАРТА", "mode_bomb":"БОМБА • ЗАЛОЖИТЬ / ОБЕЗВРЕДИТЬ",
+		"mode_desc_ffa":"Каждый сам за себя. Побеждает тот, у кого больше убийств.",
+		"mode_desc_tdm":"Красные против синих. Счёт команды решает матч.",
+		"mode_desc_koth":"Захватите центральную зону и удерживайте её.",
+		"mode_desc_bomb":"Заложите или обезвредьте бомбу. Раундовый режим.",
+		"server_status_ready":"СЕРВЕР ГОТОВ", "server_status_none":"НЕТ СЕРВЕРА", "server_status_bad":"ПРОВЕРЬТЕ АДРЕС",
+		"start_training":"СТАРТ • ТРЕНИРОВКА", "training_notice":"Адрес сервера не указан. Открывается офлайн-арена для тренировки.",
+		"server_field_hint":"wss://… или хост/IP", "your_server":"СЕРВЕР",
+		"footer_hint":"[WASD] движение   [SHIFT] бег   [CTRL] скольжение   [Q] рывок   [V] арсенал   [ESC] пауза",
+		"private_room":"ЧАСТНАЯ КОМНАТА", "quick_match_label":"БЫСТРЫЙ МАТЧ", "level":"РАНГ",
+		"login_title":"ВХОД В АККАУНТ",
+		"need_server_room":"Сейчас нет онлайн-сервера, комнату создать нельзя.",
+		"need_server_join":"Сейчас нет онлайн-сервера, войти в комнату нельзя.",
+		"server_custom":"СВОЙ СЕРВЕР",
+		"server_auto_online":"СЕРВЕР ОНЛАЙН",
+		"server_auto_none":"НЕТ ОНЛАЙН-СЕРВЕРА",
+		"server_auto_checking":"ПОИСК СЕРВЕРА...",
+		"auto_hint":"Сервер находится автоматически. Чтобы зайти к другу, введите только код комнаты.",
+		"auto_none_hint":"Готовый сервер не найден. СОЗДАТЬ КОМНАТУ открывает комнату на этом устройстве: друзьям в той же Wi-Fi сети нужен только код. СТАРТ открывает офлайн-арену.",
+		"custom_server":"СВОЙ СЕРВЕР",
+		"guest_play":"ИГРАТЬ ГОСТЕМ",
+		"guest_hint":"Аккаунт не нужен. Просто введи имя.",
+		"guest_name":"Твоё имя",
+		"guest_badge":"ГОСТЬ",
+		"guest_sign_in":"ВОЙТИ",
+		"server_lan_online":"СЕРВЕР НАЙДЕН В ЭТОЙ СЕТИ"
+	}
+}
+
 static func text_for(key: String, locale: String) -> String:
 	var language: Dictionary = TEXTS.get(locale, TEXTS["en"])
-	return str(language.get(key, TEXTS["en"].get(key, key)))
+	if language.has(key):
+		return str(language[key])
+	var extra: Dictionary = EXTRA.get(locale, EXTRA["en"])
+	if extra.has(key):
+		return str(extra[key])
+	if TEXTS["en"].has(key):
+		return str(TEXTS["en"][key])
+	return str(EXTRA["en"].get(key, key))

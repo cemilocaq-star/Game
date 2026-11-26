@@ -4,9 +4,16 @@ config_version=5
 
 [application]
 config/name="OxenWar"
+config/icon="res://assets/oxenwar-icon.png"
+config/quit_on_go_back=false
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 config/description="OxenWar: free-to-play cross-platform parkour arena with accounts, friends and free character cosmetics."
+
+[oxenwar]
+
+default_servers=PackedStringArray("wss://oxenwar-game-server.onrender.com")
+server_list_urls=PackedStringArray("https://raw.githubusercontent.com/cemilocaq-star/Game/main/servers.json", "https://raw.githubusercontent.com/cemilocaq-star/Game/independent-audit/servers.json")
 
 [display]
 window/size/viewport_width=1280

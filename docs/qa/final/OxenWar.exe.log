@@ -1,0 +1,112 @@
+Godot Engine v4.4.1.stable.official.49a5bc7b6 - https://godotengine.org
+
+Unable to open Android 'build-tools' directory.
+first_scan_filesystem: begin: Project initialization steps: 5
+	first_scan_filesystem: step 0: Scanning file structure...
+	first_scan_filesystem: step 1: Loading global class names...
+	first_scan_filesystem: step 2: Verifying GDExtensions...
+	first_scan_filesystem: step 3: Creating autoload scripts...
+	first_scan_filesystem: step 4: Initializing plugins...
+	first_scan_filesystem: step 5: Starting file scan...
+first_scan_filesystem: end
+savepack: begin: Packing steps: 102
+	savepack: step 2: Storing File: res://.godot/imported/event-bonk.ogg-a584041481ed5360600b0fed10f91682.oggvorbisstr
+	savepack: step 2: Storing File: res://assets/audio/event-bonk.ogg.import
+	savepack: step 4: Storing File: res://.godot/imported/event-end.ogg-173746073de0a455615c9b783e6093c2.oggvorbisstr
+	savepack: step 4: Storing File: res://assets/audio/event-end.ogg.import
+	savepack: step 6: Storing File: res://.godot/imported/event-freeze.ogg-45d5ba6f6b977dd955dcf19f143a122a.oggvorbisstr
+	savepack: step 6: Storing File: res://assets/audio/event-freeze.ogg.import
+	savepack: step 8: Storing File: res://.godot/imported/event-music-loop.ogg-514e991dfa36cc517cea893944b68741.oggvorbisstr
+	savepack: step 8: Storing File: res://assets/audio/event-music-loop.ogg.import
+	savepack: step 10: Storing File: res://.godot/imported/event-reward.ogg-b178e44b1001db533cca7e704daccb4c.oggvorbisstr
+	savepack: step 10: Storing File: res://assets/audio/event-reward.ogg.import
+	savepack: step 12: Storing File: res://.godot/imported/event-start.ogg-f6d728750ad9095cb49a1a8693362c9a.oggvorbisstr
+	savepack: step 12: Storing File: res://assets/audio/event-start.ogg.import
+	savepack: step 14: Storing File: res://.godot/imported/Desert_Rock_1.glb-5d5a43e881e7fcb6e5f564fe031eabeb.scn
+	savepack: step 14: Storing File: res://assets/environment/Desert_Rock_1.glb.import
+	savepack: step 16: Storing File: res://.godot/imported/Desert_Rock_3.glb-043feef7a503153ded31efa7ce7b8824.scn
+	savepack: step 16: Storing File: res://assets/environment/Desert_Rock_3.glb.import
+	savepack: step 19: Storing File: res://.godot/imported/CosmicHalo_Cosmetic.glb-6bfa4da5635416bfb61847c9bda754b6.scn
+	savepack: step 19: Storing File: res://assets/CosmicHalo_Cosmetic.glb.import
+	savepack: step 21: Storing File: res://.godot/imported/DuckBeacon_Mascot.glb-c412d97b9ccd8e5c3011f94cfac476dd.scn
+	savepack: step 21: Storing File: res://assets/DuckBeacon_Mascot.glb.import
+	savepack: step 23: Storing File: res://.godot/imported/GoldenOrb_Collectible.glb-eb702fac2af1fd11ae395f837eeeb86d.scn
+	savepack: step 23: Storing File: res://assets/GoldenOrb_Collectible.glb.import
+	savepack: step 25: Storing File: res://.godot/imported/LostFoodCourt_Arena_Blockout.glb-2bf0d64ccc6ac59b50e23526df9fb362.scn
+	savepack: step 25: Storing File: res://assets/LostFoodCourt_Arena_Blockout.glb.import
+	savepack: step 27: Storing File: res://scripts/arcade_weapon_visuals.gdc
+	savepack: step 29: Storing File: res://scripts/arena_layout.gdc
+	savepack: step 31: Storing File: res://scripts/character_motion_rig.gdc
+	savepack: step 33: Storing File: res://scripts/character_movement.gdc
+	savepack: step 36: Storing File: res://scripts/character_visuals.gdc
+	savepack: step 38: Storing File: res://scripts/combat_fx.gdc
+	savepack: step 40: Storing File: res://scripts/crosshair_overlay.gdc
+	savepack: step 42: Storing File: res://scripts/graphics_manager.gdc
+	savepack: step 44: Storing File: res://scripts/grenade_physics.gdc
+	savepack: step 46: Storing File: res://scripts/main.gdc
+	savepack: step 48: Storing File: res://scripts/map_world_builder.gdc
+	savepack: step 50: Storing File: res://scripts/oxenwar_event_fx.gdc
+	savepack: step 53: Storing File: res://scripts/oxenwar_i18n.gdc
+	savepack: step 55: Storing File: res://scripts/oxenwar_menu.gdc
+	savepack: step 57: Storing File: res://scripts/oxenwar_network.gdc
+	savepack: step 59: Storing File: res://scripts/oxenwar_remote_player.gdc
+	savepack: step 61: Storing File: res://scripts/oxenwar_server_player.gdc
+	savepack: step 63: Storing File: res://scripts/oxenwar_supabase.gdc
+	savepack: step 65: Storing File: res://scripts/pause_menu.gdc
+	savepack: step 67: Storing File: res://scripts/player.gdc
+	savepack: step 70: Storing File: res://scripts/progression.gdc
+	savepack: step 72: Storing File: res://scripts/user_settings.gdc
+	savepack: step 74: Storing File: res://shaders/neon_surface.gdshader
+	savepack: step 76: Storing File: res://tests/render_character_previews.gdc
+	savepack: step 78: Storing File: res://tests/test_bomb_rush_objective.gdc
+	savepack: step 80: Storing File: res://tests/test_canyon_landmarks.gdc
+	savepack: step 82: Storing File: res://tests/test_character_motion_rig.gdc
+	savepack: step 84: Storing File: res://tests/test_jungle_arena.gdc
+	savepack: step 87: Storing File: res://tests/test_matchmaking_logic.gdc
+	savepack: step 89: Storing File: res://tests/test_mobile_joystick.gdc
+	savepack: step 91: Storing File: res://tests/test_movement_physics.gdc
+	savepack: step 93: Storing File: res://tests/test_room_worlds.gdc
+	savepack: step 95: Storing File: res://tests/test_ui_overlays.gdc
+	savepack: step 97: Storing File: res://tests/test_weapon_visuals.gdc
+	savepack: step 99: Storing File: res://.godot/exported/133200997/export-3070c538c03ee49b7677ff960a3f5195-main.scn
+	savepack: step 99: Storing File: res://scripts/arcade_weapon_visuals.gd.remap
+	savepack: step 99: Storing File: res://scripts/arena_layout.gd.remap
+	savepack: step 99: Storing File: res://scripts/character_motion_rig.gd.remap
+	savepack: step 99: Storing File: res://scripts/character_movement.gd.remap
+	savepack: step 99: Storing File: res://scripts/character_visuals.gd.remap
+	savepack: step 99: Storing File: res://scripts/combat_fx.gd.remap
+	savepack: step 99: Storing File: res://scripts/crosshair_overlay.gd.remap
+	savepack: step 99: Storing File: res://scripts/graphics_manager.gd.remap
+	savepack: step 99: Storing File: res://scripts/grenade_physics.gd.remap
+	savepack: step 99: Storing File: res://scripts/main.gd.remap
+	savepack: step 99: Storing File: res://scripts/map_world_builder.gd.remap
+	savepack: step 99: Storing File: res://scripts/oxenwar_event_fx.gd.remap
+	savepack: step 99: Storing File: res://scripts/oxenwar_i18n.gd.remap
+	savepack: step 99: Storing File: res://scripts/oxenwar_menu.gd.remap
+	savepack: step 99: Storing File: res://scripts/oxenwar_network.gd.remap
+	savepack: step 99: Storing File: res://scripts/oxenwar_remote_player.gd.remap
+	savepack: step 99: Storing File: res://scripts/oxenwar_server_player.gd.remap
+	savepack: step 99: Storing File: res://scripts/oxenwar_supabase.gd.remap
+	savepack: step 99: Storing File: res://scripts/pause_menu.gd.remap
+	savepack: step 99: Storing File: res://scripts/player.gd.remap
+	savepack: step 99: Storing File: res://scripts/progression.gd.remap
+	savepack: step 99: Storing File: res://scripts/user_settings.gd.remap
+	savepack: step 99: Storing File: res://tests/render_character_previews.gd.remap
+	savepack: step 99: Storing File: res://tests/test_bomb_rush_objective.gd.remap
+	savepack: step 99: Storing File: res://tests/test_canyon_landmarks.gd.remap
+	savepack: step 99: Storing File: res://tests/test_character_motion_rig.gd.remap
+	savepack: step 99: Storing File: res://tests/test_jungle_arena.gd.remap
+	savepack: step 99: Storing File: res://tests/test_matchmaking_logic.gd.remap
+	savepack: step 99: Storing File: res://tests/test_mobile_joystick.gd.remap
+	savepack: step 99: Storing File: res://tests/test_movement_physics.gd.remap
+	savepack: step 99: Storing File: res://tests/test_room_worlds.gd.remap
+	savepack: step 99: Storing File: res://tests/test_ui_overlays.gd.remap
+	savepack: step 99: Storing File: res://tests/test_weapon_visuals.gd.remap
+	savepack: step 99: Storing File: res://main.tscn.remap
+	savepack: step 99: Storing File: res://.godot/global_script_class_cache.cfg
+	savepack: step 99: Storing File: res://.godot/uid_cache.bin
+	savepack: step 99: Storing File: res://project.binary
+savepack: end
+loading_editor_layout: begin: Loading editor steps: 5
+	loading_editor_layout: step 0: Loading editor layout...
+loading_editor_layout: end

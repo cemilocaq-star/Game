@@ -1,0 +1,33 @@
+Godot Engine v4.4.1.stable.official.49a5bc7b6 - https://godotengine.org
+
+IK: 207 reachable targets, worst error 0.0099 m
+weapon aether             length 0.44 m scaled, rear 0.06, two-handed true
+weapon minicore           length 0.49 m scaled, rear 0.05, two-handed true
+weapon hand_cannon        length 0.40 m scaled, rear 0.05, two-handed false
+weapon pulse_carbine      length 0.66 m scaled, rear 0.17, two-handed true
+weapon star_piercer       length 0.66 m scaled, rear 0.06, two-handed true
+weapon duck_launcher      length 0.48 m scaled, rear 0.10, two-handed true
+weapon banana_boomerang   length 0.40 m scaled, rear 0.05, two-handed false
+weapon confetti_cannon    length 0.44 m scaled, rear 0.05, two-handed true
+weapon prism_scepter      length 0.50 m scaled, rear 0.12, two-handed true
+weapon vortex_orbiter     length 0.35 m scaled, rear 0.09, two-handed false
+weapon comet_bow          length 0.33 m scaled, rear 0.07, two-handed false
+weapon bubble_burst       length 0.38 m scaled, rear 0.05, two-handed false
+weapon glitch_ray         length 0.36 m scaled, rear 0.05, two-handed false
+weapon meteor_mallet      length 0.50 m scaled, rear 0.12, two-handed true
+weapon frost_wand         length 0.42 m scaled, rear 0.10, two-handed false
+weapon solar_lance        length 0.70 m scaled, rear 0.18, two-handed true
+weapon slime_slinger      length 0.41 m scaled, rear 0.06, two-handed false
+weapon pixel_storm        length 0.35 m scaled, rear 0.05, two-handed false
+weapon thunder_drum       length 0.32 m scaled, rear 0.05, two-handed false
+weapon moon_disc          length 0.24 m scaled, rear 0.06, two-handed false
+weapon jellyfish_staff    length 0.44 m scaled, rear 0.11, two-handed true
+weapon portal_popper      length 0.39 m scaled, rear 0.06, two-handed false
+weapon rubber_chicken     length 0.36 m scaled, rear 0.09, two-handed false
+weapon ranger_rifle       length 0.69 m scaled, rear 0.21, two-handed true
+weapon heavy_sidearm      length 0.35 m scaled, rear 0.05, two-handed false
+weapon longshot           length 0.79 m scaled, rear 0.19, two-handed true
+weapon rotary_arc         length 0.48 m scaled, rear 0.09, two-handed true
+outfit_default: worst glove error 0.0008 m, grip 0.0000 m, aim 0.00 deg, left hand 0.0006 m, tightest torso gap 0.035 m, two-handed poses that let the off hand go: 8
+outfit_ghost_ops: worst glove error 0.0008 m, grip 0.0000 m, aim 0.00 deg, left hand 0.0006 m, tightest torso gap 0.035 m, two-handed poses that let the off hand go: 8
+PASS: third-person weapon holding (IK, grip fit, clearance, local and remote)

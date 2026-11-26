@@ -6,7 +6,7 @@ errors = []
 
 required = [
     "project.godot", "main.tscn", "scripts/main.gd", "scripts/player.gd", "scripts/arcade_weapon_visuals.gd", "scripts/character_visuals.gd", "scripts/character_motion_rig.gd", "scripts/map_world_builder.gd", "scripts/combat_fx.gd",
-    "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd",
+    "scripts/oxenwar_supabase.gd", "scripts/oxenwar_menu.gd", "scripts/oxenwar_i18n.gd", "supabase/migrations/20261115120000_oxenwar_server_directory.sql", "scripts/fps_ui.gd", "tests/test_menu_ui.gd", "scripts/net_sync.gd", "scripts/weapon_feel.gd", "tests/test_net_sync.gd", "tests/test_event_scheduling.gd", "tests/test_third_person_view.gd", "scripts/sfx_bank.gd", "scripts/sfx_director.gd", "tests/test_sfx_bank.gd", "scripts/weapon_audio.gd", "scripts/sound_occlusion.gd", "tests/test_weapon_audio.gd", "tests/test_weapon_feel.gd", "tests/test_server_spread.gd", "tests/test_ghost_rig_animation.gd", "scripts/sound_paths.gd", "scripts/world_audio.gd", "scripts/footstep_audio.gd", "scripts/audio_buses.gd", "scripts/room_acoustics.gd", "scripts/room_acoustics_driver.gd", "tests/test_sound_paths.gd", "tests/test_footsteps.gd", "tests/test_room_acoustics.gd", "scripts/ui/ui_theme.gd", "scripts/ui/ui_icons.gd", "scripts/ui/ui_platform.gd", "scripts/ui/scaled_root.gd", "scripts/ui/icon_button.gd", "scripts/ui/hud_plate.gd", "scripts/ui/stat_bar.gd", "scripts/ui/game_hud.gd", "scripts/ui/lobby_panel.gd", "scripts/ui/scoreboard_panel.gd", "scripts/ui/kill_feed_entry.gd", "tests/test_ui_foundation.gd", "tests/test_ui_hud.gd", "tests/test_pause_menu_layout.gd", "tests/test_menu_phone_layout.gd", "assets/ui/ICON_CREDITS.md", "assets/ui/fonts/Rajdhani-Bold.ttf", "assets/ui/icons/jump.svg", "assets/ui/icons/w_aether.svg", "scripts/look_control.gd", "tests/test_look_control.gd", "tests/run_online_test.sh", "tests/online/online_server.gd", "tests/online/online_client.gd", "tests/online/network_under_test.gd", "tests/online/stub_player.gd", "scripts/weapon_viewmodel_anim.gd", "tests/test_weapon_viewmodel_anim.gd", "tests/test_weapon_view_integration.gd", "scripts/weapon_hold.gd", "tests/test_weapon_hold.gd", "scripts/map_flow_analysis.gd", "tests/test_map_flow_analysis.gd", "tests/test_map_flow.gd",
     "scripts/oxenwar_network.gd", "scripts/oxenwar_remote_player.gd", "scripts/oxenwar_server_player.gd", "server/README.md", "Dockerfile", "fly.toml", "render.yaml",
     "export_presets.cfg", "README.md", "docs/MIGRATION_AUDIT_AZ.md",
     "supabase/migrations/20261109114619_oxenwar_social_foundation.sql",
@@ -25,11 +25,13 @@ required = [
     "assets/DuckBeacon_Mascot.glb", "assets/CosmicHalo_Cosmetic.glb",
     "assets/audio/event-start.ogg", "assets/audio/event-freeze.ogg",
     "assets/audio/event-reward.ogg", "assets/audio/event-bonk.ogg",
-    "assets/audio/event-end.ogg", "assets/audio/event-music-loop.ogg",
+    "assets/audio/event-end.ogg", "assets/audio/sfx/hit-light.ogg", "assets/audio/sfx/hit-medium.ogg", "assets/audio/sfx/hit-heavy.ogg", "assets/audio/sfx/land.ogg", "assets/audio/sfx/menu-move.ogg", "assets/audio/sfx/menu-confirm.ogg", "assets/audio/sfx/menu-back.ogg", "assets/audio/sfx/respawn.ogg", "assets/audio/sfx/throw.ogg", "assets/audio/event-music-loop.ogg",
     "tools/fetch_open_audio_assets.py", "docs/EVENT_AUDIO_ASSETS.md",
     "scripts/progression.gd", "scripts/graphics_manager.gd", "scripts/oxenwar_event_fx.gd", "shaders/neon_surface.gdshader",
     "tools/set_android_version.py", "tests/test_android_version.py",
     "tests/test_live_websocket_proxy.py", "tests/test_character_motion_rig.gd",
+    "scripts/lan_discovery.gd", "scripts/server_list.gd", "scripts/skeletal_avatar.gd", "tests/test_skeletal_avatar.gd", "assets/characters/kaykit/Rogue.glb", "assets/characters/kaykit/Knight.glb", "assets/characters/kaykit/Mage.glb", "assets/characters/kaykit/Barbarian.glb", "assets/characters/kaykit/RogueHooded.glb", "assets/characters/kaykit/CREDITS.md", "tests/test_server_list.gd", "servers.json", "scripts/lan_host.gd", "tests/test_lan_discovery.gd", "tests/test_open_host.gd",
+    "tests/test_guest_menu.gd", "scripts/emote_catalog.gd", "assets/weapons/kenney/blaster.glb", "assets/weapons/kenney/blaster-repeater.glb", "assets/weapons/kenney/Textures/colormap.png", "assets/weapons/kenney/CREDITS.md", "tests/run_open_server_test.sh", "tests/online/open_client.gd",
 ]
 for rel in required:
     if not (ROOT / rel).is_file():
@@ -73,7 +75,7 @@ checks = [
     ("REDSTONE CANYON", read("scripts/arena_layout.gd"), "second desert exploration map selection"),
     ("func _build_sunken_oasis(root: Node3D)", map_builder, "oasis environment geometry"),
     ("func _build_jungle_temple(root: Node3D)", map_builder, "jungle temple environment geometry"),
-    ("func _build_redstone_canyon(root: Node3D)", map_builder, "canyon environment geometry"),
+    ("func _build_redstone_canyon(root: Node3D, include_landmarks: bool)", map_builder, "canyon environment geometry"),
     ("HeadPivot", character_visuals, "oversized animated troll head"),
     ("EyeWhite_", character_visuals, "expressive troll face geometry"),
     ("FriendlyBadge", character_visuals, "non-combat character costume details"),
@@ -85,7 +87,7 @@ checks = [
     ("ERROR: Failed to load script", workflow, "CI import fails on unloaded GDScript resources"),
     ("func _configured_server_host() -> String:", main, "server host configuration resolver"),
     ('ProjectSettings.get_setting("oxenwar/server_host", "")', main, "no implicit localhost multiplayer fallback"),
-    ("MULTIPLAYER • Server not configured", main, "explicit multiplayer deployment status"),
+    ("MULTIPLAYER • Finding a server...", main, "explicit server discovery status"),
     ("_on_remote_player_state", main, "remote player rendering"),
     ('@rpc("any_peer", "call_remote", "unreliable_ordered")', read("scripts/oxenwar_network.gd"), "server movement RPC"),
     ("MAX_CLIENTS := 32", read("scripts/oxenwar_network.gd"), "dedicated server capacity"),
@@ -96,8 +98,8 @@ checks = [
     ("event-freeze.ogg", read("scripts/oxenwar_event_fx.gd"), "freeze event sound cue"),
     ("event-reward.ogg", read("scripts/oxenwar_event_fx.gd"), "reward event sound cue"),
     ("event-music-loop.ogg", read("scripts/oxenwar_event_fx.gd"), "licensed event music loop"),
-    ("_detect_footstep_surface", player, "surface-aware footstep detection"),
-    ("_make_footstep_stream", player, "procedural surface footstep SFX"),
+    ("FOOTSTEPS.detect", player, "surface-aware footstep detection"),
+    ("_make_stream", read("scripts/footstep_audio.gd"), "procedural surface footstep SFX"),
     ("SurfaceFootstepAudio", player, "3D positional footstep audio"),
     ("OriginalEventSynth", read("scripts/oxenwar_event_fx.gd"), "original synthesized event audio"),
     ("FREEZE_FRAME", read("scripts/oxenwar_server_player.gd"), "server-authoritative freeze event"),
@@ -203,7 +205,7 @@ checks = [
     ("blaster_mastery_xp", read("scripts/oxenwar_server_player.gd"), "server-owned blaster mastery XP"),
     ("grenade_mastery_xp", read("scripts/oxenwar_server_player.gd"), "server-owned grenade mastery XP"),
     ("_award_weapon_mastery", read("scripts/oxenwar_network.gd"), "mastery XP awarded only from validated combat events"),
-    ("WEAPON MASTERY", read("scripts/main.gd"), "live weapon mastery HUD"),
+    ("weapon_mastery_label.text", read("scripts/main.gd"), "live weapon mastery HUD"),
     ("_weapon_mastery_rank", read("scripts/main.gd"), "mastery rank thresholds"),
     ("ARCADE_WEAPONS", read("scripts/oxenwar_network.gd"), "server-side arcade weapon registry"),
     ("_server_select_weapon", read("scripts/oxenwar_network.gd"), "server-validated weapon selection"),
@@ -224,8 +226,8 @@ checks = [
     ("Hill_North_Beam", main, "central capture-zone arena marker"),
     ("objective_label.text", main, "live hill objective HUD"),
     ("WINNER  %s  •  %d KILLS", main, "highest-kill winner announcement"),
-    ("play_emote(\"griddy\")", player, "Griddy emote trigger"),
-    ("play_emote(\"goofy\")", player, "goofy dance emote trigger"),
+    ("EMOTE_CATALOG.IDS", player, "emote key triggers from the shared catalog"),
+    ("\"salute\"", read("scripts/emote_catalog.gd"), "extended emote list"),
     ("_make_emote_music", player, "original synthesized emote music"),
     ("LOOP_FORWARD", player, "looped original dance beat"),
     ("request_emote", read("scripts/oxenwar_network.gd"), "network emote request"),
@@ -234,14 +236,14 @@ checks = [
     
     
     
-    ("emote_robot", player, "robot emote input"),
-    ("emote_wave", player, "wave emote input"),
+    ("emote_robot", read("scripts/input_bindings.gd"), "robot emote input"),
+    ("emote_wave", read("scripts/input_bindings.gd"), "wave emote input"),
     ('net.request_emote("")', player, "server receives emote stop state"),
-    ('"robot"', read("scripts/oxenwar_network.gd"), "server validates robot emote"),
-    ('"wave"', read("scripts/oxenwar_network.gd"), "server validates wave emote"),
-    ('"collections": player.collection_counts.duplicate(true)', read("scripts/oxenwar_network.gd"), "authoritative collectible count snapshot"),
-    ('"secret_404_found": player.secret_404_found', read("scripts/oxenwar_network.gd"), "authoritative secret discovery snapshot"),
-    ("GOLD ORBS (XP ONLY)", main, "clear non-currency orb counter"),
+    ("EMOTE_CATALOG.is_valid", read("scripts/oxenwar_network.gd"), "server validates robot emote"),
+    ("EMOTE_CATALOG.sanitize", read("scripts/oxenwar_network.gd"), "server validates wave emote"),
+    ('state["collections"] = player.collection_counts.duplicate(true)', read("scripts/oxenwar_network.gd"), "authoritative collectible count snapshot"),
+    ('state["secret_404_found"] = player.secret_404_found', read("scripts/oxenwar_network.gd"), "authoritative secret discovery snapshot"),
+    ("ORBS %d  •  404", main, "clear non-currency orb counter"),
     ("_server_throw_grenade", read("scripts/oxenwar_network.gd"), "server-validated grenade throw"),
     ("_server_detonate_grenade", read("scripts/oxenwar_network.gd"), "server-authoritative grenade blast"),
     ("_server_step_grenades", read("scripts/oxenwar_network.gd"), "server grenade fuse and movement"),
@@ -252,14 +254,16 @@ checks = [
     ('"tr"', i18n, "Turkish localization"),
     ('"ru"', i18n, "Russian localization"),
     ("_setup_blaster", player, "procedural Aether Blaster model"),
-    ("BarrelShroud", read("scripts/arcade_weapon_visuals.gd"), "multi-part Aether Blaster barrel casing"),
+    ("AetherEmitter", read("scripts/arcade_weapon_visuals.gd"), "multi-part Aether Blaster barrel casing"),
     ("UpperPowerRail", read("scripts/arcade_weapon_visuals.gd"), "Aether Blaster top equipment rail"),
     ("MuzzleRing", read("scripts/arcade_weapon_visuals.gd"), "Aether Blaster muzzle detail"),
-    ("_blaster_recoil", player, "short visual blaster recoil animation"),
-    ("_make_weapon_stream(weapon_id: String)", player, "original weapon-specific synthesized audio"),
+    ("_view_anim.fire", player, "short visual blaster recoil animation"),
+    ("request_reload", player, "reload animation"),
+    ("WeaponPivot", player, "first-person weapon pivot layer"),
+    ("make_weapon_stream(weapon_id: String)", player, "original weapon-specific synthesized audio"),
     ("_fire_blaster", player, "local blaster firing"),
     ("MOUSE_BUTTON_LEFT", main, "desktop blaster input"),
-    ('"FIRE"', main, "mobile primary-action control"),
+    ('_add_touch_button(root, "fire"', main, "mobile primary-action control"),
     ("_server_blaster_fire", read("scripts/oxenwar_network.gd"), "server-validated blaster fire"),
     ("_client_blaster_fx", read("scripts/oxenwar_network.gd"), "multiplayer blaster visual replication"),
     ("_last_blaster_ms", read("scripts/oxenwar_network.gd"), "server fire-rate validation"),
@@ -268,7 +272,7 @@ checks = [
     ('"health": player.health', read("scripts/oxenwar_network.gd"), "authoritative health snapshots"),
     ("health_bar", main, "health HUD bar"),
     ("K.O.", main, "local death and respawn notice"),
-    ("_make_remote_blaster_stream", main, "remote positional blaster audio"),
+    ('WORLD_AUDIO.play_at(self, WEAPON_AUDIO.stream', main, "remote positional blaster audio starts a spatial stream"),
     ("RemoteAetherPulseAudio", main, "3D remote blaster sound source"),
     ("OxenWar.exe", presets, "OxenWar Windows export name"),
     ("OxenWar.apk", presets, "OxenWar Android export name"),
@@ -300,10 +304,10 @@ checks.extend([
     ('_launch_game.bind("quick_match")', menu, "start action launches public quick matchmaking"),
     ('_launch_game.bind("create_room")', menu, "create room reaches the room creation flow"),
     ('_launch_game.bind("join_room")', menu, "join room reaches the room joining flow"),
-    ('_t("server_missing")', menu, "menu explicitly reports missing public server configuration"),
+    ('_t("auto_none_hint")', menu, "menu explains when no online server is found"),
 
     ('_t("mode_ffa")', menu, "localized matchmaking game mode"),
-    ('_t("server_missing")', menu, "localized missing-server state"),
+    ('_t("server_auto_none")', menu, "localized no-online-server state"),
 
 
 
@@ -393,7 +397,7 @@ checks.extend([
     ("_server_step_objective", network, "server-side objective progress and fuse"),
     ("objective_winner_team", network, "team objective win resolution"),
     ("BOMB RUSH • PLANT / DEFUSE", read("scripts/oxenwar_menu.gd"), "bomb objective game mode selection"),
-    ("_build_objective_sites(root)", read("scripts/map_world_builder.gd"), "A/B sites on every generated map"),
+    ("_build_objective_sites(root, map_index)", read("scripts/map_world_builder.gd"), "A/B sites on every generated map"),
     ("ObjectiveSite_%s_EnergyRing", read("scripts/map_world_builder.gd"), "A/B site energy ring visuals"),
     ("objective_interact", read("scripts/main.gd"), "keyboard/mobile plant and defuse input"),
     ("PlantedEnergyCore_", read("scripts/main.gd"), "visible animated planted energy core"),
@@ -409,11 +413,11 @@ checks.extend([
     ("ArmPivot_L", read("scripts/character_motion_rig.gd"), "left arm animation pivot"),
     ("LegPivot_R", read("scripts/character_motion_rig.gd"), "right leg animation pivot"),
     ("CharacterMotionRig.animate", player, "local procedural movement animation"),
-    ("CombatStatusPanel", main, "framed combat HUD panel"),
-    ("VitalsPanel", main, "framed health and stamina HUD panel"),
-    ("LobbyPanel", main, "framed lobby HUD panel"),
-    ("_style_progress_bar", main, "custom HUD progress bar styling"),
-    ("MATCH SCOREBOARD", main, "in-game match scoreboard"),
+    ("ScorePlate", read("scripts/ui/game_hud.gd"), "framed combat HUD panel"),
+    ("VitalsPanel", read("scripts/ui/game_hud.gd"), "framed health and stamina HUD panel"),
+    ("LobbyPanel", read("scripts/ui/lobby_panel.gd"), "framed lobby HUD panel"),
+    ("_trail_hold", read("scripts/ui/stat_bar.gd"), "custom HUD bar with damage trail"),
+    ("SCOREBOARD", read("scripts/ui/scoreboard_panel.gd"), "in-game match scoreboard"),
     ("_refresh_scoreboard", main, "live scoreboard refresh"),
     ("_on_kill_feed_received", main, "client kill feed display"),
     ("KEY_TAB", main, "desktop scoreboard toggle"),
@@ -447,12 +451,12 @@ checks.extend([
 
 checks.extend([
     ("func inspect_weapon() -> void:", player, "weapon inspect animation action"),
-    ("_make_weapon_stream(weapon_id: String)", player, "weapon-specific synthetic audio generator"),
-    ('"aether":[260.0, 105.0, 520.0, 0.22]', player, "Aether Blaster synthesized pulse audio profile"),
-    ('"rubber_chicken":[390.0, 720.0, 1170.0, 0.42]', player, "Rubber Chicken distinct audio profile"),
-    ('"star_piercer":[780.0, 620.0, 1560.0, 0.08]', player, "Star Piercer distinct audio profile"),
+    ("make_weapon_stream(weapon_id: String)", player, "weapon-specific synthetic audio generator"),
+    ('"aether": [260.0, 105.0, 520.0, 0.22]', read("scripts/weapon_audio.gd"), "Aether Blaster synthesized pulse audio profile"),
+    ('"rubber_chicken": [390.0, 720.0, 1170.0, 0.42]', read("scripts/weapon_audio.gd"), "Rubber Chicken distinct audio profile"),
+    ('"star_piercer": [780.0, 620.0, 1560.0, 0.08]', read("scripts/weapon_audio.gd"), "Star Piercer distinct audio profile"),
     ("KEY_H", main, "keyboard weapon inspect shortcut"),
-    ("INSPECT  [H]", main, "arsenal weapon inspect control"),
+    ("RotatePreview", main, "arsenal weapon inspect control"),
     ("_inspect_current_weapon", main, "inspect UI action routing"),
     ("func _animate_weapon_fire() -> void:", player, "weapon-family firing animation"),
     ("func _animate_weapon_details() -> void:", player, "idle weapon energy-detail animation"),
@@ -473,8 +477,8 @@ for weapon_id in new_weapon_ids:
     checks.append((f'"{weapon_id}"', read("scripts/oxenwar_network.gd"), f"server weapon registry: {weapon_id}"))
     checks.append((f'"{weapon_id}"', player, f"local weapon profile: {weapon_id}"))
     checks.append((f'"{weapon_id}"', read("scripts/arcade_weapon_visuals.gd"), f"procedural weapon silhouette: {weapon_id}"))
-if "ARSENAL  •  23" not in main or "_build_arsenal_panel" not in main:
-    errors.append("23-slot arcade arsenal selection screen is missing")
+if 'WEAPONS" % WEAPON_ORDER.size()' not in main or "_build_arsenal_panel" not in main:
+    errors.append("arcade arsenal selection screen (weapon-count button) is missing")
 if "set_selected_weapon" not in player or "ARCADE_WEAPON_VISUALS.build_weapon" not in player:
     errors.append("weapon equip flow does not rebuild the selected first-person model")
 
@@ -489,14 +493,53 @@ for label, source, function_name in [
     if "BoxMesh.new()" in body:
         errors.append(f"{label} still contains block-shaped character geometry")
 
+net_source = read("scripts/oxenwar_network.gd")
+checks.extend([
+    ("WORLD_AUDIO.play_at", read("scripts/main.gd"), "wall occlusion and sound paths for other players' gunfire"),
+    ("WEAPON_AUDIO.stream", read("scripts/player.gd"), "layered weapon audio variants"),
+    ("SFX_DIRECTOR", read("scripts/main.gd"), "match feedback audio director"),
+    ("attach_sounds", read("scripts/fps_ui.gd"), "menu hover and click sounds"),
+    ("_update_camera_view", read("scripts/player.gd"), "character intro and third-person camera"),
+    ("toggle_view", read("scripts/main.gd"), "view toggle key and touch button"),
+    ("choose_for_room", read("scripts/meme_events.gd"), "eligibility-based event picker"),
+    ("activation_probability", read("scripts/meme_events.gd"), "probability-based event activation"),
+    ("ray_capsule_distance", net_source, "lag-compensated server hit test"),
+    ("_record_position_history", net_source, "server position history for lag compensation"),
+    ("clamp_rewind", net_source, "rewind window is clamped to a fairness limit"),
+    ("reconcile_local_player", net_source, "client reconciliation instead of position snapping"),
+    ("_input_seq", net_source, "input sequence numbers"),
+    ("FULL_STATE_EVERY", net_source, "partial snapshots"),
+    ("_client_state_cache", net_source, "client merges partial snapshots"),
+    ("_server_ping", net_source, "round-trip measurement for lag compensation"),
+    ("SnapshotBuffer", read("scripts/oxenwar_remote_player.gd"), "remote players use snapshot interpolation"),
+    ("reconcile_local_player", read("scripts/main.gd"), "main uses reconciliation for the local player"),
+    ("WEAPON_FEEL", read("scripts/player.gd"), "weapon spread and recoil in the player"),
+])
 for needle, source, label in checks:
     if needle not in source:
         errors.append(f"missing {label}")
 
 if 'ProjectSettings.get_setting("oxenwar/server_host", "127.0.0.1")' in main or 'else "127.0.0.1"' in main:
     errors.append("multiplayer client must not default to localhost when no dedicated server is configured")
+if "find_room_server" not in main or "find_server" not in main:
+    errors.append("main.gd must resolve the server automatically (room code lookup and best-server lookup)")
+if "sync_directory" not in network or "sync_directory" not in read("supabase/functions/oxenwar-server-sync/index.ts"):
+    errors.append("dedicated server must register itself in the server directory")
 if "email_input" in menu:
     errors.append("email field remains in the account UI")
+# The lobby action buttons must never be silently disabled; they explain what is missing instead.
+for disabled_button in ("start.disabled", "create.disabled", "join.disabled", "start_button.disabled", "create_button.disabled", "join_button.disabled"):
+    if disabled_button in menu:
+        errors.append(f"lobby button is disabled again: {disabled_button}")
+for needle, label in (
+    ("auto_server_state", "automatic server lookup in the lobby"),
+    ("LAN_DISCOVERY.scan", "lobby looks for open servers on the local network"),
+    ("_on_guest_play", "guest entry without an account"),
+    ("FPS_UI.MenuBackdrop", "FPS-style animated menu backdrop"),
+    ("_build_hero", "3D hero character in the play lobby"),
+):
+    if needle not in menu:
+        errors.append(f"missing menu behavior: {label}")
 if "/auth/v1/signup" in backend or "/auth/v1/token?grant_type=password" in backend:
     errors.append("game client still calls email-based Supabase Auth endpoints directly")
 if "service_role" in backend.lower() or "sb_secret_" in backend:

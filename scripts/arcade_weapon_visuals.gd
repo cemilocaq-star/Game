@@ -134,6 +134,41 @@ static func _grip(parent: Node3D, node_name: String, position: Vector3, color: C
 	_caps(parent, node_name, 0.055, length, position, color, GRIP, Vector3(deg_to_rad(-90.0 - tilt_degrees), 0.0, 0.0))
 	_box(parent, node_name + "Guard", Vector3(0.03, 0.035, 0.15), position + Vector3(0.0, 0.115, -0.085), color.darkened(0.25), DARK)
 
+## CC0 Quaternius bodies share the same grip space in FP, remote and arsenal views.
+## Only the three matching firearm archetypes use these; arcade silhouettes stay bespoke.
+static func _authored_body(parent: Node3D, asset: String, scale_factor: float, offset: Vector3) -> void:
+	var packed := load("res://assets/weapons/quaternius/%s.glb" % asset) as PackedScene
+	if packed == null:
+		push_error("Missing authored weapon: " + asset)
+		return
+	var model := packed.instantiate() as Node3D
+	model.name = "AuthoredBody"
+	model.rotation.y = PI * 0.5
+	model.scale = Vector3.ONE * scale_factor
+	model.position = offset
+	parent.add_child(model)
+	var grip := Marker3D.new()
+	grip.name = "AuthoredGrip"
+	grip.position = Vector3(0.0, -0.09, 0.01) if asset == "rifle" else (Vector3(0.0, -0.09, 0.05) if asset == "sidearm" else Vector3(0.0, -0.11, 0.02))
+	parent.add_child(grip)
+
+## CC0 Kenney blaster bodies. Their barrels point +Z, so they are turned half a circle to face -Z like every weapon here.
+static func _kenney_body(parent: Node3D, asset: String, scale_factor: float, offset: Vector3) -> void:
+	var packed := load("res://assets/weapons/kenney/%s.glb" % asset) as PackedScene
+	if packed == null:
+		push_error("Missing Kenney weapon: " + asset)
+		return
+	var model := packed.instantiate() as Node3D
+	model.name = "AuthoredBody"
+	model.rotation.y = PI
+	model.scale = Vector3.ONE * scale_factor
+	model.position = offset
+	parent.add_child(model)
+	var grip := Marker3D.new()
+	grip.name = "AuthoredGrip"
+	grip.position = Vector3(0.0, -0.11, 0.04)
+	parent.add_child(grip)
+
 static func build_weapon(weapon_id: String, tint: Color) -> Node3D:
 	var root := Node3D.new()
 	root.name = "ArcadeWeapon_" + weapon_id
@@ -146,16 +181,13 @@ static func build_weapon(weapon_id: String, tint: Color) -> Node3D:
 	var rubber := Color("#1A1F27")
 	match weapon_id:
 		"aether":
-			_ell(root, "AetherCore", Vector3(0.20, 0.19, 0.66), Vector3(0.0, 0.0, -0.10), body)
-			_cone(root, "BarrelShroud", 0.085, 0.115, 0.36, Vector3(0.0, 0.005, -0.28), steel, METAL)
-			_box(root, "UpperPowerRail", Vector3(0.07, 0.035, 0.46), Vector3(0.0, 0.125, -0.08), gun, DARK)
-			for i in range(4):
-				_box(root, "RailTooth_%d" % i, Vector3(0.09, 0.03, 0.035), Vector3(0.0, 0.15, -0.26 + float(i) * 0.1), steel, METAL)
-			_tube(root, "AetherEmitter", 0.075, 0.16, Vector3(0.0, 0.0, -0.45), tint, GLOW)
-			_ring(root, "MuzzleRing", 0.095, 0.018, Vector3(0.0, 0.0, -0.50), steel, METAL)
-			_orb(root, "AetherCell", 0.075, Vector3(0.115, -0.02, 0.05), tint, GLOW)
-			_box(root, "AetherWindow", Vector3(0.012, 0.07, 0.24), Vector3(-0.098, 0.015, -0.12), light, GLASS)
-			_grip(root, "AetherGrip", Vector3(0.0, -0.17, 0.13), rubber)
+			_kenney_body(root, "blaster", 0.40, Vector3(0.0, -0.17, -0.10))
+			_tube(root, "AetherEmitter", 0.055, 0.05, Vector3(0.0, 0.01, -0.48), tint, GLOW)
+			_ring(root, "MuzzleRing", 0.085, 0.016, Vector3(0.0, 0.01, -0.45), steel, METAL)
+			_orb(root, "AetherCell", 0.065, Vector3(0.0, 0.2, -0.02), tint, GLOW)
+			_box(root, "UpperPowerRail", Vector3(0.05, 0.03, 0.3), Vector3(0.0, 0.25, 0.04), gun, DARK)
+			_box(root, "AetherWindow", Vector3(0.012, 0.08, 0.18), Vector3(0.13, 0.05, -0.08), light, GLASS)
+			_grip(root, "AetherGrip", Vector3(0.0, -0.2, 0.06), rubber)
 		"minicore":
 			_ell(root, "MiniCoreHousing", Vector3(0.30, 0.24, 0.44), Vector3(0.0, 0.0, -0.05), body)
 			for i in range(6):
@@ -168,24 +200,21 @@ static func build_weapon(weapon_id: String, tint: Color) -> Node3D:
 			_box(root, "MiniCoreCarryBar", Vector3(0.06, 0.04, 0.26), Vector3(0.0, 0.16, -0.05), steel, METAL)
 			_grip(root, "MiniCoreGrip", Vector3(0.0, -0.19, 0.12), rubber)
 		"hand_cannon":
-			_ell(root, "NovaChunkyBody", Vector3(0.30, 0.24, 0.42), Vector3(0.0, 0.0, -0.06), body)
-			_cone(root, "NovaBarrel", 0.095, 0.125, 0.24, Vector3(0.0, 0.015, -0.33), steel, METAL)
-			_ring(root, "NovaMuzzleRing", 0.115, 0.022, Vector3(0.0, 0.015, -0.46), trim, METAL)
-			_tube(root, "NovaMuzzle", 0.075, 0.07, Vector3(0.0, 0.015, -0.47), tint, GLOW)
-			_orb(root, "NovaPowerGem", 0.075, Vector3(0.0, 0.135, -0.14), tint, GLOW)
-			_prism(root, "NovaTopFin", Vector3(0.06, 0.07, 0.30), Vector3(0.0, 0.13, 0.02), steel, METAL)
-			_box(root, "NovaSideGlass", Vector3(0.012, 0.09, 0.20), Vector3(0.152, 0.0, -0.07), light, GLASS)
-			_grip(root, "NovaGrip", Vector3(0.0, -0.20, 0.10), rubber)
+			_kenney_body(root, "blaster", 0.32, Vector3(0.0, -0.14, -0.12))
+			_ring(root, "NovaMuzzleRing", 0.075, 0.018, Vector3(0.0, 0.03, -0.40), trim, METAL)
+			_tube(root, "NovaMuzzle", 0.05, 0.05, Vector3(0.0, 0.03, -0.42), tint, GLOW)
+			_orb(root, "NovaPowerGem", 0.06, Vector3(0.0, 0.17, -0.02), tint, GLOW)
+			_box(root, "NovaTopFin", Vector3(0.04, 0.05, 0.22), Vector3(0.0, 0.2, 0.04), steel, METAL)
+			_box(root, "NovaSideGlass", Vector3(0.012, 0.08, 0.16), Vector3(0.115, 0.04, -0.06), light, GLASS)
+			_grip(root, "NovaGrip", Vector3(0.0, -0.17, 0.05), rubber)
 		"pulse_carbine":
-			_ell(root, "PulseBody", Vector3(0.20, 0.19, 0.68), Vector3(0.0, 0.0, -0.11), body)
-			_box(root, "PulseLeftFin", Vector3(0.04, 0.075, 0.54), Vector3(-0.135, 0.015, -0.17), trim, PLASTIC)
-			_box(root, "PulseRightFin", Vector3(0.04, 0.075, 0.54), Vector3(0.135, 0.015, -0.17), trim, PLASTIC)
-			_cone(root, "PulseBarrel", 0.05, 0.065, 0.34, Vector3(0.0, 0.01, -0.52), steel, METAL)
-			_ring(root, "PulseBarrelBand", 0.07, 0.014, Vector3(0.0, 0.01, -0.40), gun, DARK)
-			_orb(root, "PulseCore", 0.065, Vector3(0.0, 0.12, -0.18), tint, GLOW)
-			_box(root, "PulseSightBase", Vector3(0.05, 0.03, 0.22), Vector3(0.0, 0.115, 0.07), gun, DARK)
-			_box(root, "PulseStock", Vector3(0.12, 0.16, 0.20), Vector3(0.0, -0.02, 0.34), rubber, GRIP)
-			_grip(root, "PulseGrip", Vector3(0.0, -0.17, 0.15), rubber)
+			_kenney_body(root, "blaster-repeater", 0.42, Vector3(0.0, -0.17, -0.12))
+			_ring(root, "PulseBarrelBand", 0.07, 0.014, Vector3(0.0, 0.01, -0.45), gun, DARK)
+			_orb(root, "PulseCore", 0.055, Vector3(0.0, 0.16, -0.06), tint, GLOW)
+			_box(root, "PulseSightBase", Vector3(0.05, 0.03, 0.20), Vector3(0.0, 0.18, 0.06), gun, DARK)
+			_box(root, "PulseStock", Vector3(0.12, 0.14, 0.18), Vector3(0.0, -0.02, 0.30), rubber, GRIP)
+			_tube(root, "PulseMuzzleGlow", 0.035, 0.04, Vector3(0.0, 0.01, -0.64), tint, GLOW)
+			_grip(root, "PulseGrip", Vector3(0.0, -0.17, 0.12), rubber)
 		"star_piercer":
 			_ell(root, "PiercerLongPrism", Vector3(0.14, 0.14, 0.92), Vector3(0.0, 0.01, -0.23), body)
 			_cone(root, "PiercerNeedle", 0.018, 0.06, 0.40, Vector3(0.0, 0.01, -0.64), steel, METAL)
@@ -357,46 +386,32 @@ static func build_weapon(weapon_id: String, tint: Color) -> Node3D:
 			_ring(root, "ChickenSqueakerRing", 0.075, 0.012, Vector3(0.0, -0.03, -0.35), steel, METAL)
 			_caps(root, "ChickenLegHandle", 0.05, 0.24, Vector3(0.0, -0.21, 0.07), Color("#FF8D3D"), GRIP, Vector3(deg_to_rad(-90.0 - 14.0), 0.0, 0.0))
 		"ranger_rifle":
-			_ell(root, "RangerMainHousing", Vector3(0.23, 0.21, 0.74), Vector3(0.0, 0.0, -0.12), body)
-			_box(root, "RangerRearShell", Vector3(0.22, 0.14, 0.30), Vector3(0.0, 0.015, 0.37), rubber, GRIP, Vector3(deg_to_rad(-4.0), 0.0, 0.0))
-			_cone(root, "RangerFrontShroud", 0.085, 0.105, 0.36, Vector3(0.0, 0.0, -0.52), steel, METAL)
+			_authored_body(root, "rifle", 0.218, Vector3(0.0, 0.03, 0.03))
 			_ring(root, "RangerShroudBand", 0.1, 0.012, Vector3(0.0, 0.0, -0.40), gun, DARK)
 			for i in range(5):
 				_box(root, "RangerRailTooth_%d" % i, Vector3(0.06, 0.025, 0.03), Vector3(0.0, 0.135, -0.30 + float(i) * 0.085), steel, METAL)
 			_box(root, "RangerTopSight", Vector3(0.07, 0.07, 0.24), Vector3(0.0, 0.17, -0.17), gun, DARK)
 			_tube(root, "RangerSightLens", 0.027, 0.02, Vector3(0.0, 0.17, -0.30), tint, GLOW)
-			_box(root, "RangerLowerGrip", Vector3(0.12, 0.20, 0.15), Vector3(0.0, -0.18, 0.09), rubber, GRIP, Vector3(deg_to_rad(14.0), 0.0, 0.0))
-			_box(root, "RangerMagazine", Vector3(0.10, 0.20, 0.11), Vector3(0.0, -0.19, -0.14), gun, DARK, Vector3(deg_to_rad(-6.0), 0.0, 0.0))
 			_tube(root, "RangerEnergyEmitter", 0.05, 0.12, Vector3(0.0, 0.0, -0.74), tint, GLOW)
-			_orb(root, "RangerSideCell", 0.065, Vector3(0.125, 0.015, -0.12), tint, GLOW)
-			_box(root, "RangerSidePanel", Vector3(0.025, 0.11, 0.25), Vector3(-0.125, 0.015, -0.20), trim, PLASTIC)
+			_orb(root, "RangerSideCell", 0.035, Vector3(0.04, 0.015, -0.12), tint, GLOW)
+			_box(root, "RangerSidePanel", Vector3(0.018, 0.065, 0.22), Vector3(-0.03, 0.015, -0.20), trim, PLASTIC)
 		"heavy_sidearm":
-			_ell(root, "SidearmMainShell", Vector3(0.27, 0.21, 0.42), Vector3(0.0, 0.0, -0.08), body)
-			_box(root, "SidearmUpperPlate", Vector3(0.20, 0.05, 0.28), Vector3(0.0, 0.125, -0.13), steel, METAL)
+			_authored_body(root, "sidearm", 0.32, Vector3(0.0, -0.02, 0.02))
 			for i in range(3):
 				_box(root, "SidearmSlide_%d" % i, Vector3(0.22, 0.015, 0.02), Vector3(0.0, 0.155, -0.04 - float(i) * 0.06), gun, DARK)
-			_cone(root, "SidearmBarrel", 0.075, 0.105, 0.22, Vector3(0.0, 0.01, -0.32), steel, METAL)
 			_ring(root, "SidearmMuzzleBand", 0.095, 0.014, Vector3(0.0, 0.01, -0.44), trim, METAL)
 			_tube(root, "SidearmPulseEmitter", 0.065, 0.06, Vector3(0.0, 0.01, -0.45), tint, GLOW)
 			_orb(root, "SidearmChargeGem", 0.07, Vector3(0.0, 0.115, -0.20), tint, GLOW)
 			_box(root, "SidearmGripAccent", Vector3(0.03, 0.15, 0.11), Vector3(0.07, -0.18, 0.07), trim, PLASTIC)
-			_grip(root, "SidearmGrip", Vector3(0.0, -0.19, 0.07), rubber)
 		"longshot":
-			_ell(root, "LongshotSpine", Vector3(0.17, 0.17, 0.98), Vector3(0.0, 0.0, -0.25), body)
-			_box(root, "LongshotRearPad", Vector3(0.20, 0.18, 0.22), Vector3(0.0, 0.0, 0.31), rubber, GRIP)
-			_cone(root, "LongshotFrontShell", 0.075, 0.10, 0.40, Vector3(0.0, 0.0, -0.72), steel, METAL)
+			_authored_body(root, "longshot", 0.21, Vector3(0.0, 0.0, -0.14))
 			_ring(root, "LongshotMuzzleBand", 0.09, 0.012, Vector3(0.0, 0.0, -0.58), gun, DARK)
-			_tube(root, "LongshotScopeBody", 0.06, 0.34, Vector3(0.0, 0.18, -0.24), gun, METAL)
-			_cone(root, "LongshotScopeHood", 0.075, 0.062, 0.08, Vector3(0.0, 0.18, -0.45), steel, METAL)
 			_tube(root, "LongshotScopeLens", 0.066, 0.02, Vector3(0.0, 0.18, -0.49), tint, GLASS)
-			_box(root, "LongshotScopeMountA", Vector3(0.04, 0.06, 0.04), Vector3(0.0, 0.105, -0.13), gun, DARK)
-			_box(root, "LongshotScopeMountB", Vector3(0.04, 0.06, 0.04), Vector3(0.0, 0.105, -0.35), gun, DARK)
 			_tube(root, "LongshotEnergyLens", 0.065, 0.08, Vector3(0.0, 0.0, -0.96), tint, GLOW)
 			_box(root, "LongshotSideRail", Vector3(0.035, 0.05, 0.62), Vector3(0.115, 0.06, -0.28), trim, METAL)
 			_orb(root, "LongshotChargeCell", 0.07, Vector3(-0.125, 0.015, -0.12), tint, GLOW)
 			_box(root, "LongshotBipodL", Vector3(0.02, 0.18, 0.02), Vector3(-0.07, -0.13, -0.62), gun, DARK, Vector3(0.0, 0.0, deg_to_rad(14.0)))
 			_box(root, "LongshotBipodR", Vector3(0.02, 0.18, 0.02), Vector3(0.07, -0.13, -0.62), gun, DARK, Vector3(0.0, 0.0, deg_to_rad(-14.0)))
-			_grip(root, "LongshotGrip", Vector3(0.0, -0.17, 0.12), rubber)
 		"rotary_arc":
 			_ell(root, "RotaryArcHousing", Vector3(0.36, 0.30, 0.42), Vector3(0.0, 0.0, -0.08), body)
 			_box(root, "RotaryArcTopGrip", Vector3(0.10, 0.05, 0.26), Vector3(0.0, 0.19, 0.00), steel, METAL)

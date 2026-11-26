@@ -1,0 +1,10 @@
+Godot Engine v4.4.1.stable.official.49a5bc7b6 - https://godotengine.org
+
+NOTE: Ghost skeleton has 10 bones, all limb sections, no skinning weights (rigid shells).
+NOTE: cannot be tested on the Ghost shells (no part exists): head shell (look-at, nod, turn limits against shoulders)
+NOTE: cannot be tested on the Ghost shells (no part exists): torso shell (lean, twist and breathing on a chest plate)
+NOTE: cannot be tested on the Ghost shells (no part exists): hips/pelvis (hip sway, weight shift, foot IK from the pelvis)
+NOTE: cannot be tested on the Ghost shells (no part exists): hand/finger shells (grip closing, finger poses)
+NOTE: the procedural head (HeadPivot) and torso capsule are animated, but they are not Ghost assets.
+NOTE: rigid shells have no joint deformation, so candy-wrapper / skin-weight tests do not apply; joints are checked as gaps instead.
+PASS: Ghost rig animation (10 states, joints, limits, symmetry, loop, transitions, weapon hold, abuse)

@@ -1,0 +1,8 @@
+Godot Engine v4.4.1.stable.official.49a5bc7b6 - https://godotengine.org
+
+WARNING: UI icon not found: no_such_icon
+     at: push_warning (core/variant/variant_utility.cpp:1118)
+WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). 
+If you want to set size, change the anchors or consider using set_deferred().
+     at: _set_size (scene/gui/control.cpp:1443)
+UI_FOUNDATION PASS checks=48 failures=0

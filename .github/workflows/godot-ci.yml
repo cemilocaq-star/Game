@@ -124,6 +124,7 @@ jobs:
       - name: Run structural project validation
         run: |
           python3 tests/validate_project.py
+          python3 tests/validate_assets.py
           python3 tests/test_android_version.py
 
       - name: Test Render health endpoint and WebSocket tunnel
@@ -183,6 +184,27 @@ jobs:
       - name: Test matchmaking room state and reconnect modes
         run: timeout 45s godot --headless --path . --script tests/test_matchmaking_logic.gd
 
+      - name: Test guest menu entry (name only, no account)
+        run: timeout 60s godot --headless --path . --script tests/test_guest_menu.gd
+
+      - name: Test LAN discovery (responder, scan, room lookup)
+        run: timeout 60s godot --headless --path . --script tests/test_lan_discovery.gd
+
+      - name: Test room hosted inside the game with a guest (no server needed)
+        run: timeout 90s godot --headless --path . --script tests/test_open_host.gd
+
+      - name: Test skeletal avatars
+        run: timeout 120s godot --headless --path . --script tests/test_skeletal_avatar.gd
+
+      - name: Test hosted server list parsing
+        run: timeout 60s godot --headless --path . --script tests/test_server_list.gd
+
+      - name: Test HUD overlays, pause menu and settings
+        run: timeout 60s godot --headless --path . --script tests/test_ui_overlays.gd
+
+      - name: Test FPS-style main menu buttons and offline fallback
+        run: timeout 60s godot --headless --path . --script tests/test_menu_ui.gd
+
       - name: Test Bomb Rush plant and defuse state machine
         run: timeout 45s godot --headless --path . --script tests/test_bomb_rush_objective.gd
 
@@ -192,8 +214,92 @@ jobs:
       - name: Test Jungle Arena map
         run: timeout 90s godot --headless --path . --script tests/test_jungle_arena.gd
 
+      - name: Test authoritative event policy and presentation
+        run: timeout 45s godot --headless --path . --script tests/test_meme_events.gd
+
+      - name: Test phase 3 presentation
+        run: timeout 45s godot --headless --path . --script tests/test_phase3_presentation.gd
+
+      - name: Test phase 2 presentation
+        run: timeout 45s godot --headless --path . --script tests/test_phase2_presentation.gd
+
+      - name: Test imported canyon landmarks
+        run: timeout 45s godot --headless --path . --script tests/test_canyon_landmarks.gd
+
+      - name: Test layered weapon audio, occlusion and recorded sounds
+        run: timeout 120s godot --headless --path . --script tests/test_weapon_audio.gd
+
+      - name: Test feedback sound bank and director
+        run: timeout 60s godot --headless --path . --script tests/test_sfx_bank.gd
+
+      - name: Test character intro and third-person camera
+        run: timeout 60s godot --headless --path . --script tests/test_third_person_view.gd
+
+      - name: Test randomized event scheduling
+        run: timeout 90s godot --headless --path . --script tests/test_event_scheduling.gd
+
+      - name: Test netcode helpers (interpolation, lag compensation, reconciliation)
+        run: timeout 45s godot --headless --path . --script tests/test_net_sync.gd
+
+      - name: Test weapon feel (spread, bloom, recoil)
+        run: timeout 45s godot --headless --path . --script tests/test_weapon_feel.gd
+
+      - name: Test server-authoritative spread on the real fire path
+        run: timeout 90s godot --headless --path . --script tests/test_server_spread.gd
+
+      - name: Test Ghost rig animation (joints, limits, symmetry, transitions, emotes)
+        run: timeout 120s godot --headless --path . --script tests/test_ghost_rig_animation.gd
+
+      - name: Test sound paths (around corners, through doors, muffled behind walls)
+        run: timeout 90s godot --headless --path . --script tests/test_sound_paths.gd
+
+      - name: Test footsteps (surface per map, remote players)
+        run: timeout 90s godot --headless --path . --script tests/test_footsteps.gd
+
+      - name: Test audio buses and room acoustics
+        run: timeout 90s godot --headless --path . --script tests/test_room_acoustics.gd
+
+      - name: Test touch look, gyro, ADS sensitivity and acceleration
+        run: timeout 90s godot --headless --path . --script tests/test_look_control.gd
+
+      - name: Test UI foundation
+        run: timeout 90s godot --headless --path . --script tests/test_ui_foundation.gd
+
+      - name: Test HUD (PC and phone layouts, every button wired, touch sizes)
+        run: timeout 120s godot --headless --path . --script tests/test_ui_hud.gd
+
+      - name: Test pause menu (PC and phone layouts, pinned buttons, small screens, saved settings)
+        run: timeout 90s godot --headless --path . --script tests/test_pause_menu_layout.gd
+
+      - name: Test main menu on a phone (scaling, top bar, every tab fits, touch sizes)
+        run: timeout 120s godot --headless --path . --script tests/test_menu_phone_layout.gd
+
+      - name: Test first-person weapon animation (sway, bob, ADS, recoil, reload, switch)
+        run: timeout 60s godot --headless --path . --script tests/test_weapon_viewmodel_anim.gd
+
+      - name: Test weapon animation wired into the player
+        run: timeout 60s godot --headless --path . --script tests/test_weapon_view_integration.gd
+
+      - name: Test third-person weapon holding (IK, grip fit, torso clearance)
+        run: timeout 120s godot --headless --path . --script tests/test_weapon_hold.gd
+
+      - name: Test map flow analyser (synthetic world with known answers)
+        run: timeout 120s godot --headless --path . --script tests/test_map_flow_analysis.gd
+
+      - name: Map flow report and checks for all seven maps
+        run: timeout 420s godot --headless --path . --script tests/test_map_flow.gd
+
       - name: Test per-room maps and isolated physics worlds
         run: timeout 90s godot --headless --path . --script tests/test_room_worlds.gd
+
+      - name: Test reconnect expiry, respawns, and round results
+        run: timeout 45s godot --headless --path . --script tests/test_room_lifecycle.gd
+
+      - name: Test session refresh and match result lifecycle
+        run: timeout 45s godot --headless --path . --script tests/test_backend_lifecycle.gd
+
+      - name: Test scoreboard and customization lifecycle
+        run: timeout 45s godot --headless --path . --script tests/test_ui_lifecycle.gd
 
       - name: Verify dedicated server rejects missing secret
         shell: bash
@@ -218,6 +324,14 @@ jobs:
             echo "Godot reported a script error during server startup."
             exit 1
           fi
+
+      - name: Online test (real server and two clients over UDP, hit validation, reconciliation)
+        shell: bash
+        run: timeout 180s bash tests/run_online_test.sh godot
+
+      - name: Open server test (no secret, two guests find it by room code over LAN discovery)
+        shell: bash
+        run: timeout 150s bash tests/run_open_server_test.sh godot
 
       - name: Start dedicated WebSocket server smoke test
         shell: bash

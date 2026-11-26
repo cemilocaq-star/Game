@@ -2,7 +2,10 @@ extends RefCounted
 ## Shared rounded procedural character rig for local and replicated avatars.
 ## Movement and emotes are cosmetic only; they never change CharacterBody3D physics.
 
+const GHOST_RIG := preload("res://scripts/ghost_costume_rig.gd")
 const CHARACTER_VISUALS := preload("res://scripts/character_visuals.gd")
+const WEAPON_HOLD := preload("res://scripts/weapon_hold.gd")
+const EMOTE_CATALOG := preload("res://scripts/emote_catalog.gd")
 
 ## Builds the articulated limb rig on the shared slim torso. When `outfit_id`
 ## has a costume profile (see CharacterVisuals.profile_for) the limbs, hands and
@@ -89,6 +92,11 @@ static func build(parent: Node3D, color: Color, outfit_id: String = "") -> Node3
 			_add_ellipsoid(knee, "RiotKneePad", 0.12, Vector3(1.05, 1.0, 0.65), Vector3(0, 0.0, -0.075), joint_material)
 		_add_foot(knee, foot_style, side < 0.0, boot_material, skin_material)
 
+	if outfit_id == "outfit_ghost_ops":
+		var skeleton := GHOST_RIG.new()
+		skeleton.name = "GhostCostumeSkeleton"
+		rig.add_child(skeleton)
+		skeleton.bind_to(rig)
 	return rig
 
 
@@ -109,14 +117,16 @@ static func _add_foot(knee: Node3D, style: String, is_left: bool, boot_material:
 		_add_capsule(knee, "FlipFlopStrap", 0.014, 0.16, Vector3(0, -0.385, -0.125), sole_material, Vector3(0.0, 0.0, deg_to_rad(90.0)))
 
 
-static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sliding: bool, emote: String, delta: float) -> void:
+## `hold` (optional) carries glove targets from WeaponHold.hold_targets: the arms then aim at them
+## instead of swinging, so a carried weapon stays level in front of the body.
+static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sliding: bool, emote: String, delta: float, hold: Dictionary = {}) -> void:
 	if not is_instance_valid(rig):
 		return
 
 	var move_weight := clampf(speed / 6.6, 0.0, 1.0)
 	var cadence := lerpf(7.2, 12.4, move_weight)
 	var phase := clock * cadence
-	var active_emote := emote in ["griddy", "goofy", "robot", "wave"]
+	var active_emote := emote == "defeat" or EMOTE_CATALOG.is_valid(emote)
 	var emote_phase := clock * TAU * _emote_rate(emote)
 	var bob_target := 0.0
 	var body_lean := 0.0
@@ -143,6 +153,18 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 				body_lean = -0.025
 				body_sway = sin(emote_phase * 0.5) * 0.035
 				bob_target = absf(sin(emote_phase)) * 0.014
+			"salute":
+				body_lean = -0.02
+				bob_target = 0.0
+			"clap":
+				body_lean = 0.03
+				bob_target = absf(sin(emote_phase * 2.0)) * 0.02
+			"flex":
+				body_lean = -0.035
+				body_sway = sin(emote_phase * 0.5) * 0.05
+				bob_target = absf(sin(emote_phase * 2.0)) * 0.012
+			"spin":
+				bob_target = absf(sin(emote_phase * 1.8)) * 0.05
 	elif not grounded:
 		body_lean = -0.12
 		bob_target = -0.035
@@ -153,7 +175,11 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 
 	rig.position.y = move_toward(rig.position.y, bob_target, delta * 5.0)
 	rig.rotation.x = move_toward(rig.rotation.x, body_lean, delta * 6.0)
-	rig.rotation.y = move_toward(rig.rotation.y, body_sway, delta * 7.0)
+	if emote == "spin":
+		# A full turn about the vertical axis; wrapped afterwards so it unwinds the short way when the emote ends.
+		rig.rotation.y = wrapf(emote_phase * 0.9, -PI, PI)
+	else:
+		rig.rotation.y = move_toward(wrapf(rig.rotation.y, -PI, PI), body_sway, delta * 7.0)
 
 	# The oversized troll head follows movement with a subtle, readable bounce.
 	var details := rig.get_parent().get_node_or_null("CharacterDetailPass") as Node3D if is_instance_valid(rig.get_parent()) else null
@@ -165,6 +191,8 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 				head_target.x = -0.12
 			elif not grounded:
 				head_target.x = 0.10
+			elif emote == "defeat":
+				head_target.x = -0.26
 			elif emote == "goofy":
 				head_target.z = sin(emote_phase) * 0.12
 			head.rotation.x = lerp_angle(head.rotation.x, head_target.x, clampf(delta * 6.0, 0.0, 1.0))
@@ -212,7 +240,8 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 			ankle_x = -0.10
 		elif emote == "griddy":
 			var dance := sin(emote_phase + phase_offset)
-			arm_x = -0.52 + dance * 0.46
+			# Positive X swings a hanging arm forward, so the dance pumps the arms in front of the body.
+			arm_x = 0.52 - dance * 0.46
 			arm_z = side * (0.12 + absf(dance) * 0.08)
 			elbow_x = 0.56 + maxf(0.0, dance) * 0.28
 			leg_x = dance * 0.38
@@ -221,7 +250,7 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 			leg_z = side * (0.10 + absf(dance) * 0.07)
 		elif emote == "goofy":
 			var dance := sin(emote_phase * 0.82 + phase_offset)
-			arm_x = -0.18 + dance * 0.70
+			arm_x = 0.18 - dance * 0.70
 			arm_z = side * (0.20 + dance * 0.10)
 			elbow_x = 0.25 + absf(dance) * 0.70
 			leg_x = dance * 0.48
@@ -229,18 +258,18 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 			ankle_x = -dance * 0.20
 			leg_z = side * 0.12
 		elif emote == "robot":
-			arm_x = -0.72 if is_right else -0.48
+			arm_x = 0.72 if is_right else 0.48
 			arm_z = 0.22 if is_right else -0.22
-			elbow_x = -0.92 if is_right else -0.58
+			elbow_x = 0.92 if is_right else 0.58
 			leg_x = sin(emote_phase + phase_offset) * 0.18
 			knee_x = 0.12
 			ankle_x = 0.0
 			leg_z = side * 0.035
 		elif emote == "wave":
 			if is_right:
-				arm_x = -2.05 + sin(emote_phase * 1.4) * 0.12
+				arm_x = 2.05 + sin(emote_phase * 1.4) * 0.12
 				arm_z = 0.08
-				elbow_x = -0.55 + sin(emote_phase * 2.8) * 0.48
+				elbow_x = 0.55 + sin(emote_phase * 2.8) * 0.48
 			else:
 				arm_x = -0.12
 				arm_z = -0.04
@@ -249,11 +278,68 @@ static func animate(rig: Node3D, clock: float, speed: float, grounded: bool, sli
 			knee_x = 0.04
 			ankle_x = 0.0
 			leg_z = side * 0.015
+		elif emote == "salute":
+			# Right hand to the brow, left arm at the side, feet together.
+			if is_right:
+				arm_x = 1.55 + sin(emote_phase * 0.7) * 0.015
+				arm_z = 0.42
+				elbow_x = 1.95
+			else:
+				arm_x = 0.0
+				arm_z = -0.05
+				elbow_x = 0.20
+			leg_x = 0.0
+			knee_x = 0.0
+			ankle_x = 0.0
+			leg_z = side * 0.02
+		elif emote == "clap":
+			# Both forearms come together in front of the chest twice a second.
+			var together := 0.5 + 0.5 * sin(emote_phase * 2.0)
+			arm_x = 1.05
+			arm_z = side * (0.30 - 0.34 * together)
+			elbow_x = 1.10 + together * 0.16
+			leg_x = sin(emote_phase + phase_offset) * 0.07
+			knee_x = 0.05
+			ankle_x = 0.0
+			leg_z = side * 0.03
+		elif emote == "flex":
+			# Double biceps: upper arms forward and out, forearms folded up, a small pulse, wide stance.
+			var pulse := 0.5 + 0.5 * sin(emote_phase * 2.0)
+			arm_x = 1.20
+			arm_z = side * 0.55
+			elbow_x = 1.85 + pulse * 0.25
+			leg_x = 0.0
+			knee_x = 0.08
+			ankle_x = 0.0
+			leg_z = side * 0.11
+		elif emote == "spin":
+			# Arms out like wings while the whole body turns, knees soft.
+			arm_x = 0.0
+			arm_z = side * 1.25
+			elbow_x = 0.10
+			leg_x = 0.30 if is_right else -0.10
+			knee_x = 0.28
+			ankle_x = -0.10
+			leg_z = side * 0.06
 
+		if not hold.is_empty() and not active_emote:
+			var glove_target: Variant = hold.get("right") if is_right else hold.get("left")
+			if glove_target != null:
+				var solved: Dictionary = WEAPON_HOLD.solve_arm((glove_target as Vector3) - arm.position)
+				arm_x = float(solved.arm_x)
+				arm_z = float(solved.arm_z)
+				elbow_x = float(solved.elbow_x)
 		_move_rotation(arm, Vector3(arm_x, 0.0, arm_z), delta, 11.0)
 		_move_rotation(elbow, Vector3(elbow_x, 0.0, 0.0), delta, 13.0)
 		_move_rotation(leg, Vector3(leg_x, 0.0, leg_z), delta, 10.0)
-		_move_rotation(knee, Vector3(knee_x, 0.0, 0.0), delta, 12.0)
+		# The character faces -Z, where a positive X rotation swings a hanging limb forward.
+		# A knee only bends backward (shin toward +Z), so flexion is the negative angle.
+		_move_rotation(knee, Vector3(-knee_x, 0.0, 0.0), delta, 12.0)
+
+
+	var skeleton := rig.get_node_or_null("GhostCostumeSkeleton")
+	if skeleton:
+		skeleton.sync_pose()
 
 
 static func _emote_rate(emote: String) -> float:
@@ -266,6 +352,14 @@ static func _emote_rate(emote: String) -> float:
 			return 1.8
 		"wave":
 			return 1.05
+		"salute":
+			return 1.2
+		"clap":
+			return 1.0
+		"flex":
+			return 0.8
+		"spin":
+			return 1.0
 	return 1.0
 
 
@@ -289,6 +383,10 @@ static func _add_capsule(parent: Node3D, node_name: String, radius: float, heigh
 	var mesh := CapsuleMesh.new()
 	mesh.radius = radius
 	mesh.height = height
+	# Godot's defaults (64 radial x 8 rings) are far more than a limb needs and add up
+	# quickly with several avatars on a phone GPU.
+	mesh.radial_segments = 12
+	mesh.rings = 4
 	instance.mesh = mesh
 	instance.position = position
 	instance.rotation = rotation_value
@@ -302,6 +400,8 @@ static func _add_ellipsoid(parent: Node3D, node_name: String, radius: float, sca
 	var mesh := SphereMesh.new()
 	mesh.radius = radius
 	mesh.height = radius * 2.0
+	mesh.radial_segments = 16
+	mesh.rings = 8
 	instance.mesh = mesh
 	instance.scale = scale_value
 	instance.position = position

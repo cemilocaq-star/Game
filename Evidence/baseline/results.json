@@ -1,0 +1,317 @@
+[
+  {
+    "name": "structure",
+    "exit_code": 0,
+    "seconds": 0.158,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "android_version",
+    "exit_code": 0,
+    "seconds": 0.098,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "proxy",
+    "exit_code": 0,
+    "seconds": 0.112,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "import",
+    "exit_code": 0,
+    "seconds": 6.685,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_bomb_rush_objective",
+    "exit_code": 0,
+    "seconds": 1.163,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_canyon_landmarks",
+    "exit_code": 0,
+    "seconds": 1.165,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_character_motion_rig",
+    "exit_code": 0,
+    "seconds": 1.113,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_customization_fallback",
+    "exit_code": 0,
+    "seconds": 1.167,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_event_scheduling",
+    "exit_code": 0,
+    "seconds": 2.171,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_footsteps",
+    "exit_code": 0,
+    "seconds": 1.163,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_ghost_rig_animation",
+    "exit_code": 0,
+    "seconds": 1.158,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_hud_clock_layout",
+    "exit_code": 0,
+    "seconds": 1.159,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_input_safety",
+    "exit_code": 0,
+    "seconds": 1.113,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_integrated_polish",
+    "exit_code": 0,
+    "seconds": 1.153,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_jungle_arena",
+    "exit_code": 0,
+    "seconds": 9.116,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_look_control",
+    "exit_code": 0,
+    "seconds": 1.112,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_map_flow",
+    "exit_code": 0,
+    "seconds": 6.134,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_map_flow_analysis",
+    "exit_code": 0,
+    "seconds": 2.114,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_matchmaking_logic",
+    "exit_code": 0,
+    "seconds": 1.163,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_meme_events",
+    "exit_code": 0,
+    "seconds": 1.105,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_menu_phone_layout",
+    "exit_code": 0,
+    "seconds": 1.107,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_menu_ui",
+    "exit_code": 0,
+    "seconds": 1.12,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_mobile_joystick",
+    "exit_code": 0,
+    "seconds": 1.154,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_movement_physics",
+    "exit_code": 0,
+    "seconds": 3.12,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_net_sync",
+    "exit_code": 0,
+    "seconds": 1.126,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_pause_menu_layout",
+    "exit_code": 0,
+    "seconds": 1.117,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_phase2_presentation",
+    "exit_code": 0,
+    "seconds": 1.164,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_phase3_presentation",
+    "exit_code": 0,
+    "seconds": 1.112,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_room_acoustics",
+    "exit_code": 0,
+    "seconds": 1.153,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_room_worlds",
+    "exit_code": 0,
+    "seconds": 2.113,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_server_spread",
+    "exit_code": 0,
+    "seconds": 2.176,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_sfx_bank",
+    "exit_code": 0,
+    "seconds": 1.102,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_sound_paths",
+    "exit_code": 0,
+    "seconds": 1.108,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_static_world_batcher",
+    "exit_code": 0,
+    "seconds": 1.1,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_third_person_view",
+    "exit_code": 0,
+    "seconds": 1.1,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_ui_foundation",
+    "exit_code": 0,
+    "seconds": 1.11,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_ui_hud",
+    "exit_code": 0,
+    "seconds": 2.156,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_ui_overlays",
+    "exit_code": 0,
+    "seconds": 1.1,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_weapon_audio",
+    "exit_code": 0,
+    "seconds": 1.117,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_weapon_feel",
+    "exit_code": 0,
+    "seconds": 1.108,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_weapon_hold",
+    "exit_code": 0,
+    "seconds": 2.17,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_weapon_view_integration",
+    "exit_code": 0,
+    "seconds": 1.155,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_weapon_viewmodel_anim",
+    "exit_code": 0,
+    "seconds": 1.158,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "test_weapon_visuals",
+    "exit_code": 0,
+    "seconds": 1.102,
+    "script_errors": false,
+    "engine_error_count": 0
+  },
+  {
+    "name": "live_proxy",
+    "exit_code": 0,
+    "seconds": 0.87,
+    "script_errors": false,
+    "engine_error_count": 0
+  }
+]

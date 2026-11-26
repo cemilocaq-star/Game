@@ -1,0 +1,4 @@
+{
+  "_comment": "OxenWar reads this file at start-up (raw.githubusercontent.com). Edit the list to change the hosted server without releasing a new APK. Use wss://host for hosted WebSocket servers or host[:port] for ENet.",
+  "servers": ["wss://oxenwar-game-server.onrender.com"]
+}
