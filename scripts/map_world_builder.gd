@@ -3,6 +3,7 @@ extends RefCounted
 ## Original, lightweight exploration maps built from rounded low-poly meshes.
 ## These spaces are designed around discovery, traversal and collectibles.
 
+const KAYKIT_MAPS := preload("res://scripts/kaykit_maps.gd")
 const CANYON_PINNACLE = preload("res://assets/environment/Desert_Rock_1.glb")
 const CANYON_BOULDER = preload("res://assets/environment/Desert_Rock_3.glb")
 
@@ -36,6 +37,8 @@ static func build(parent: Node3D, map_index: int, include_landmarks: bool = true
 			_build_jungle_temple(root)
 		6:
 			_build_redstone_canyon(root, include_landmarks)
+		7, 8:
+			KAYKIT_MAPS.build(root, map_index, include_landmarks)
 		1:
 			_build_neon_rooftops(root)
 		2:
@@ -57,7 +60,7 @@ static func build(parent: Node3D, map_index: int, include_landmarks: bool = true
 ## Tall glowing pylons in the two south corners. The north side already has towers, columns and the
 ## bridge, so without these the south half has nothing to steer by. Not built in the Jungle Arena,
 ## which has its pyramid, ruins and treehouses.
-const PYLON_COLORS := [Color("#45BEB8"), Color("#42DCE2"), Color("#89DDF2"), Color("#E58EC5"), Color("#F0C46C"), Color("#7ACF72"), Color("#E8825A")]
+const PYLON_COLORS := [Color("#45BEB8"), Color("#42DCE2"), Color("#89DDF2"), Color("#E58EC5"), Color("#F0C46C"), Color("#7ACF72"), Color("#E8825A"), Color("#E0A35A"), Color("#6FD8FF")]
 
 
 static func _build_landmark_pylons(root: Node3D, map_index: int) -> void:

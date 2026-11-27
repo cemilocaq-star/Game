@@ -46,7 +46,7 @@ func _run() -> void:
 
 	# Every map has a ground, and the maps do not all sound the same.
 	var seen := {}
-	for map_index in range(7):
+	for map_index in range(9):
 		var ground: String = FOOTSTEPS.ground_for_map(map_index)
 		_check(FOOTSTEPS.SURFACES.has(ground), "map %d has a known ground (%s)" % [map_index, ground])
 		seen[ground] = true
@@ -77,7 +77,7 @@ func _run() -> void:
 	_check(FOOTSTEPS.tag_tree(tree_root, 4) == 0, "tagging twice changes nothing")
 
 	# Generated maps: every solid body ends up with a surface, and the Jungle has wooden parts.
-	for map_index in range(7):
+	for map_index in range(9):
 		var holder := Node3D.new()
 		root.add_child(holder)
 		var world: Node3D = MAP_WORLD.build(holder, map_index, false)

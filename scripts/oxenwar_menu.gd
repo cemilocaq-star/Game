@@ -82,7 +82,7 @@ const MODE_COLORS := {
 ## One accent color per map, in the same order as ArenaLayout.MAP_NAMES.
 const MAP_COLORS := [
 	Color("#D9A441"), Color("#B65CFF"), Color("#5B8CFF"), Color("#FF6FA8"),
-	Color("#25D7C2"), Color("#58C46A"), Color("#E0653D")
+	Color("#25D7C2"), Color("#58C46A"), Color("#E0653D"), Color("#C9923F"), Color("#4FB8FF")
 ]
 
 func configure(client: Node, restored: Dictionary = {}, configured_server_host: String = "") -> void:

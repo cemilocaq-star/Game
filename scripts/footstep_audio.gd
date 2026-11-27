@@ -9,8 +9,8 @@ extends RefCounted
 
 const SURFACES := ["stone", "metal", "wood", "ice", "dirt", "grass"]
 ## Map index -> ground. Matches ArenaLayout's map list: 0 Lost Mall, 1 Neon City, 2 Space Islands,
-## 3 Candy World, 4 Sunken Oasis, 5 Jungle Arena, 6 Redstone Canyon.
-const MAP_GROUND := {0: "stone", 1: "metal", 2: "metal", 3: "ice", 4: "dirt", 5: "grass", 6: "dirt"}
+## 3 Candy World, 4 Sunken Oasis, 5 Jungle Arena, 6 Redstone Canyon, 7 Crypt Dungeon, 8 Orbital Outpost.
+const MAP_GROUND := {0: "stone", 1: "metal", 2: "metal", 3: "ice", 4: "dirt", 5: "grass", 6: "dirt", 7: "stone", 8: "metal"}
 const WOOD_WORDS := ["bridge", "treehouse", "rope", "plank", "dock", "boardwalk"]
 const META_KEY := "surface_type"
 

@@ -44,7 +44,8 @@ const MAP_SKY_PALETTES := [
 	[Color("#263346"), Color("#5B7081")], [Color("#10143B"), Color("#512E6A")],
 	[Color("#07112F"), Color("#273D71")], [Color("#251A4B"), Color("#AD5983")],
 	[Color("#35668C"), Color("#BA8063")], [Color("#203F53"), Color("#607F65")],
-	[Color("#4D5874"), Color("#AD6951")]
+	[Color("#4D5874"), Color("#AD6951")], [Color("#0E0B16"), Color("#3A2A44")],
+	[Color("#02040C"), Color("#1B2A55")]
 ]
 var _arena_sky: ProceduralSkyMaterial
 var local_player_name := "Player"

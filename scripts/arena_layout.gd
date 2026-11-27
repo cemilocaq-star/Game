@@ -4,8 +4,8 @@ extends RefCounted
 
 const MAP_WORLD_SCRIPT := preload("res://scripts/map_world_builder.gd")
 
-const MAP_NAMES := ["LOST MALL", "NEON CITY", "SPACE ISLANDS", "CANDY WORLD", "SUNKEN OASIS", "JUNGLE ARENA", "REDSTONE CANYON"]
-const MAP_COUNT := 7
+const MAP_NAMES := ["LOST MALL", "NEON CITY", "SPACE ISLANDS", "CANDY WORLD", "SUNKEN OASIS", "JUNGLE ARENA", "REDSTONE CANYON", "CRYPT DUNGEON", "ORBITAL OUTPOST"]
+const MAP_COUNT := 9
 const DEFAULT_MAP := 4
 const JUNGLE_MAP := 5
 
