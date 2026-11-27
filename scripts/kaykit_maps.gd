@@ -110,10 +110,10 @@ static func _build_crypt(root: Node3D, visuals: bool) -> void:
 
 ## {model, name, x, z, yaw, scale, y_offset, size (collision box, world axes)}
 const OUTPOST_PROPS := [
-	["basemodule_A", "OutpostModule_NW", -14.3, -12.3, 0.0, 2.4, 0.0, Vector3(5.4, 2.4, 5.2)],
-	["basemodule_D", "OutpostModule_NE", 14.3, -12.3, 0.0, 2.4, 0.0, Vector3(5.85, 2.4, 5.1)],
-	["cargodepot_A", "OutpostDepot_SW", -15.0, 12.5, 0.0, 2.0, 0.0, Vector3(4.14, 2.24, 4.16)],
-	["cargodepot_B", "OutpostDepot_SE", 15.0, 12.5, 0.0, 2.0, 0.0, Vector3(4.16, 2.04, 4.36)],
+	["basemodule_A", "OutpostModule_NW", -14.5, -12.3, 0.0, 2.4, 0.0, Vector3(5.4, 2.4, 5.2)],
+	["basemodule_D", "OutpostModule_NE", 14.7, -12.3, 0.0, 2.4, 0.0, Vector3(5.85, 2.4, 5.1)],
+	["cargodepot_A", "OutpostDepot_SW", -15.4, 12.5, 0.0, 2.0, 0.0, Vector3(4.14, 2.24, 4.16)],
+	["cargodepot_B", "OutpostDepot_SE", 15.4, 12.5, 0.0, 2.0, 0.0, Vector3(4.16, 2.04, 4.36)],
 	["windturbine_tall", "OutpostTurbine_N", 0.0, -13.2, 0.0, 2.2, 1.08, Vector3(3.7, 4.86, 2.2)],
 	["spacetruck", "OutpostTruck_E", 15.8, 2.5, 0.0, 3.0, 0.27, Vector3(1.5, 1.74, 2.7)],
 	["spacetruck_large", "OutpostTruck_W", -15.8, 2.5, 0.0, 3.0, 0.33, Vector3(1.5, 2.0, 3.1)],
