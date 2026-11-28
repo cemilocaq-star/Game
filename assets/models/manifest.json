@@ -1,0 +1,1262 @@
+{
+ "dungeon/barrel_large.glb": {
+  "size": [
+   1.8,
+   2.0,
+   1.8
+  ],
+  "min": [
+   -0.9,
+   0.0,
+   -0.9
+  ]
+ },
+ "dungeon/barrel_small.glb": {
+  "size": [
+   1.0,
+   1.02,
+   1.0
+  ],
+  "min": [
+   -0.5,
+   -0.0,
+   -0.5
+  ]
+ },
+ "dungeon/barrel_small_stack.glb": {
+  "size": [
+   1.85,
+   1.77,
+   1.0
+  ],
+  "min": [
+   -0.93,
+   0.0,
+   -0.5
+  ]
+ },
+ "dungeon/barrier.glb": {
+  "size": [
+   4,
+   1.1,
+   0.5
+  ],
+  "min": [
+   -2,
+   0,
+   -0.25
+  ]
+ },
+ "dungeon/barrier_column.glb": {
+  "size": [
+   4,
+   1.4,
+   0.7
+  ],
+  "min": [
+   -2,
+   0,
+   -0.35
+  ]
+ },
+ "dungeon/box_large.glb": {
+  "size": [
+   1.5,
+   1.5,
+   1.5
+  ],
+  "min": [
+   -0.75,
+   0.0,
+   -0.75
+  ]
+ },
+ "dungeon/box_small.glb": {
+  "size": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "min": [
+   -0.5,
+   0.0,
+   -0.5
+  ]
+ },
+ "dungeon/box_stacked.glb": {
+  "size": [
+   3.48,
+   3.31,
+   3.63
+  ],
+  "min": [
+   -1.75,
+   -0.0,
+   -1.77
+  ]
+ },
+ "dungeon/bed_frame.glb": {
+  "size": [
+   1.5,
+   1.06,
+   3.0
+  ],
+  "min": [
+   -0.75,
+   0.0,
+   -1.5
+  ]
+ },
+ "dungeon/candle_lit.glb": {
+  "size": [
+   0.33,
+   1.05,
+   0.33
+  ],
+  "min": [
+   -0.17,
+   0,
+   -0.17
+  ]
+ },
+ "dungeon/candle_triple.glb": {
+  "size": [
+   0.5,
+   0.87,
+   0.39
+  ],
+  "min": [
+   -0.17,
+   0,
+   -0.16
+  ]
+ },
+ "dungeon/chair.glb": {
+  "size": [
+   0.75,
+   1.23,
+   0.75
+  ],
+  "min": [
+   -0.37,
+   0.0,
+   -0.38
+  ]
+ },
+ "dungeon/chest.glb": {
+  "size": [
+   1.7,
+   0.97,
+   1.91
+  ],
+  "min": [
+   -0.85,
+   -0.17,
+   -0.6
+  ]
+ },
+ "dungeon/chest_gold.glb": {
+  "size": [
+   1.7,
+   1.21,
+   1.91
+  ],
+  "min": [
+   -0.85,
+   -0.17,
+   -0.6
+  ]
+ },
+ "dungeon/coin_stack_large.glb": {
+  "size": [
+   1.44,
+   1.16,
+   1.66
+  ],
+  "min": [
+   -0.72,
+   0,
+   -0.82
+  ]
+ },
+ "dungeon/column.glb": {
+  "size": [
+   0.7,
+   1.4,
+   0.7
+  ],
+  "min": [
+   -0.35,
+   0,
+   -0.35
+  ]
+ },
+ "dungeon/crates_stacked.glb": {
+  "size": [
+   2.09,
+   2.14,
+   2.25
+  ],
+  "min": [
+   -1.09,
+   -0.0,
+   -1.16
+  ]
+ },
+ "dungeon/keg.glb": {
+  "size": [
+   1.8,
+   2.05,
+   2.0
+  ],
+  "min": [
+   -0.9,
+   0.0,
+   -0.98
+  ]
+ },
+ "dungeon/pillar.glb": {
+  "size": [
+   1.5,
+   4,
+   1.5
+  ],
+  "min": [
+   -0.75,
+   0,
+   -0.75
+  ]
+ },
+ "dungeon/pillar_decorated.glb": {
+  "size": [
+   2.23,
+   4,
+   1.71
+  ],
+  "min": [
+   -1.12,
+   0,
+   -0.75
+  ]
+ },
+ "dungeon/rubble_large.glb": {
+  "size": [
+   8.13,
+   3.5,
+   3.18
+  ],
+  "min": [
+   -4.07,
+   0,
+   -1.59
+  ]
+ },
+ "dungeon/shelf_large.glb": {
+  "size": [
+   2,
+   0.45,
+   0.5
+  ],
+  "min": [
+   -1,
+   -0.35,
+   0
+  ]
+ },
+ "dungeon/shelves.glb": {
+  "size": [
+   2,
+   1.95,
+   0.5
+  ],
+  "min": [
+   -1,
+   0.75,
+   0.25
+  ]
+ },
+ "dungeon/stairs.glb": {
+  "size": [
+   5.0,
+   5.1,
+   4.0
+  ],
+  "min": [
+   -2.5,
+   0,
+   -0.0
+  ]
+ },
+ "dungeon/stairs_wide.glb": {
+  "size": [
+   7.0,
+   5.1,
+   4.0
+  ],
+  "min": [
+   -3.5,
+   0,
+   -0.0
+  ]
+ },
+ "dungeon/stairs_narrow.glb": {
+  "size": [
+   4.0,
+   5.1,
+   4.0
+  ],
+  "min": [
+   -2.0,
+   0,
+   -0.0
+  ]
+ },
+ "dungeon/stool.glb": {
+  "size": [
+   0.75,
+   0.5,
+   0.75
+  ],
+  "min": [
+   -0.37,
+   0.0,
+   -0.38
+  ]
+ },
+ "dungeon/table_long.glb": {
+  "size": [
+   2.0,
+   1.0,
+   4.0
+  ],
+  "min": [
+   -1.0,
+   0.0,
+   -2
+  ]
+ },
+ "dungeon/table_medium.glb": {
+  "size": [
+   2.0,
+   1.0,
+   2.0
+  ],
+  "min": [
+   -1,
+   0.0,
+   -1
+  ]
+ },
+ "dungeon/table_small.glb": {
+  "size": [
+   1.0,
+   1,
+   1.0
+  ],
+  "min": [
+   -0.5,
+   0,
+   -0.5
+  ]
+ },
+ "dungeon/torch_lit.glb": {
+  "size": [
+   0.55,
+   1.13,
+   0.55
+  ],
+  "min": [
+   -0.28,
+   -0.4,
+   -0.28
+  ]
+ },
+ "dungeon/torch_mounted.glb": {
+  "size": [
+   0.55,
+   1.06,
+   0.62
+  ],
+  "min": [
+   -0.28,
+   -0.38,
+   -0.0
+  ]
+ },
+ "dungeon/trunk_large_A.glb": {
+  "size": [
+   1.5,
+   1.0,
+   1.3
+  ],
+  "min": [
+   -0.75,
+   -0.0,
+   -0.65
+  ]
+ },
+ "dungeon/trunk_medium_A.glb": {
+  "size": [
+   0.95,
+   0.73,
+   0.88
+  ],
+  "min": [
+   -0.48,
+   -0.0,
+   -0.44
+  ]
+ },
+ "dungeon/wall.glb": {
+  "size": [
+   4,
+   4,
+   1.0
+  ],
+  "min": [
+   -2,
+   0,
+   -0.5
+  ]
+ },
+ "dungeon/wall_corner.glb": {
+  "size": [
+   2.5,
+   4,
+   2.5
+  ],
+  "min": [
+   -2,
+   0,
+   -0.5
+  ]
+ },
+ "dungeon/wall_doorway.glb": {
+  "size": [
+   4,
+   4,
+   1.0
+  ],
+  "min": [
+   -2,
+   0,
+   -0.5
+  ]
+ },
+ "dungeon/wall_half.glb": {
+  "size": [
+   2.0,
+   4,
+   1.0
+  ],
+  "min": [
+   -0.0,
+   0,
+   -0.5
+  ]
+ },
+ "dungeon/wall_arched.glb": {
+  "size": [
+   4.0,
+   4,
+   1.0
+  ],
+  "min": [
+   -2.0,
+   0,
+   -0.5
+  ]
+ },
+ "dungeon/wall_gated.glb": {
+  "size": [
+   4,
+   4,
+   1.0
+  ],
+  "min": [
+   -2,
+   0,
+   -0.5
+  ]
+ },
+ "dungeon/wall_archedwindow_gated.glb": {
+  "size": [
+   4,
+   4,
+   1.0
+  ],
+  "min": [
+   -2,
+   0,
+   -0.5
+  ]
+ },
+ "dungeon/wall_window_open.glb": {
+  "size": [
+   4,
+   4,
+   1.0
+  ],
+  "min": [
+   -2,
+   0,
+   -0.5
+  ]
+ },
+ "dungeon/floor_tile_large.glb": {
+  "size": [
+   4,
+   0.15,
+   4
+  ],
+  "min": [
+   -2,
+   -0.1,
+   -2
+  ]
+ },
+ "dungeon/floor_tile_small.glb": {
+  "size": [
+   2,
+   0.15,
+   2
+  ],
+  "min": [
+   -1,
+   -0.1,
+   -1
+  ]
+ },
+ "dungeon/floor_dirt_large.glb": {
+  "size": [
+   4.0,
+   0.21,
+   4.0
+  ],
+  "min": [
+   -2.0,
+   -0.1,
+   -2.0
+  ]
+ },
+ "dungeon/sword_shield.glb": {
+  "size": [
+   2.23,
+   1.67,
+   0.34
+  ],
+  "min": [
+   -1.12,
+   -0.82,
+   -0.08
+  ]
+ },
+ "dungeon/banner_red.glb": {
+  "size": [
+   1.5,
+   3.2,
+   0.31
+  ],
+  "min": [
+   -0.75,
+   0.53,
+   0.38
+  ]
+ },
+ "dungeon/banner_blue.glb": {
+  "size": [
+   1.5,
+   3.2,
+   0.31
+  ],
+  "min": [
+   -0.75,
+   0.53,
+   0.38
+  ]
+ },
+ "dungeon/plate_food_A.glb": {
+  "size": [
+   1.02,
+   0.79,
+   0.97
+  ],
+  "min": [
+   -0.54,
+   0.0,
+   -0.49
+  ]
+ },
+ "space/basemodule_A.gltf": {
+  "size": [
+   2.25,
+   1.0,
+   2.18
+  ],
+  "min": [
+   -1.18,
+   -0.0,
+   -1
+  ]
+ },
+ "space/basemodule_B.gltf": {
+  "size": [
+   2.08,
+   1.0,
+   2.32
+  ],
+  "min": [
+   -1.04,
+   0.0,
+   -1.11
+  ]
+ },
+ "space/basemodule_C.gltf": {
+  "size": [
+   2,
+   1.0,
+   2.21
+  ],
+  "min": [
+   -1,
+   0.0,
+   -1
+  ]
+ },
+ "space/basemodule_D.gltf": {
+  "size": [
+   2.44,
+   1.0,
+   2.14
+  ],
+  "min": [
+   -1.22,
+   0.0,
+   -1.07
+  ]
+ },
+ "space/basemodule_E.gltf": {
+  "size": [
+   2.22,
+   1.65,
+   2.28
+  ],
+  "min": [
+   -1.11,
+   0.0,
+   -1.07
+  ]
+ },
+ "space/basemodule_garage.gltf": {
+  "size": [
+   2,
+   1.0,
+   2.37
+  ],
+  "min": [
+   -1,
+   -0.0,
+   -1.1
+  ]
+ },
+ "space/cargo_A.gltf": {
+  "size": [
+   0.5,
+   0.52,
+   0.52
+  ],
+  "min": [
+   -0.25,
+   0,
+   -0.26
+  ]
+ },
+ "space/cargo_B.gltf": {
+  "size": [
+   0.5,
+   0.52,
+   0.52
+  ],
+  "min": [
+   -0.25,
+   0,
+   -0.26
+  ]
+ },
+ "space/cargo_A_stacked.gltf": {
+  "size": [
+   1.02,
+   1.02,
+   1.02
+  ],
+  "min": [
+   -0.51,
+   -0.01,
+   -0.51
+  ]
+ },
+ "space/cargodepot_A.gltf": {
+  "size": [
+   2.07,
+   1.12,
+   2.08
+  ],
+  "min": [
+   -1.07,
+   -0.0,
+   -1.07
+  ]
+ },
+ "space/cargodepot_B.gltf": {
+  "size": [
+   2.08,
+   1.02,
+   2.18
+  ],
+  "min": [
+   -1.07,
+   0.0,
+   -1.11
+  ]
+ },
+ "space/cargodepot_C.gltf": {
+  "size": [
+   2.07,
+   1.02,
+   2.1
+  ],
+  "min": [
+   -1.06,
+   -0.0,
+   -1
+  ]
+ },
+ "space/containers_A.gltf": {
+  "size": [
+   0.5,
+   0.2,
+   0.5
+  ],
+  "min": [
+   -0.25,
+   -0.0,
+   -0.25
+  ]
+ },
+ "space/containers_B.gltf": {
+  "size": [
+   0.5,
+   0.2,
+   0.5
+  ],
+  "min": [
+   -0.25,
+   -0.0,
+   -0.25
+  ]
+ },
+ "space/containers_C.gltf": {
+  "size": [
+   0.5,
+   0.2,
+   0.5
+  ],
+  "min": [
+   -0.25,
+   -0.0,
+   -0.25
+  ]
+ },
+ "space/containers_D.gltf": {
+  "size": [
+   0.5,
+   0.2,
+   0.5
+  ],
+  "min": [
+   -0.25,
+   -0.0,
+   -0.25
+  ]
+ },
+ "space/drill_structure.gltf": {
+  "size": [
+   1.75,
+   2.87,
+   1.75
+  ],
+  "min": [
+   -0.88,
+   -0.87,
+   -0.88
+  ]
+ },
+ "space/lander_A.gltf": {
+  "size": [
+   1.37,
+   1.19,
+   1.42
+  ],
+  "min": [
+   -0.67,
+   -0.0,
+   -0.67
+  ]
+ },
+ "space/lander_B.gltf": {
+  "size": [
+   1.37,
+   1.1,
+   1.42
+  ],
+  "min": [
+   -0.67,
+   -0.0,
+   -0.67
+  ]
+ },
+ "space/landingpad_large.gltf": {
+  "size": [
+   2.5,
+   0.5,
+   2.5
+  ],
+  "min": [
+   -1.25,
+   -0.0,
+   -1.25
+  ]
+ },
+ "space/landingpad_small.gltf": {
+  "size": [
+   1.9,
+   0.5,
+   1.9
+  ],
+  "min": [
+   -0.95,
+   -0.0,
+   -0.95
+  ]
+ },
+ "space/solarpanel.gltf": {
+  "size": [
+   0.9,
+   0.37,
+   0.45
+  ],
+  "min": [
+   -0.45,
+   -0.0,
+   -0.23
+  ]
+ },
+ "space/rock_A.gltf": {
+  "size": [
+   0.53,
+   0.25,
+   0.5
+  ],
+  "min": [
+   -0.22,
+   0,
+   -0.25
+  ]
+ },
+ "space/rock_B.gltf": {
+  "size": [
+   0.7,
+   0.4,
+   0.8
+  ],
+  "min": [
+   -0.35,
+   0,
+   -0.4
+  ]
+ },
+ "space/rocks_A.gltf": {
+  "size": [
+   1.31,
+   0.35,
+   1.64
+  ],
+  "min": [
+   -0.79,
+   0,
+   -0.82
+  ]
+ },
+ "space/spacetruck.gltf": {
+  "size": [
+   0.49,
+   0.58,
+   0.89
+  ],
+  "min": [
+   -0.24,
+   -0.09,
+   -0.45
+  ]
+ },
+ "space/spacetruck_large.gltf": {
+  "size": [
+   0.49,
+   0.67,
+   1.03
+  ],
+  "min": [
+   -0.24,
+   -0.11,
+   -0.57
+  ]
+ },
+ "space/structure_low.gltf": {
+  "size": [
+   1.75,
+   1,
+   1.75
+  ],
+  "min": [
+   -0.88,
+   0,
+   -0.88
+  ]
+ },
+ "space/structure_tall.gltf": {
+  "size": [
+   1.75,
+   2.0,
+   1.75
+  ],
+  "min": [
+   -0.88,
+   0,
+   -0.88
+  ]
+ },
+ "space/tunnel_straight_A.gltf": {
+  "size": [
+   2,
+   0.6,
+   0.93
+  ],
+  "min": [
+   -1,
+   0.2,
+   -0.47
+  ]
+ },
+ "space/windturbine_low.gltf": {
+  "size": [
+   1.14,
+   1.15,
+   1.29
+  ],
+  "min": [
+   -0.57,
+   -0.58,
+   -0.65
+  ]
+ },
+ "space/windturbine_tall.gltf": {
+  "size": [
+   1.67,
+   2.21,
+   1.0
+  ],
+  "min": [
+   -0.83,
+   -0.49,
+   -0.55
+  ]
+ },
+ "space/roofmodule_base.gltf": {
+  "size": [
+   1.4,
+   0.2,
+   1.4
+  ],
+  "min": [
+   -0.7,
+   -0.1,
+   -0.7
+  ]
+ },
+ "prototype/Barrel_A.gltf": {
+  "size": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "min": [
+   -0.5,
+   -0.5,
+   -0.5
+  ]
+ },
+ "prototype/Barrel_B.gltf": {
+  "size": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "min": [
+   -0.5,
+   -0.5,
+   -0.5
+  ]
+ },
+ "prototype/Barrel_C.gltf": {
+  "size": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "min": [
+   -0.5,
+   -0.5,
+   -0.5
+  ]
+ },
+ "prototype/Box_A.gltf": {
+  "size": [
+   0.46,
+   0.51,
+   0.46
+  ],
+  "min": [
+   -0.23,
+   -0.0,
+   -0.23
+  ]
+ },
+ "prototype/Box_B.gltf": {
+  "size": [
+   0.6,
+   0.4,
+   0.41
+  ],
+  "min": [
+   -0.3,
+   -0.0,
+   -0.2
+  ]
+ },
+ "prototype/Box_C.gltf": {
+  "size": [
+   0.8,
+   0.4,
+   0.61
+  ],
+  "min": [
+   -0.4,
+   -0.0,
+   -0.3
+  ]
+ },
+ "prototype/Can_A.gltf": {
+  "size": [
+   0.3,
+   0.48,
+   0.3
+  ],
+  "min": [
+   -0.15,
+   -0.0,
+   -0.15
+  ]
+ },
+ "prototype/Pallet_Large.gltf": {
+  "size": [
+   4,
+   0.5,
+   4
+  ],
+  "min": [
+   -2,
+   -0.0,
+   -2
+  ]
+ },
+ "prototype/Pallet_Small.gltf": {
+  "size": [
+   2,
+   0.5,
+   2
+  ],
+  "min": [
+   -1,
+   -0.0,
+   -1
+  ]
+ },
+ "prototype/Pillar_A.gltf": {
+  "size": [
+   0.6,
+   4.1,
+   0.6
+  ],
+  "min": [
+   -0.3,
+   0,
+   -0.3
+  ]
+ },
+ "prototype/Pillar_B.gltf": {
+  "size": [
+   1.0,
+   4.1,
+   1.0
+  ],
+  "min": [
+   -0.5,
+   0,
+   -0.5
+  ]
+ },
+ "prototype/Wall.gltf": {
+  "size": [
+   4.0,
+   4,
+   0.53
+  ],
+  "min": [
+   -2.0,
+   0,
+   -0.25
+  ]
+ },
+ "prototype/Wall_Half.gltf": {
+  "size": [
+   2.0,
+   4,
+   0.53
+  ],
+  "min": [
+   -0.0,
+   0,
+   -0.25
+  ]
+ },
+ "prototype/Door_A.gltf": {
+  "size": [
+   1.6,
+   2.8,
+   0.55
+  ],
+  "min": [
+   -0.0,
+   0,
+   -0.27
+  ]
+ },
+ "prototype/Door_B.gltf": {
+  "size": [
+   1.6,
+   2.8,
+   0.54
+  ],
+  "min": [
+   -0.0,
+   0,
+   -0.15
+  ]
+ },
+ "prototype/table_medium.gltf": {
+  "size": [
+   2,
+   0.8,
+   1.5
+  ],
+  "min": [
+   -1,
+   -0.0,
+   -0.75
+  ]
+ },
+ "prototype/target.gltf": {
+  "size": [
+   1.0,
+   1.0,
+   0.2
+  ],
+  "min": [
+   -0.5,
+   -0.5,
+   0.0
+  ]
+ },
+ "prototype/target_stand_A.gltf": {
+  "size": [
+   1.0,
+   2.0,
+   1.5
+  ],
+  "min": [
+   -0.5,
+   0,
+   -1.1
+  ]
+ },
+ "prototype/Dummy_Base.gltf": {
+  "size": [
+   1.54,
+   1.27,
+   0.99
+  ],
+  "min": [
+   -0.77,
+   -0.29,
+   -0.45
+  ]
+ },
+ "prototype/Cube_Prototype_Large_A.gltf": {
+  "size": [
+   4,
+   4.0,
+   4
+  ],
+  "min": [
+   -2,
+   0.0,
+   -2
+  ]
+ },
+ "prototype/Primitive_Stairs.gltf": {
+  "size": [
+   4,
+   4.0,
+   4
+  ],
+  "min": [
+   -2,
+   0.0,
+   -2
+  ]
+ },
+ "prototype/Primitive_Slope.gltf": {
+  "size": [
+   4,
+   4.0,
+   4
+  ],
+  "min": [
+   -2,
+   0.0,
+   -2
+  ]
+ },
+ "prototype/Coin_A.gltf": {
+  "size": [
+   1.0,
+   1.0,
+   0.35
+  ],
+  "min": [
+   -0.5,
+   -0.5,
+   -0.17
+  ]
+ }
+}
